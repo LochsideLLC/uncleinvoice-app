@@ -19,6 +19,10 @@ export default async function ReviewPage({
           contractor: true,
           workspace: true,
           lineItems: { orderBy: { sortOrder: "asc" } },
+          attachments: {
+            orderBy: { createdAt: "asc" },
+            select: { id: true, label: true, filename: true, byteSize: true },
+          },
         },
       },
     },
@@ -49,6 +53,31 @@ export default async function ReviewPage({
       <div className="notice mt-5">
         {SEEDED_DISCLAIMER}
       </div>
+
+      {invoice.attachments.length > 0 ? (
+        <section className="paper mt-6 space-y-3 rounded-3xl p-6">
+          <h2 className="text-xl">Where these numbers came from</h2>
+          <p className="text-sm text-muted">
+            {invoice.workspace.name} attached their own accounting record for these
+            payments. Open it and check this invoice against it before you confirm.
+          </p>
+          <ul className="space-y-2 text-sm">
+            {invoice.attachments.map((a) => (
+              <li key={a.id}>
+                <a
+                  className="underline"
+                  href={`/api/invoices/${invoice.id}/attachments/${a.id}?token=${encodeURIComponent(token)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {a.label ?? a.filename}
+                </a>{" "}
+                <span className="text-muted">({Math.max(1, Math.round(a.byteSize / 1024))} KB)</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {alreadyDone ? (
         <div className="paper mt-6 rounded-3xl p-6">
