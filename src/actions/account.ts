@@ -64,7 +64,9 @@ export async function changePasswordAction(
   }
   await db.user.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(newPassword) },
+    // Clearing mustSetPassword is the point of the first-run form: the
+    // temporary password someone else knows is now gone.
+    data: { passwordHash: await hashPassword(newPassword), mustSetPassword: false },
   });
   refreshAccountPages();
   return { ok: true, message: "Password saved. Use it next time you sign in." };

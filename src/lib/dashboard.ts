@@ -37,7 +37,16 @@ export type DashboardStats = {
 
 export async function getDashboardStats(userId: string): Promise<DashboardStats> {
   const invoices = await db.invoice.findMany({
-    where: { workspace: { members: { some: { userId } } } },
+    where: {
+      OR: [
+        // Invoices on a client this person helps keep books for.
+        { workspace: { members: { some: { userId } } } },
+        // Invoices this person issued. A contractor is not a member of the
+        // client's workspace — they are the other party to it — so this is the
+        // relationship that makes an invoice theirs.
+        { contractor: { userId } },
+      ],
+    },
     include: {
       workspace: { select: { id: true, name: true } },
       lineItems: { select: { quantity: true, unitPrice: true, taxable: true } },
