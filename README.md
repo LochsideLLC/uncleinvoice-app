@@ -4,7 +4,7 @@ That invoice, already filled in.
 
 Bookkeepers seed a draft from the books. The contractor opens a magic link, edits if needed, and confirms. The confirmed invoice is emailed to the client and stored as a PDF.
 
-Repo: [LochsideLLC/UncleInvoice](https://github.com/LochsideLLC/UncleInvoice)  
+Repo: [lochsidellc/uncleinvoice-app](https://github.com/lochsidellc/uncleinvoice-app)  
 Site: [uncleinvoice.com](https://uncleinvoice.com)
 
 ## Local setup (Docker Postgres)
@@ -50,6 +50,12 @@ Uncle Invoice tables live in the Postgres schema `uncleinvoice`, so they stay ou
 When you have the datastore database password:
 
 1. Set `DATABASE_URL` / `DIRECT_URL` to that project (session pooler + `?sslmode=require`).
+
+   Use the **session pooler** host, not `db.<ref>.supabase.co`. The direct host
+   has no IPv4 address, and serverless functions (Netlify, Vercel, Lambda) have
+   no IPv6 outbound, so a direct-host URL fails every database call in
+   production while static pages keep returning 200. `npm run datastore:test`
+   probes the candidates and names the one that works.
 2. `npx prisma migrate deploy` — this only creates/updates the `uncleinvoice` schema.
 3. `npm run db:seed` if you want demo data.
 
@@ -57,7 +63,7 @@ Do not run migrations against `public`. That schema already holds the other Loch
 
 ## Deploy (Netlify)
 
-1. Import `LochsideLLC/UncleInvoice` in Netlify.
+1. Import `lochsidellc/uncleinvoice-app` in Netlify.
 2. Build command and publish directory come from `netlify.toml`.
 3. Set environment variables:
 
@@ -77,6 +83,13 @@ After Netlify assigns the site:
 
 - Apex `uncleinvoice.com`: CNAME flatten to the Netlify hostname (e.g. `something.netlify.app`). Proxy can stay DNS-only (grey cloud) to avoid SSL fights, or Cloudflare SSL mode **Full**.
 - `www`: CNAME to the same Netlify hostname.
+
+`npm run dns:netlify` writes both records through the Cloudflare API, using
+`CLOUDFLARE_API_TOKEN` from `.env` (Zone.DNS Edit + Zone.Zone Read). Add both
+names in Netlify domain management first, or Netlify answers 404.
+
+Netlify is the only host. The site was briefly served from Vercel as well;
+that project is retired and nothing in this repo should point at it.
 
 ## CSV import
 

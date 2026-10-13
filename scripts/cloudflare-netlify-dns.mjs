@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ZONE_NAME = "uncleinvoice.com";
-const APEX_CNAME = "bfb6c4fc839fbcd8.vercel-dns-017.com";
-const WWW_CNAME = "bfb6c4fc839fbcd8.vercel-dns-017.com";
+const APEX_CNAME = "uncleinvoice.netlify.app";
+const WWW_CNAME = "uncleinvoice.netlify.app";
 
 function loadEnvFile(filename) {
   try {
@@ -95,4 +95,5 @@ const zoneId = zones[0].id;
 console.log(`Found zone ${ZONE_NAME}`);
 await upsertCname(zoneId, ZONE_NAME, APEX_CNAME);
 await upsertCname(zoneId, `www.${ZONE_NAME}`, WWW_CNAME);
-console.log("Cloudflare DNS updated. Proxy is off so Vercel can issue the cert.");
+console.log("Cloudflare DNS updated. Proxy is off so Netlify can issue the cert.");
+console.log("Add uncleinvoice.com and www.uncleinvoice.com in Netlify domain management first, or Netlify answers 404.");
