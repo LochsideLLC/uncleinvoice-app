@@ -14,6 +14,7 @@ export type InvoiceRow = {
   isPartiallyPaid: boolean;
   issueDate: Date;
   dueDate: Date | null;
+  sentAt: Date | null;
 };
 
 export type DashboardStats = {
@@ -111,6 +112,7 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
       isPartiallyPaid,
       issueDate: invoice.issueDate,
       dueDate: invoice.dueDate ?? null,
+      sentAt: invoice.sentAt ?? null,
     };
 
     allInvoices.push(row);
