@@ -145,6 +145,10 @@ export async function findOrCreateGoogleUser(profile: { email: string; name: str
 
 export function googleAuthErrorMessage(code: string | undefined) {
   switch (code) {
+    case "link_missing":
+      return "That sign-in link is incomplete. Request a new one.";
+    case "link_invalid":
+      return "That sign-in link is invalid or has expired. Request a new one.";
     case "missing_config":
       return "Google sign-in is not configured yet.";
     case "denied":

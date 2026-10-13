@@ -33,6 +33,7 @@ export async function importPaymentsAction(
   }
 
   let created = 0;
+  let skipped = 0;
   for (const row of rows) {
     let contractor = row.contractorEmail
       ? await db.contractor.findFirst({
@@ -61,6 +62,28 @@ export async function importPaymentsAction(
     }
 
     const amountPaid = csvRowToPaidCents(row.amountPaid, amount);
+
+    // Re-importing the same spreadsheet must not double the books. There is no
+    // source transaction id to key on, so a row counts as already imported when
+    // this workspace already holds an invoice for the same contractor, on the
+    // same date, for the same amount.
+    const dayStart = new Date(issueDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(issueDate);
+    dayEnd.setHours(23, 59, 59, 999);
+    const duplicate = await db.invoice.findFirst({
+      where: {
+        workspaceId,
+        contractorId: contractor.id,
+        issueDate: { gte: dayStart, lte: dayEnd },
+        lineItems: { some: { unitPrice: amount, quantity: 1 } },
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      skipped += 1;
+      continue;
+    }
 
     const number = await nextInvoiceNumber(workspaceId);
     const invoice = await db.invoice.create({
@@ -94,5 +117,5 @@ export async function importPaymentsAction(
     created += 1;
   }
 
-  redirect(`/app/w/${workspaceId}/invoices?imported=${created}`);
+  redirect(`/app/w/${workspaceId}/invoices?imported=${created}&skipped=${skipped}`);
 }

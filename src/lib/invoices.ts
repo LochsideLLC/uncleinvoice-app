@@ -63,6 +63,8 @@ export function parseLineItems(formData: FormData): LineInput[] {
   return items;
 }
 
+export const REVIEW_LINK_DAYS = 7;
+
 export async function createReviewLink(invoiceId: string, email: string) {
   const token = createToken();
   await db.magicLink.create({
@@ -71,7 +73,10 @@ export async function createReviewLink(invoiceId: string, email: string) {
       purpose: "invoice_review",
       email,
       invoiceId,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      // A review link is a bearer token: it opens the invoice with no
+      // password. Keep its life short, and contractorConfirmAction marks it
+      // used so a confirmed invoice cannot be reopened and edited.
+      expiresAt: new Date(Date.now() + REVIEW_LINK_DAYS * 24 * 60 * 60 * 1000),
     },
   });
   return `${APP_URL}/review/${token}`;

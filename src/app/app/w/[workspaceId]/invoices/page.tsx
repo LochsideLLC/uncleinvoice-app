@@ -10,12 +10,13 @@ export default async function InvoicesPage({
   searchParams,
 }: {
   params: Promise<{ workspaceId: string }>;
-  searchParams: Promise<{ imported?: string }>;
+  searchParams: Promise<{ imported?: string; skipped?: string }>;
 }) {
   const { workspaceId } = await params;
   const query = await searchParams;
   await requireWorkspace(workspaceId);
   const imported = typeof query.imported === "string" ? query.imported : null;
+  const skipped = typeof query.skipped === "string" && query.skipped !== "0" ? query.skipped : null;
 
   const invoices = await db.invoice.findMany({
     where: { workspaceId },
@@ -38,6 +39,13 @@ export default async function InvoicesPage({
       {imported ? (
         <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-emerald-900">
           Imported {imported} draft {imported === "1" ? "invoice" : "invoices"} from the spreadsheet.
+          {skipped ? (
+            <>
+              {" "}
+              Skipped {skipped} {skipped === "1" ? "row" : "rows"} already on this client —
+              re-importing the same spreadsheet will not duplicate them.
+            </>
+          ) : null}
         </p>
       ) : null}
 
