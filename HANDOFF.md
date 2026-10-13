@@ -505,3 +505,71 @@ from the client's contractors page at any time.
 - Entity (`Lochside LLC`) and governing law (`Texas`) on the legal pages are
   still inferred, not confirmed.
 - Tom still needs to delete the Full Access Resend key named `setup`.
+
+## Session 2026-10-13 (end) — the link now confirms *and* sends (Ummon)
+
+**PR #26 (`0690e75`), deployed and live on uncleinvoice.com.** `/c/<token>`
+could only confirm; confirming left the invoices in the database and sent the
+client nothing. The only path that emailed them (PR #25) required the
+contractor to have a login, a password and an account — three things an
+unsophisticated contractor on a phone will not get through.
+
+- `contractorConfirmAllAction` now takes the contractor's **own** email
+  (required, rejects `.test`) and optional phone, writes both to the
+  `Contractor` record and the `MagicLink`, and uses the typed address as
+  `confirmedByEmail`. This is also where the real addresses come from: the
+  client often holds only a phone number, and the placeholder invented at
+  setup (`christina-graves@uncleinvoice.test`) has no business on someone
+  else's invoice. `src/lib/pdf.ts:147` prints `contractor.email`, which is
+  currently NULL for all four AAA contractors, so nothing fake is printed
+  today and the real address appears once they confirm.
+- New `sendInvoicesByLinkAction` emails the confirmed invoices to
+  `workspace.email` as PDFs plus `invoices.csv`, reply-to the contractor,
+  marks each `sent` with `sentAt`/`sentToEmail`, writes a `sent_to_client`
+  event per invoice.
+- New `src/lib/contractor-send.ts` holds the send; both the link route and the
+  signed-in route call it, so the email, attachments and audit trail are
+  identical.
+- Contractor steps on the link route: tap link, type email, tick, Confirm,
+  Send. No account, no password, no file handling, no zip.
+
+**Checks.** `npx tsc --noEmit` clean, `npm run build` clean. `eslint` 8 errors
++ 2 warnings, all pre-existing on `main` in files this branch does not touch.
+
+**Tested on the production database with a throwaway fixture**, never against
+AAA — exercising it there would fabricate a real contractor's attestation and
+email a real client. Fixture: workspace "Ummon Link Test Co" billing
+`lab@bookkeepingconroe.com`, one contractor, 3 invoices, $464.50, served from
+`next dev` on :3100. Rejected: missing attestation, a `.test` address,
+send-before-confirm, a bad token. Confirm wrote email + phone to the
+contractor, `confirmedByEmail` on all 3, the address onto the `MagicLink`, 3
+`confirmed` events. Send delivered "Invoices from Link Test Worker" with 3
+PDFs + `invoices.csv`, marked all 3 `sent` at `2026-10-13T14:33:42.020Z`, wrote
+3 `sent_to_client` events. Both actions were driven by importing them under
+`tsx`, which throws `static generation store missing in revalidatePath` after
+the work completes — an artifact of calling a server action outside a request,
+not a defect; writes and email verified after each. Fixture deleted;
+production verified back at 7 users, 3 workspaces, 8 contractors, 139
+invoices, AAA 135 / 0 confirmed / 0 sent.
+
+**Netlify did not build the merge commit on its own.** PR #26's deploy preview
+went green at 14:35Z and production stayed on `26671fa`; a build had to be
+triggered with `netlify api createSiteBuild`. Verified live afterwards: Ashley's
+link on uncleinvoice.com renders "paid you 7 times, $705.00" with the email and
+phone fields. Worth watching on the next merge.
+
+**Links.** The four live links in `ripley:~/aaa-contractor-links.txt` (mode 600,
+expire 2026-11-12) work with the new flow unchanged. Four replacements minted
+during this session were deleted again rather than leaving two sets of bearer
+tokens for a client's financial records; the database holds exactly 4
+`contractor_invoices` links. The email that carries them is at
+`ripley:~/aaa-email-to-racquel.txt` (mode 600). **Nothing has been sent.**
+
+**Tom's decision, recorded.** Racquel should supply the contractors' email
+addresses, and that is a scope question: Rock Hill's agreement covers
+categorising, reconciling and reporting, and says nothing about vendor contact
+details. The rule he proposed is 1099-based — if a vendor gets a 1099, the
+client provides the email address and Tom records it on the QuickBooks vendor
+profile. Put on the docket as "Engagement agreements: say who provides vendor
+email addresses". It no longer blocks AAA: the contractor types their own
+address at the moment they confirm.
