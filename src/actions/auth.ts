@@ -130,7 +130,7 @@ async function sendLoginLink(email: string, userId?: string) {
       expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
     },
   });
-  const link = `${APP_URL}/auth/verify?token=${token}`;
+  const link = `${APP_URL}/auth/verify/${token}`;
   await sendEmail({
     to: email,
     subject: "Your Uncle Invoice sign-in link",
