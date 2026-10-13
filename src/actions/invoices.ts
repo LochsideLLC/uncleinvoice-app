@@ -15,6 +15,7 @@ import {
   sendInvoiceToClient,
 } from "@/lib/invoices";
 import { hashToken } from "@/lib/crypto";
+import { sendConfirmedInvoicesToClient } from "@/lib/contractor-send";
 import { invoiceBusinessData, parseBusinessInvoiceFields } from "@/lib/invoice-fields";
 import { invoiceGrandTotal, parseAmountPaid } from "@/lib/money";
 import type { ActionState } from "@/actions/auth";
@@ -352,6 +353,16 @@ async function loadReviewToken(token: string) {
  * each invoice individually so the client's books still carry a per-invoice
  * record of who confirmed it and when.
  */
+/**
+ * Confirms every invoice behind a contractor link, in one submission.
+ *
+ * The same submission carries the contractor's own email address. Nobody else
+ * reliably knows it: the client often has only a phone number, and whatever
+ * was invented when the account was set up has no business being printed on
+ * someone else's invoice. The person it belongs to types it once, here, and it
+ * becomes the reply-to on the email her client receives and the address
+ * recorded against every invoice she confirmed.
+ */
 export async function contractorConfirmAllAction(
   _prev: ActionState,
   formData: FormData,
@@ -374,11 +385,23 @@ export async function contractorConfirmAllAction(
     return { error: "This link is invalid or has expired." };
   }
 
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const phone = String(formData.get("phone") ?? "").trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.endsWith(".test")) {
+    return { error: "Enter a real email address so your client can reply to you." };
+  }
+
   const pending = await db.invoice.findMany({
     where: { contractorId: record.contractor.id, confirmedAt: null },
     select: { id: true },
   });
   if (!pending.length) return { error: "These invoices are already confirmed." };
+
+  await db.contractor.update({
+    where: { id: record.contractor.id },
+    data: { email, ...(phone ? { phone } : {}) },
+  });
+  await db.magicLink.update({ where: { id: record.id }, data: { email } });
 
   const confirmedAt = new Date();
   await db.invoice.updateMany({
@@ -386,7 +409,7 @@ export async function contractorConfirmAllAction(
     data: {
       status: "confirmed" satisfies InvoiceStatus,
       confirmedAt,
-      confirmedByEmail: record.email,
+      confirmedByEmail: email,
     },
   });
   await db.invoiceEvent.createMany({
@@ -396,13 +419,49 @@ export async function contractorConfirmAllAction(
       message: `Contractor confirmed ${pending.length} ${
         pending.length === 1 ? "invoice" : "invoices"
       } as accurate.`,
-      actorEmail: record.email,
+      actorEmail: email,
       actorName: record.contractor!.name,
     })),
   });
 
   revalidatePath(`/c/${token}`);
   return { ok: true, message: `Confirmed ${pending.length}.` };
+}
+
+/**
+ * Sends the confirmed invoices behind a contractor link to the client, from
+ * the contractor, with the PDFs attached.
+ *
+ * The contractor never handles a file. Downloading a zip, finding it,
+ * extracting it and attaching the contents to an email is the step this
+ * existed to avoid — on a phone it is often not possible at all.
+ */
+export async function sendInvoicesByLinkAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const token = String(formData.get("token") ?? "");
+  const record = await db.magicLink.findUnique({
+    where: { tokenHash: hashToken(token) },
+    include: { contractor: true },
+  });
+  if (
+    !record ||
+    record.purpose !== "contractor_invoices" ||
+    record.expiresAt < new Date() ||
+    !record.contractor
+  ) {
+    return { error: "This link is invalid or has expired." };
+  }
+
+  const result = await sendConfirmedInvoicesToClient(record.contractor.id);
+  if ("error" in result) return { error: result.error };
+
+  revalidatePath(`/c/${token}`);
+  return {
+    ok: true,
+    message: `Sent ${result.sent} ${result.sent === 1 ? "invoice" : "invoices"} to your client.`,
+  };
 }
 
 /**

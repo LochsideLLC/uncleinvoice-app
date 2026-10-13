@@ -43,6 +43,7 @@ export default async function ContractorInvoicesPage({
     description: invoice.lineItems[0]?.description ?? "Services",
     total: formatMoney(invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps)),
     confirmed: Boolean(invoice.confirmedAt),
+    sent: Boolean(invoice.sentAt),
   }));
   const grandTotal = invoices.reduce(
     (sum, invoice) => sum + invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps),
@@ -63,7 +64,8 @@ export default async function ContractorInvoicesPage({
       </p>
       <p className="mt-3 text-muted">
         Check them over. If anything is wrong, fix it before you confirm — these are your
-        invoices, and you are the one saying they are right.
+        invoices, and you are the one saying they are right. Once you confirm, we email them
+        to {contractor.workspace.name} for you.
       </p>
 
       <ContractorInvoiceList
@@ -72,6 +74,7 @@ export default async function ContractorInvoicesPage({
         outstanding={outstanding}
         grandTotal={formatMoney(grandTotal)}
         clientName={contractor.workspace.name}
+        contractorEmail={contractor.email}
       />
     </div>
   );

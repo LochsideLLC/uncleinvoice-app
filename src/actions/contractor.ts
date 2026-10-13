@@ -5,10 +5,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import type { ActionState } from "@/actions/auth";
 import type { InvoiceStatus } from "@/lib/status";
-import { buildInvoicePdf } from "@/lib/pdf";
-import { sendEmail } from "@/lib/mail";
-import { formatMoney, invoiceGrandTotal } from "@/lib/money";
-import { invoicesManifestCsv, invoicePdfName } from "@/lib/invoice-files";
+import { sendConfirmedInvoicesToClient } from "@/lib/contractor-send";
 
 /**
  * A signed-in contractor confirming the invoices prepared for them.
@@ -109,81 +106,25 @@ export async function sendMyInvoicesToClientAction(): Promise<ActionState> {
 
   const contractors = await db.contractor.findMany({
     where: { userId: user.id },
-    include: { workspace: true },
+    select: { id: true },
   });
   if (!contractors.length) return { error: "There are no invoices on this account." };
 
-  const sentAt = new Date();
   let total = 0;
-
+  let firstError: string | null = null;
   for (const contractor of contractors) {
-    const to = contractor.workspace.email;
-    if (!to) {
-      return {
-        error: `${contractor.workspace.name} has no email address on file. Tell them, and they can add it.`,
-      };
+    const result = await sendConfirmedInvoicesToClient(contractor.id);
+    if ("error" in result) {
+      firstError ??= result.error;
+      continue;
     }
-
-    const invoices = await db.invoice.findMany({
-      where: { contractorId: contractor.id, confirmedAt: { not: null } },
-      include: { contractor: true, workspace: true, lineItems: { orderBy: { sortOrder: "asc" } } },
-      orderBy: [{ issueDate: "asc" }, { number: "asc" }],
-    });
-    if (!invoices.length) continue;
-
-    const attachments = [];
-    for (const invoice of invoices) {
-      attachments.push({
-        filename: invoicePdfName(invoice.number, invoice.contractor.name),
-        content: await buildInvoicePdf(invoice),
-      });
-    }
-    attachments.push({
-      filename: "invoices.csv",
-      content: new TextEncoder().encode(invoicesManifestCsv(invoices)),
-    });
-
-    const sum = invoices.reduce(
-      (acc, invoice) => acc + invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps),
-      0,
-    );
-
-    await sendEmail({
-      to,
-      replyTo: contractor.email ?? undefined,
-      subject: `Invoices from ${contractor.name}`,
-      text: [
-        `Hi,`,
-        "",
-        `Here are the invoices I should have sent you — ${invoices.length} of them, ${formatMoney(sum)} in total, covering the work you have already paid me for.`,
-        "",
-        `They are attached as PDFs, with a summary in invoices.csv.`,
-        "",
-        `Thanks,`,
-        contractor.name,
-      ].join("\n"),
-      attachments,
-    });
-
-    await db.invoice.updateMany({
-      where: { id: { in: invoices.map((i) => i.id) } },
-      data: { status: "sent" satisfies InvoiceStatus, sentAt, sentToEmail: to },
-    });
-    await db.invoiceEvent.createMany({
-      data: invoices.map((invoice) => ({
-        invoiceId: invoice.id,
-        type: "sent_to_client",
-        message: `Contractor sent ${invoices.length} ${
-          invoices.length === 1 ? "invoice" : "invoices"
-        } to ${to}.`,
-        actorEmail: contractor.email,
-        actorName: contractor.name,
-      })),
-    });
-    total += invoices.length;
+    total += result.sent;
   }
 
-  if (!total) return { error: "Confirm your invoices first, then you can send them." };
+  // A contractor can work for more than one client. One client with nothing to
+  // send does not spoil the send to the others, so an error is only reported
+  // when nothing went out at all.
+  if (!total) return { error: firstError ?? "Confirm your invoices first, then you can send them." };
 
   revalidatePath("/app");
   return {
