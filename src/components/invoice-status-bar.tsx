@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
+import type { ActionState } from "@/actions/auth";
+import { FormBanner } from "@/components/form-banner";
 
 function IconEmail() {
   return (
@@ -19,7 +21,7 @@ function IconLink() {
     </svg>
   );
 }
-import { markAsPaidAction, sendToClientAction } from "@/actions/invoices";
+import { markAsPaidAction, sendToClientComposedAction } from "@/actions/invoices";
 
 const infoPill =
   "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold whitespace-nowrap select-none";
@@ -33,6 +35,7 @@ export function InvoiceStatusBar({
   totalCents,
   amountPaid,
   clientEmail,
+  mailFrom,
 }: {
   workspaceId: string;
   invoiceId: string;
@@ -42,10 +45,19 @@ export function InvoiceStatusBar({
   totalCents: number;
   amountPaid: number;
   clientEmail: string;
+  mailFrom: string;
 }) {
   const [showPayForm, setShowPayForm] = useState(false);
   const [showSendForm, setShowSendForm] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [sendState, sendAction, sendPending] = useActionState(
+    async (prev: ActionState | null, formData: FormData) => {
+      const result = await sendToClientComposedAction(prev, formData);
+      if (result?.ok) setShowSendForm(false);
+      return result;
+    },
+    null,
+  );
 
   function copyLink() {
     const url = `${window.location.origin}/invoices/view/${invoiceId}`;
@@ -152,23 +164,69 @@ export function InvoiceStatusBar({
           style={{ background: "rgba(42,31,22,0.35)" }}
           onPointerDown={(e) => { if (e.target === e.currentTarget) setShowSendForm(false); }}
         >
-          <div className="paper w-full max-w-sm rounded-3xl p-6 shadow-xl">
+          <div className="paper max-h-full w-full max-w-md overflow-auto rounded-3xl p-6 shadow-xl">
             <h3 className="text-xl">Send invoice</h3>
             <p className="mt-2 text-sm text-muted">
               This will email the invoice to your client and mark it as sent.
             </p>
-            {clientEmail ? (
-              <p className="mt-3 rounded-xl bg-paper-2 px-3 py-2 text-sm font-medium">{clientEmail}</p>
-            ) : (
-              <p className="mt-3 text-sm" style={{ color: "#c4612a" }}>
-                No client email on file. Add one in the client settings before sending.
-              </p>
-            )}
-            <form action={sendToClientAction} className="mt-5 flex gap-3">
+            <form action={sendAction} className="mt-5 space-y-4">
+              <FormBanner state={sendState} />
               <input type="hidden" name="workspaceId" value={workspaceId} />
               <input type="hidden" name="invoiceId" value={invoiceId} />
-              <button type="submit" className="btn btn-primary" disabled={!clientEmail}>Send now</button>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowSendForm(false)}>Cancel</button>
+              <div className="field">
+                <label htmlFor="send-to">To</label>
+                <input
+                  id="send-to"
+                  name="to"
+                  type="email"
+                  required
+                  defaultValue={clientEmail}
+                  placeholder="client@company.com"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="send-from">From</label>
+                <input
+                  id="send-from"
+                  value={mailFrom}
+                  readOnly
+                  className="opacity-80"
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="field">
+                  <label htmlFor="send-cc">Cc</label>
+                  <input
+                    id="send-cc"
+                    name="cc"
+                    placeholder="comma, separated"
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="send-bcc">Bcc</label>
+                  <input
+                    id="send-bcc"
+                    name="bcc"
+                    placeholder="comma, separated"
+                  />
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="send-message">Message (optional)</label>
+                <textarea
+                  id="send-message"
+                  name="message"
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="A quick note to go with the invoice"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button type="submit" className="btn btn-primary" disabled={sendPending}>
+                  {sendPending ? "Sending…" : "Send now"}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => setShowSendForm(false)}>Cancel</button>
+              </div>
             </form>
           </div>
         </div>

@@ -30,6 +30,7 @@ model User {
   postalCode   String?
   taxId        String?
   clientTerm   String   @default("clients")
+  emailSignature String?
   admin        Boolean  @default(false)
   // Set when a bookkeeper creates the login on someone's behalf with a
   // temporary password. The app makes them replace it before anything else.
@@ -206,6 +207,8 @@ model MagicLink {
 model OutboxEmail {
   id        String   @id @default(cuid())
   to        String
+  cc        String?
+  bcc       String?
   subject   String
   bodyText  String
   bodyHtml  String?

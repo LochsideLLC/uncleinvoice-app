@@ -10,11 +10,13 @@ export function ProfileForm({
   email,
   backupEmail,
   clientTerm,
+  emailSignature,
 }: {
   name: string;
   email: string;
   backupEmail?: string | null;
   clientTerm?: string | null;
+  emailSignature?: string | null;
 }) {
   const [state, action, pending] = useActionState(updateProfileAction, null);
 
@@ -66,6 +68,20 @@ export function ProfileForm({
             </option>
           ))}
         </select>
+      </div>
+      <div className="field">
+        <label htmlFor="emailSignature">Email signature</label>
+        <textarea
+          id="emailSignature"
+          name="emailSignature"
+          rows={4}
+          maxLength={1000}
+          defaultValue={emailSignature ?? ""}
+          placeholder={"Thanks,\nAda Mensah\nBookkeeping Conroe\n(936) 283-4346"}
+        />
+        <p className="mt-1 text-xs text-muted">
+          Added to the end of invoices you send from Uncle Invoice.
+        </p>
       </div>
       <div className="pt-3">
         <button className="btn btn-primary w-full" disabled={pending}>

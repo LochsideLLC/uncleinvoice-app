@@ -14,7 +14,7 @@ export default async function ProfilePage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <ProfileForm name={user.name} email={user.email} backupEmail={user.backupEmail} clientTerm={user.clientTerm} />
+        <ProfileForm name={user.name} email={user.email} backupEmail={user.backupEmail} clientTerm={user.clientTerm} emailSignature={user.emailSignature} />
         <BusinessForm
           businessName={user.businessName}
           businessEmail={user.businessEmail}

@@ -1,7 +1,13 @@
 import { db } from "@/lib/db";
 
+export function mailFromAddress() {
+  return process.env.MAIL_FROM ?? "Uncle Invoice <noreply@uncleinvoice.com>";
+}
+
 type SendEmailInput = {
   to: string;
+  cc?: string[];
+  bcc?: string[];
   subject: string;
   text: string;
   html?: string;
@@ -14,6 +20,8 @@ export async function sendEmail(input: SendEmailInput) {
   const record = await db.outboxEmail.create({
     data: {
       to: input.to,
+      cc: input.cc?.length ? input.cc.join(", ") : null,
+      bcc: input.bcc?.length ? input.bcc.join(", ") : null,
       subject: input.subject,
       bodyText: input.text,
       bodyHtml: input.html,
@@ -30,8 +38,10 @@ export async function sendEmail(input: SendEmailInput) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env.MAIL_FROM ?? "Uncle Invoice <noreply@uncleinvoice.com>",
+        from: mailFromAddress(),
         to: [input.to],
+        ...(input.cc?.length ? { cc: input.cc } : {}),
+        ...(input.bcc?.length ? { bcc: input.bcc } : {}),
         ...(input.replyTo ? { reply_to: input.replyTo } : {}),
         subject: input.subject,
         text: input.text,
