@@ -38,15 +38,16 @@ at $8,125.48, including an anonymised pair with 0 real names.
 
 ## Open product defects (confirmed in this checkout, not in a report)
 
-1. **Importer records nothing as paid.** `src/actions/import.ts:63-81` creates
-   each invoice with `status: "draft"` and never sets `amountPaid`, which
-   defaults to `0` (`prisma/schema.prisma:130`). `src/lib/csv.ts:4-13` has no
-   paid column at all. So every imported row renders "Still due <full amount>"
-   (`src/components/invoice-document.tsx:303`, `src/lib/pdf.ts:233`) — money
-   owed, the opposite of a record of money already paid. Note: main's schema
-   has `amountPaid` (cents), **not** the `paymentState` field named in Sol's
-   board records; that name came from the SQLite fork. Fix on main is an
-   `amount_paid` CSV column plus an importer write.
+1. ~~**Importer records nothing as paid.**~~ **FIXED 2026-10-13, PR #6
+   (`7389677`).** `src/lib/csv.ts` gained an optional `amount_paid` column
+   (also `paid` / `paid_amount`) and `csvRowToPaidCents()`; `src/actions/import.ts`
+   now writes `amountPaid`. A row with no column is **paid in full**, which is
+   the importer's purpose — it takes a spreadsheet of payments already made.
+   `no` marks a row unpaid, a smaller figure a part payment, anything over the
+   total clamps. Status stays `draft`: paid-ness and workflow are separate
+   axes, and the contractor still reviews and confirms. Nothing else needed
+   changing — `paymentState()`, the invoice document and the PDF already
+   rendered Paid / Still due and stamped **PAID**.
 2. **No idempotency.** `importPaymentsAction` creates one invoice per row with
    no dedupe and stores no source transaction id, so a re-run silently doubles
    everything.
@@ -243,3 +244,52 @@ No database row was written by this session. `npm run lint` reports 10 problems
 (8 errors, 2 warnings) both with and without the merged changes — pre-existing,
 verified by stashing. Typecheck and build were not run locally; nothing under
 `src/` changed. The Netlify production build is the build evidence.
+
+## Session 2026-10-13 (later) — AAA data loaded (Ummon)
+
+**What Uncle Invoice is actually for, from Tom 2026-10-13.** AAA Discount Maid
+Service pays cleaning contractors by check and expense. Those contractors never
+issued her invoices. Uncle Invoice lets them issue the invoices for free, and
+because Tom is her bookkeeper he pre-fills each one from her books so the
+contractor only has to review and confirm. `seededByUserId` versus
+`confirmedAt`/`confirmedByEmail` is what keeps that honest: the bookkeeper
+seeded it, the contractor made it theirs. Two of the four are far past the $600
+threshold, so this is 1099 substantiation, not tidiness.
+
+**Loaded into the live AAA workspace** (`cmv5wjm0f0006jjkfa8cbzu1m`), sourced
+from `~/projects/clients/aaa-discount-maid-service/labor/AAA DISCOUNT MAID
+SERVICE_Transaction List by Vendor.csv`:
+
+| contractor | invoices | total | paid |
+|---|---|---|---|
+| Christina Graves | 65 | $29,399.31 | $29,399.31 |
+| Kimberly Barker | 46 | $22,623.30 | $22,623.30 |
+| Kimberly k Johnson | 17 | $6,942.58 | $6,942.58 |
+| Ashley Durand | 7 | $705.00 | $705.00 |
+| **total** | **135** | **$59,670.19** | **$59,670.19** |
+
+Still due $0.00, every row `paid`, every issue date in 2025, all against
+`*8039 WFB Chk`. Ties to her vendor report to the cent. Only 20 of the 135 are
+literal Checks with a number; 114 are Expenses with no reference, so each
+invoice's line description carries transaction type, number where one exists,
+and date. Import CSVs kept at `~/aaa-2025-all.csv`, `~/aaa-2025-ashley.csv`,
+`~/aaa-2025-rest.csv`; they hold real contractor names and amounts, so they
+stay out of git and out of the All Thing.
+
+**Two live problems, neither fixed:**
+
+- **All four contractors are `role=owner` of AAA's workspace**, so any one of
+  them who signs in sees every other contractor's payments. Do not hand out the
+  temp passwords as they stand. Contractors were never meant to hold workspace
+  logins at all — the intended path is the per-invoice review link
+  (`/review/[token]`). The accounts were a stopgap for having no real emails.
+- **`parseDate` (`src/lib/dates.ts:10`)** does `new Date(value + "T12:00:00")`,
+  which fails on QuickBooks' `MM/DD/YYYY`, and `src/actions/import.ts:54` falls
+  back to `new Date()`. A raw QBO export therefore stamps every invoice with
+  today's date, silently. The AAA CSVs were converted to ISO, so they are
+  correct; the next person's will not be.
+
+**Still needed before a contractor is contacted:** real email addresses for the
+four; the `/auth/verify` 500 on magic links; importer idempotency (no dedupe
+key, so a re-run doubles the workspace); and the send itself, which is Martin's
+with `RESEND_API_KEY` unset.
