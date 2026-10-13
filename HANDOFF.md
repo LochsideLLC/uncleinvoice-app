@@ -293,3 +293,84 @@ stay out of git and out of the All Thing.
 four; the `/auth/verify` 500 on magic links; importer idempotency (no dedupe
 key, so a re-run doubles the workspace); and the send itself, which is Martin's
 with `RESEND_API_KEY` unset.
+
+## Session 2026-10-13 (later still) — launch hardening (Ummon)
+
+**Context change from Tom:** Uncle Invoice is going to be marketed to his
+YouTube audience and school community. That turns it from a tool for four
+known contractors into a public product, and re-ranks everything: email
+delivery becomes necessary rather than optional, and every weak link gets
+exercised by strangers.
+
+**Shipped, PRs #8-#11, all squash-merged.**
+
+1. **Every magic sign-in link returned 500.** `/auth/verify` was a *page*, and
+   signing the visitor in sets a session cookie, which Next.js only permits
+   from a Server Action or Route Handler. An *invalid* token returned 200 with
+   "Could not sign you in", so the route looked healthy — only real links
+   crashed. Magic sign-in is a first-class option on both `/login` and
+   `/signup` (`intent: "magic"`, `src/actions/auth.ts:22`), so a new user
+   choosing the passwordless path crashed on first contact. Now a route
+   handler.
+2. **Review links were long-lived reusable keys.** 30 days, and `usedAt` was
+   only ever checked for login tokens, so a link stayed live and re-editable
+   for a month after the contractor confirmed. Life cut to 7 days
+   (`REVIEW_LINK_DAYS`), `contractorConfirmAction` spends the token, and
+   `loadReviewToken` rejects a spent one. The done page and PDF download
+   resolve the token themselves, so the contractor keeps their copy.
+3. **Re-importing doubled the books.** Now a row is skipped when the workspace
+   already holds an invoice for the same contractor, date and amount, and the
+   skipped count is reported. Verified: re-running the AAA file would create 0
+   and skip 135.
+4. **Connection pool.** `DATABASE_URL` moved from the session pooler (5432,
+   **15 connections, session mode**) to the transaction pooler
+   (6543, `pgbouncer=true&connection_limit=1`). `DIRECT_URL` stays on 5432 for
+   migrations. The old setting was hit for real during this session:
+   `FATAL: (EMAXCONNSESSION) max clients reached in session mode`. 25
+   concurrent requests now all return 200.
+
+**Three rounds were needed on the sign-in redirect, each found by clicking a
+real link against production rather than by reading code.** Worth knowing,
+because the last cause is not obvious:
+
+- #9: a relative `redirect()` out of a route handler kept the request's query
+  string, so the token arrived at `/app?token=…`.
+- #10: `request.nextUrl.origin` resolves to the **per-deploy Netlify hostname**
+  behind the proxy, so the visitor was bounced to a `*.netlify.app` URL where
+  the session cookie — set for the real domain — does not apply. Redirects are
+  now built from `APP_URL`.
+- #11: the host's Next.js adapter **copies the incoming query string onto
+  whatever the route redirects to**, so nothing inside the handler could shake
+  the token off. Sign-in links are now `/auth/verify/<token>` with the token in
+  the path. Any link sent in the old `?token=` form no longer works; the outbox
+  held 4, all internal tests.
+
+**Verified live on uncleinvoice.com after the final deploy:** valid link →
+307 to `https://uncleinvoice.com/app` with the session cookie set and no token
+in the URL; the issued session loads `/app` 200; the same link a second time →
+`/login?error=link_invalid`; a garbage token → the same friendly error. Review
+link expires in 7.00 days and opens 200. Test user and test tokens deleted
+afterwards; production sits at 7 users, 3 workspaces, 135 AAA invoices.
+
+**Also repaired:** ripley's `.env` had `DATABASE_URL="https://pvolllgvujjvteijtnid.supabase.co"`
+— the Supabase API URL, not a connection string — which made every local Prisma
+call fail. Now the transaction pooler, matching production.
+
+### Still open for a public launch
+
+- **No email provider.** `RESEND_API_KEY` is unset, so `sendEmail`
+  (`src/lib/mail.ts`) files every message in the Outbox and sends nothing.
+  Tom has no Resend account. Note for whoever sets it up: Resend stores message
+  bodies, and the opt-out needs Pro/Scale for a month, 3,000 emails sent and
+  $50/mo — thresholds this account will not meet. A review-link email body is a
+  bearer token.
+- **`uncleinvoice.com` has no SPF, DKIM, DMARC or MX.** The domain has never
+  sent mail. Bulk signup mail from a cold domain lands in spam.
+- **`/privacy` and `/terms` both 404**, and the site footer links to both.
+  Found 2026-10-13. Not something to invent on Tom's behalf.
+- **The four AAA contractor emails are still `@uncleinvoice.test`**, which
+  cannot route and are printed on each invoice PDF.
+- **The four AAA contractors hold `role=owner`** on that workspace, so any of
+  them signing in would see the others' payments. This is a manual stopgap, not
+  a product defect — the app never adds a contractor as a member
+  (`src/actions/workspaces.ts:43` only adds the creator).
