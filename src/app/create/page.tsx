@@ -27,6 +27,8 @@ export default async function CreateInvoicePage({
     city: membership.workspace.city,
     region: membership.workspace.region,
     postalCode: membership.workspace.postalCode,
+    // Peek, don't claim: the counter moves only when an invoice is saved.
+    nextNumber: `${membership.workspace.invoicePrefix}-${String(membership.workspace.nextInvoiceNumber).padStart(4, "0")}`,
   }));
 
   return (
@@ -51,6 +53,7 @@ export default async function CreateInvoicePage({
         defaultFromPostalCode={draft?.fromPostalCode || user?.postalCode || ""}
         defaults={draft?.defaults}
         billToClients={billToClients}
+        canSaveClients={!!user}
       />
       <div className="mt-8">
         <W9Note />

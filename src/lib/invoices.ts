@@ -28,6 +28,31 @@ export async function nextInvoiceNumber(workspaceId: string) {
   });
 }
 
+/**
+ * Move the counter beyond a hand-picked number.
+ *
+ * A blank number field auto-assigns and claims the counter, but a typed one
+ * never touches it — so saving the suggested INV-0001 would leave every
+ * later suggestion stuck on INV-0001, failing as a duplicate. After a
+ * number is used, advance the counter past it when it matches this
+ * workspace's prefix. Numbers from another sequence leave the counter alone.
+ */
+export async function advanceCounterPast(workspaceId: string, number: string) {
+  const workspace = await db.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { invoicePrefix: true, nextInvoiceNumber: true },
+  });
+  if (!workspace) return;
+  const match = /^(.+)-(\d+)$/.exec(number.trim());
+  if (!match || match[1] !== workspace.invoicePrefix) return;
+  const used = Number(match[2]);
+  if (!Number.isSafeInteger(used) || used < workspace.nextInvoiceNumber) return;
+  await db.workspace.update({
+    where: { id: workspaceId },
+    data: { nextInvoiceNumber: used + 1 },
+  });
+}
+
 export async function recordEvent(
   invoiceId: string,
   type: string,
