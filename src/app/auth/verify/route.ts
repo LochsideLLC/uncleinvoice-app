@@ -14,17 +14,35 @@ import { consumeLoginToken } from "@/actions/auth";
  * relative redirect out of a route handler carries the request's query string
  * with it, and that would leave the sign-in token sitting in the address bar
  * and in browser history.
+ *
+ * It is built against APP_URL, not the request origin. Behind the host's proxy
+ * the request origin is the per-deploy hostname, so redirecting to it would
+ * bounce the visitor onto a *.netlify.app URL — where the session cookie,
+ * set for the real domain, does not apply, leaving them signed out.
  */
+function publicOrigin(request: NextRequest) {
+  const configured = process.env.APP_URL?.trim();
+  if (configured) {
+    try {
+      return new URL(configured).origin;
+    } catch {
+      // fall through to the request's own origin
+    }
+  }
+  return request.nextUrl.origin;
+}
+
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
+  const origin = publicOrigin(request);
   const fail = (code: string) =>
-    NextResponse.redirect(new URL(`/login?error=${code}`, request.nextUrl.origin));
+    NextResponse.redirect(new URL(`/login?error=${code}`, origin));
 
   if (!token) return fail("link_missing");
 
   const result = await consumeLoginToken(token);
   if (result?.to) {
-    return NextResponse.redirect(new URL(result.to, request.nextUrl.origin));
+    return NextResponse.redirect(new URL(result.to, origin));
   }
   return fail("link_invalid");
 }
