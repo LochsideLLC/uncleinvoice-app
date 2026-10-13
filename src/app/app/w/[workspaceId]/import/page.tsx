@@ -16,7 +16,7 @@ export default function ImportPage() {
         <h2 className="text-2xl">Import payments</h2>
         <p className="mt-2 text-muted">
           Upload a spreadsheet of checks or payments. We will create a contractor if they
-          are new, and seed one draft invoice per row.
+          are new, and seed one draft invoice per row, marked as already paid.
         </p>
       </div>
       <div className="paper rounded-3xl p-6 text-sm text-muted">
@@ -27,12 +27,18 @@ export default function ImportPage() {
         <a
           className="mt-3 inline-block text-ink underline"
           href={`data:text/csv,${encodeURIComponent(
-            `${CSV_TEMPLATE_HEADER}\nMaria Lopez,maria.lopez@example.test,2026-03-31,600,Lincoln Park weekly cleans\n`,
+            `${CSV_TEMPLATE_HEADER}\nMaria Lopez,maria.lopez@example.test,2026-03-31,600,600,Lincoln Park weekly cleans\n`,
           )}`}
           download="invoice-ready-template.csv"
         >
           Download a template
         </a>
+        <p className="mt-3">
+          These are payments that already went out, so every row is marked paid in full
+          unless <code className="text-ink">amount_paid</code> says otherwise. Put a
+          smaller figure there for a part payment, or <code className="text-ink">no</code>
+          for one that is still owed.
+        </p>
       </div>
       <form action={action} className="paper space-y-4 rounded-3xl p-6">
         <input type="hidden" name="workspaceId" value={params.workspaceId} />
