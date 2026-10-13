@@ -4,17 +4,19 @@ Owner: **Ummon** (SWapp lead) as of 2026-10-12, by Tom's direction. Previously
 run out of the Clients room (Sol); before that, executed from Martin's pane.
 See board records `37adaf8b1b4a`, `57d72b8d6a72`, `07c5d3939e49`, `c91069ea647d`.
 
-## Branch state (verified 2026-10-12 on ripley)
+## Branch state (verified 2026-10-13 on ripley)
 
 - Checkout: `ripley:~/projects/uncleinvoice-app`, branch `main`, clean,
-  level with `origin/main` after `git fetch`. HEAD `27e1d53`
-  "Simplify partners hero section". 7 commits total.
+  level with `origin/main` after `git fetch`. HEAD `8b301c5`
+  "Add change-password form to profile (#2)". 8 commits total.
 - Origin: `https://github.com/lochsidellc/uncleinvoice-app.git`.
   `README.md` names `LochsideLLC/UncleInvoice` — stale repo name, not fixed.
 - `origin/feat/invoice-supporting-documents` = **PR #1**, OPEN, mergeable,
-  +312/-3 over 7 files, both deploy previews green, no reviews.
-- `npm install` run here 2026-10-12, exit 0. `node_modules` present; it was
-  absent when this checkout was handed over.
+  +312/-3 over 7 files, both deploy previews green, no reviews. Untouched
+  by this session; its migration is still unexercised (see below).
+- `npm install` run here 2026-10-12, exit 0. `node_modules` present.
+- Commit `0841b87` (PR #2 branch, squash-merged as `8b301c5`): change-password
+  form + the session notes in this file. Local and remote branches pruned.
 
 ## What exists and is verified
 
@@ -124,3 +126,23 @@ confirmed against clean main; that is his evidence, not re-verified here.
 - PRE-EXISTING BUG (not mine, not fixed): `/auth/verify` 500s on every magic
   sign-in link — the page calls `cookies().set()`, allowed only in actions.
   Error: "Cookies can only be modified in a Server Action or Route Handler."
+- OUTAGE 2026-10-12/13: production `/` 500s (Tom screenshot), reproduced on
+  PR #2 Netlify preview; `/sponsors/[slug]` 500s too. Static GETs
+  (`/signup`, `/login`, `/create`) 200 everywhere. DB ruled out from ripley:
+  homepage query returns 2 clean sponsors; users 7, workspaces 3. Merged diff
+  never touches the homepage path. Tom confirmed the dashboard value points at
+  `db.pvolllgvujjvteijtnid.supabase.co:5432/postgres` (direct, right shape),
+  so localhost/6543 is ruled out for that dashboard. Still open at handover:
+  whether the value carries `?sslmode=require` and whether its password matches
+  `.env`; otherwise the direct address itself may be unreachable from the hosts
+  (pooler URL is the fallback). Needs whoever holds the dashboards.
+
+## Handover to next agent (2026-10-13, Ummon out)
+
+- Temp passwords for the 5 logins were shown to Tom once in chat; relaying
+  them to their people is Tom's action, not recorded here.
+- Merged and live in code: change-password form (PR #2). DB state unchanged
+  except the 12 applied migrations and the 5 users / AAA workspace.
+- Do not touch: the other app's failed `initial_platform_foundation`
+  migration row; PR #1 and its unexercised migration; outbound (Martin's);
+  the ledger question (Sol's); deployment doc drift (Albedo's).
