@@ -440,10 +440,68 @@ trade-off is real and should be revisited if the product grows.
 
 ### Still open
 
-- **The four AAA contractor emails are still `@uncleinvoice.test`**, which
-  cannot route and are printed on each invoice PDF. Sending to them will bounce.
-  Real addresses are needed before anything goes to those contractors.
+- ~~The four AAA contractor emails are `@uncleinvoice.test`~~ — **no longer
+  blocking.** Tom does not have those addresses and they are his client's
+  people, not his. PR #17 removed the need for them entirely: the client hands
+  each contractor a link. See below.
 - **Outbound to a client or contractor is still Martin's call, on Tom's
   approval.** The capability now exists; the authority has not changed.
 - Entity (`Lochside LLC`) and governing law (`Texas`) on the legal pages are
   still inferred, not confirmed by Tom.
+
+## Session 2026-10-13 (end) — one link per contractor (Ummon)
+
+**What this product is actually for, in Tom's words:** his bookkeeping client
+AAA pays cleaners by check and expense, the cleaners never issued her invoices,
+and she needs those invoices for her books. Uncle Invoice is how the cleaners
+produce invoices that match the checks. Tom pre-fills them from her books; the
+cleaners confirm them.
+
+**The blocker was never the missing email addresses.** A review link covered
+**one invoice**. Christina Graves has 65 and Kimberly Barker has 46. Nobody
+opens 65 links, so the unit was wrong and no amount of chasing contact details
+would have fixed it.
+
+**PR #17 (`f0d7df0`) — a link per contractor.** The client passes it to her own
+cleaner however she already reaches them, so **we never hold a contractor's
+email or phone**.
+
+- `MagicLink.contractorId`, nullable and additive, migration
+  `20261013030000_magiclink_contractor`. Applied to production with
+  `prisma db execute` against the **session pooler** (DDL does not belong on
+  the transaction pooler), then `migrate resolve --applied`. Column and foreign
+  key verified present afterwards by querying `information_schema` and
+  `pg_constraint`. The other app's failed `initial_platform_foundation` was not
+  touched.
+- `createContractorLink()`, 30 day life, because the link has to survive being
+  passed on.
+- `/c/[token]` lists every invoice for that contractor with date, amount,
+  description and a PDF each.
+- `contractorConfirmAllAction` confirms the batch but writes `confirmedAt` and
+  `confirmedByEmail` to **each invoice individually**, plus a per-invoice
+  event, so the books keep a per-invoice record.
+- The contractors page in the app has a button per contractor that mints the
+  link, copies it, or opens a prefilled text message.
+
+**Verified live on uncleinvoice.com, no account and no cookie:**
+
+| | |
+|---|---|
+| Ashley's link | 200, 7 invoices, 7 PDF links, $705.00 |
+| Christina's link | 200, **65 invoices**, $29,399.31 |
+| attestation shown | "I confirm these 65 invoices, totalling $29,399.31, are an accurate record of work I did for AAA Discount Maid Service." |
+| PDF via contractor token | 200, `application/pdf`, stamped PAID |
+| **Christina's invoice with Ashley's token** | **404** — contractors cannot reach each other's invoices |
+
+Live links for the four cleaners are at `ripley:~/aaa-contractor-links.txt`,
+mode 600. They are bearer tokens for a client's financial records, so they stay
+off the board and out of the All Thing. Tom can also mint fresh ones himself
+from the client's contractors page at any time.
+
+### Still open
+
+- Nothing has been sent to any contractor. Distribution is AAA's, through Tom;
+  outbound from this building remains Martin's on Tom's approval.
+- Entity (`Lochside LLC`) and governing law (`Texas`) on the legal pages are
+  still inferred, not confirmed.
+- Tom still needs to delete the Full Access Resend key named `setup`.
