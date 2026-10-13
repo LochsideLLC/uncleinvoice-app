@@ -27,11 +27,16 @@ npm run stack
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Demo bookkeeper:
+The seed creates a demo bookkeeper, `ada@ledgerandco.test`, with the client
+Sunrise Cleaning Co. Its password is printed by `npm run db:seed` when it runs.
 
-- Email: `ada@ledgerandco.test`
-- Password: `demo1234`
-- Client: Sunrise Cleaning Co.
+**Never run `npm run db:seed` against a production database.** This repository
+is public, so any credential written down here is a published credential. On
+2026-10-13 the seed account was found live on production, still carrying the
+password this file used to print, and still flagged as a site admin — anyone
+who read this page could have signed in to uncleinvoice.com as an
+administrator. The account has been stripped of admin and its password
+invalidated.
 
 There is no email provider in the default local setup. Review links and invoice emails are written to **Outbox** (`/app/outbox`) so you can copy them. To actually send mail, set `RESEND_API_KEY` in `.env`.
 
