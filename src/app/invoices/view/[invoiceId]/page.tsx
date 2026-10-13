@@ -27,13 +27,17 @@ export default async function PublicInvoicePage({
   });
   if (!invoice) notFound();
 
-  const allowed = await canViewInvoice(invoice.id, invoice.workspaceId, token);
-  if (!allowed) notFound();
+  const access = await invoiceAccess(invoice.id, invoice.workspaceId, token);
+  if (!access.allowed) notFound();
 
   const pdfHref = `/api/invoices/${invoice.id}/pdf${token ? `?token=${token}` : ""}`;
   const editHref = `/create?edit=${invoice.id}${token ? `&token=${token}` : ""}`;
   const totalCents = invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps);
-  const isOwner = !token;
+  // A token link means "customer view" — unless the visitor is also a member
+  // of the workspace. Without this, the owner lands on the customer view of
+  // their own fresh invoice (creation redirects carry a token) and loses
+  // Send, Share link, Mark as paid, and Edit.
+  const isOwner = !token || access.isMember;
 
   return (
     <div className="mx-auto min-h-full w-full max-w-6xl px-5 pb-8">
@@ -92,7 +96,7 @@ export default async function PublicInvoicePage({
   );
 }
 
-async function canViewInvoice(
+async function invoiceAccess(
   invoiceId: string,
   workspaceId: string,
   token: string | string[] | undefined,
@@ -108,14 +112,20 @@ async function canViewInvoice(
       record.expiresAt >= new Date() &&
       (record.purpose === "invoice_view" || record.purpose === "invoice_review")
     ) {
-      return true;
+      const viewer = await getSessionUser();
+      const membership = viewer
+        ? await db.workspaceMember.findUnique({
+            where: { workspaceId_userId: { workspaceId, userId: viewer.id } },
+          })
+        : null;
+      return { allowed: true, isMember: Boolean(membership) };
     }
   }
 
   const user = await getSessionUser();
-  if (!user) return false;
+  if (!user) return { allowed: false, isMember: false };
   const membership = await db.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId: user.id } },
   });
-  return Boolean(membership);
+  return { allowed: Boolean(membership), isMember: Boolean(membership) };
 }
