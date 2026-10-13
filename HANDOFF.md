@@ -63,9 +63,11 @@ at $8,125.48, including an anonymised pair with 0 real names.
 
 ## Boundaries
 
-- **Deployment doc drift, Albedo's to reconcile:** uncleinvoice.com serves from
-  Vercel (`server: Vercel`, `x-vercel-id`) while `README.md` and `netlify.toml`
-  describe Netlify. `package.json` also carries `dns:vercel`. Unresolved.
+- **Hosting settled 2026-10-13: Netlify only.** Both hosts were live off the
+  same repo. `uncleinvoice.com` resolved to Vercel (216.198.79.65, 64.29.17.65,
+  `server: Vercel`) while `uncleinvoice.netlify.app` also built production from
+  `main`. Tom directed Vercel be retired. Repo side is done on branch
+  `retire-vercel-host`; the dashboard and DNS side is not (see below).
 - **No production credentials on ripley.** Only the local demo's SQLite `.env`;
   `.env.example` ships `DATASTORE_DB_PASSWORD` empty.
 - **Docker is unusable here** (daemon inactive, `tom` not in group `docker`,
@@ -146,3 +148,62 @@ confirmed against clean main; that is his evidence, not re-verified here.
 - Do not touch: the other app's failed `initial_platform_foundation`
   migration row; PR #1 and its unexercised migration; outbound (Martin's);
   the ledger question (Sol's); deployment doc drift (Albedo's).
+
+## Session 2026-10-13 — outage root cause and Vercel retirement (Ummon)
+
+**Root cause of the homepage 500, found and verified.**
+`db.pvolllgvujjvteijtnid.supabase.co` has **no A record** — AAAA only
+(`2600:1f18:5608:e000:8224:66f2:7b7a:c9ea`). Serverless functions on Vercel and
+Netlify have no IPv6 outbound, so a `DATABASE_URL` on that host cannot connect
+from either. That is why every database-backed page 500s while static pages
+return 200, on both hosts:
+
+| path | uncleinvoice.com (Vercel) | uncleinvoice.netlify.app |
+|---|---|---|
+| `/` (`listSponsors`) | 500 | 500 |
+| `/signup` | 200 | 200 |
+| `/login` | 200 | 200 |
+| `/create` | 200 | 200 |
+
+The IPv4 path works: `npm run datastore:test` from ripley selects
+`session-pooler-aws-1` (`aws-1-us-east-1.pooler.supabase.com:5432`,
+user `postgres.pvolllgvujjvteijtnid`, `sslmode=require`) and reports
+`Connection: ok` with `uncleinvoice schema: present`, so the password in
+ripley's `.env` is valid and the schema is there.
+
+Second candidate wrong value, unverified because neither dashboard is readable
+from here: ripley's `.env` carries
+`DATABASE_URL="https://pvolllgvujjvteijtnid.supabase.co"` — the Supabase API
+URL, not a Postgres connection string. If that was pasted into a host, Prisma
+fails on it too. The fix string is the same either way.
+
+**Repo changes on branch `retire-vercel-host`:**
+
+- `scripts/cloudflare-vercel-dns.mjs` → `scripts/cloudflare-netlify-dns.mjs`,
+  apex and `www` CNAME targets changed to `uncleinvoice.netlify.app`.
+- `package.json`: `dns:vercel` → `dns:netlify`; new `datastore:env`.
+- `scripts/datastore.mjs`: the `vercel-env` task (which shelled out to
+  `vercel env add`) replaced by a host-agnostic `env` task that prints the
+  five production variables for pasting into any host.
+- `.vercelignore` deleted. README repo name corrected to
+  `lochsidellc/uncleinvoice-app`, pooler-vs-direct-host warning added,
+  Netlify named as the only host.
+
+**Not done — needs dashboard access Ummon does not have:**
+
+1. Set `DATABASE_URL` and `DIRECT_URL` on Netlify to the session-pooler string
+   (`npm run datastore:env` prints it) and redeploy. **The site stays broken
+   until this happens.**
+2. Add `uncleinvoice.com` and `www.uncleinvoice.com` in Netlify domain
+   management, or Netlify answers 404 for them.
+3. Point Cloudflare DNS at Netlify. `npm run dns:netlify` does it, but
+   `CLOUDFLARE_API_TOKEN` in ripley's `.env` is **empty** — the key is present
+   with no value — so the script exits 1 until a token is supplied.
+4. Remove the domain from the Vercel project and delete the project. Do this
+   **last**: DNS still points at Vercel, so deleting first takes the site fully
+   dark instead of merely erroring.
+
+No environment variable, DNS record, deploy, or database row was changed by
+this session. `npm run lint` reports 10 problems (8 errors, 2 warnings) both
+with and without these changes — pre-existing, verified by stashing. Typecheck
+and build were not run; nothing under `src/` changed.

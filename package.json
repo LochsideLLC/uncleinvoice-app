@@ -20,7 +20,8 @@
     "datastore:test": "node scripts/datastore.mjs test",
     "datastore:deploy": "node scripts/datastore.mjs deploy",
     "datastore:seed": "node scripts/datastore.mjs seed",
-    "dns:vercel": "node scripts/cloudflare-vercel-dns.mjs"
+    "datastore:env": "node scripts/datastore.mjs env",
+    "dns:netlify": "node scripts/cloudflare-netlify-dns.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

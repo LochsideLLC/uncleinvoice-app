@@ -153,34 +153,22 @@ if (task === "test") {
     generate: ["npx", ["prisma", "generate"]],
   };
 
-  if (task === "vercel-env") {
+  if (task === "env") {
     const password = process.env.DATASTORE_DB_PASSWORD.trim();
     const [, url] = connectionCandidates(password).find(([name]) => name === "session-pooler-aws-1") ??
       connectionCandidates(password)[0];
-    const secret = process.env.SESSION_SECRET || "change-me-in-vercel";
     const pairs = [
       ["DATABASE_URL", url],
       ["DIRECT_URL", url],
-      ["SESSION_SECRET", secret],
+      ["SESSION_SECRET", process.env.SESSION_SECRET || "<generate one: openssl rand -hex 32>"],
+      ["APP_URL", "https://uncleinvoice.com"],
       ["MAIL_FROM", process.env.MAIL_FROM || "Uncle Invoice <noreply@uncleinvoice.com>"],
     ];
-    for (const [name, value] of pairs) {
-      await new Promise((resolvePromise, reject) => {
-        const child = spawn(
-          "vercel",
-          ["env", "add", name, "production,preview", "--sensitive", "--yes", "--force"],
-          { stdio: ["pipe", "inherit", "inherit"], shell: true },
-        );
-        child.stdin.write(value);
-        child.stdin.end();
-        child.on("exit", (code) => {
-          if (code === 0) resolvePromise();
-          else reject(new Error(`vercel env add ${name} exited ${code}`));
-        });
-      });
-      console.log(`Set ${name} on Vercel (value not printed).`);
-    }
-    console.log("datastore vercel-env finished");
+    console.log("Production environment variables for the host. These contain the");
+    console.log("database password, so treat this output as a secret.\n");
+    for (const [name, value] of pairs) console.log(`${name}=${value}`);
+    console.log("\nUse the session pooler host above. db.<ref>.supabase.co is IPv6-only");
+    console.log("and no serverless function can reach it.");
   } else {
 
   if (!commands[task]) {
