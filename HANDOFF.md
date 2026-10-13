@@ -189,21 +189,57 @@ fails on it too. The fix string is the same either way.
   `lochsidellc/uncleinvoice-app`, pooler-vs-direct-host warning added,
   Netlify named as the only host.
 
-**Not done — needs dashboard access Ummon does not have:**
+**Completed 2026-10-13, after the PR above merged as `fb027e5`.** Both CLIs were
+installed on ripley (`vercel` 63.1.2, already authenticated as `tmacdonald7-5750`;
+`netlify-cli` 27.12.0, installed with `--ignore-scripts` because `sharp` 0.34.5
+has no prebuilt binary for the Node 26.8.1 that mise provides and the source
+build fails on a missing `node-addon-api` — `netlify dev`'s image handling is
+the only thing that needs it).
 
-1. Set `DATABASE_URL` and `DIRECT_URL` on Netlify to the session-pooler string
-   (`npm run datastore:env` prints it) and redeploy. **The site stays broken
-   until this happens.**
-2. Add `uncleinvoice.com` and `www.uncleinvoice.com` in Netlify domain
-   management, or Netlify answers 404 for them.
-3. Point Cloudflare DNS at Netlify. `npm run dns:netlify` does it, but
-   `CLOUDFLARE_API_TOKEN` in ripley's `.env` is **empty** — the key is present
-   with no value — so the script exits 1 until a token is supplied.
-4. Remove the domain from the Vercel project and delete the project. Do this
-   **last**: DNS still points at Vercel, so deleting first takes the site fully
-   dark instead of merely erroring.
+1. **Netlify env fixed.** `DATABASE_URL` and `DIRECT_URL` set to the
+   session-pooler string, all contexts, on site `uncleinvoice`
+   (`c603abb3-3db2-40db-a876-f96d40c9e9fd`). Clean-cache production build
+   `6acd7e7a7911dc9e3a3626fb` / deploy `6acd7e7a7911dc9e3a3626fd` reached
+   `ready`. `uncleinvoice.netlify.app/` went 500 → 200 with the real page
+   (17,477 bytes, sponsor board rendering). **This confirmed the diagnosis by
+   fixing it.**
+2. **`APP_URL` was missing entirely from Netlify** — a second defect, not
+   previously known. `src/actions/auth.ts:16` and `src/lib/invoices.ts:8` fall
+   back to `http://localhost:3000`, so every magic-link and contractor-review
+   URL Netlify generated pointed at localhost. Set to
+   `https://uncleinvoice.com`. Left deliberately unset: `RESEND_API_KEY`
+   (outbound is Martin's; setting it starts real mail). `SESSION_SECRET` is not
+   read anywhere in `src/`, only in `.env.example` and scripts, so its absence
+   is not a defect.
+3. **Domain.** `custom_domain` was already `uncleinvoice.com`;
+   `www.uncleinvoice.com` added as a domain alias, which had been empty.
+4. **DNS cut over.** Tom supplied a Cloudflare token; `npm run dns:netlify`
+   rewrote apex and `www` to `CNAME uncleinvoice.netlify.app`, DNS-only.
+   Both now resolve to `98.84.224.111` / `18.208.88.157`. Certificate covers
+   `uncleinvoice.com` and `www.uncleinvoice.com`.
+5. **Vercel retired.** `vercel domains rm uncleinvoice.com` (removed 2 aliases),
+   then `vercel project rm uncleinvoice`. The project, its deployments and its
+   environment variables are permanently gone. Local `.vercel/` and the
+   `.env.local` that `vercel link` wrote were deleted.
 
-No environment variable, DNS record, deploy, or database row was changed by
-this session. `npm run lint` reports 10 problems (8 errors, 2 warnings) both
-with and without these changes — pre-existing, verified by stashing. Typecheck
-and build were not run; nothing under `src/` changed.
+Final state, all `server: Netlify`:
+
+| url | status |
+|---|---|
+| `https://uncleinvoice.com/` | 200 |
+| `/signup` `/login` `/create` `/partners` | 200 |
+| `https://www.uncleinvoice.com/` | 301 → apex |
+
+**Untouched on Vercel, deliberately:** the `lochside-llc` team still holds the
+`swapp` project and the domains `bookkeepingconroe.com` and
+`southwestdigital.io`. Tom's instruction was Uncle Invoice only.
+
+**Still open, unchanged by this session:** PR #1 and its unexercised migration;
+the importer recording nothing as paid and having no idempotency (defects 1-4
+above); `/auth/verify` 500ing on magic links; the $778.32 PayPal ledger
+question (Sol's).
+
+No database row was written by this session. `npm run lint` reports 10 problems
+(8 errors, 2 warnings) both with and without the merged changes — pre-existing,
+verified by stashing. Typecheck and build were not run locally; nothing under
+`src/` changed. The Netlify production build is the build evidence.
