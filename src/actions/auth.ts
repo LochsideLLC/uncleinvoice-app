@@ -163,7 +163,11 @@ export async function consumeLoginToken(token: string) {
     data: { usedAt: new Date() },
   });
   await createSession(user.id);
-  redirect(safeNext("", user.admin));
+  // Returns the destination rather than redirecting. The caller is the
+  // /auth/verify route handler, which builds its own clean redirect: a
+  // relative redirect from here would keep the request's query string, and
+  // that query string contains the sign-in token.
+  return { to: safeNext("", user.admin) };
 }
 
 export async function setPasswordAction(
