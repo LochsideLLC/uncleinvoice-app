@@ -36,6 +36,7 @@
   --text-lg: 1.25rem;
   --text-xl: 1.5rem;
   --text-detail: 1rem;
+  --breakpoint-xs: 26rem;
 }
 
 @keyframes toast-banner-in {
@@ -115,13 +116,26 @@ a {
 }
 
 .brand-home {
-  color: var(--muted);
+  color: var(--ink);
   transition: color 80ms ease;
 }
 
 .brand-home:hover,
 .brand-home:focus-visible {
   color: var(--accent);
+}
+
+/* Set here, not as a utility: the unlayered `a { color: inherit }` above wins
+   over Tailwind's layered colour utilities, so links and the Sign out button
+   would otherwise render in two different colours. */
+.nav-link {
+  color: var(--muted);
+  transition: color 80ms ease;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible {
+  color: var(--ink);
 }
 
 input,
@@ -190,6 +204,12 @@ button:disabled {
   background: var(--paper);
   color: var(--ink);
   border: 1px solid var(--line);
+}
+
+.btn-sm {
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.6rem;
+  font-size: 0.9375rem;
 }
 
 .btn-hero {
