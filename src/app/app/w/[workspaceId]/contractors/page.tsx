@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/workspace";
 import { ContractorForm } from "@/components/contractor-form";
+import { ContractorLinkButton } from "@/components/contractor-link-button";
 
 export default async function ContractorsPage({
   params,
@@ -33,6 +34,13 @@ export default async function ContractorsPage({
               <p className="mt-1 text-sm text-muted">
                 {contractor._count.invoices} invoices
               </p>
+              {contractor._count.invoices > 0 ? (
+                <ContractorLinkButton
+                  workspaceId={workspaceId}
+                  contractorId={contractor.id}
+                  contractorName={contractor.name}
+                />
+              ) : null}
             </li>
           ))}
           {contractors.length === 0 ? (

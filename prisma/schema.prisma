@@ -108,6 +108,7 @@ model Contractor {
   updatedAt    DateTime  @updatedAt
 
   invoices Invoice[]
+  tokens   MagicLink[]
 
   @@schema("uncleinvoice")
 }
@@ -190,6 +191,8 @@ model MagicLink {
   userId    String?
   invoiceId String?
   invoice   Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  contractorId String?
+  contractor   Contractor? @relation(fields: [contractorId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
