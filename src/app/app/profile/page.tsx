@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { BusinessForm } from "@/components/business-form";
+import { PasswordForm } from "@/components/password-form";
 import { ProfileForm } from "@/components/profile-form";
 
 export default async function ProfilePage() {
@@ -27,6 +28,7 @@ export default async function ProfilePage() {
           region={user.region}
           postalCode={user.postalCode}
         />
+        <PasswordForm hasPassword={Boolean(user.passwordHash)} />
       </div>
 
       <section id="upgrade" className="paper scroll-mt-8 space-y-4 rounded-3xl p-6">

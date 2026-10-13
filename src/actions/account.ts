@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { hashPassword, requireUser, verifyPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { optionalText } from "@/lib/invoice-fields";
 import { formatUsPhone, phoneDigits } from "@/lib/us-address";
@@ -41,6 +41,33 @@ export async function updateProfileAction(
   });
   refreshAccountPages();
   return { ok: true, message: "Profile saved." };
+}
+
+export async function changePasswordAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+  const currentPassword = String(formData.get("currentPassword") ?? "");
+  const newPassword = String(formData.get("newPassword") ?? "");
+  if (newPassword.length < 8) {
+    return { error: "New password must be at least 8 characters." };
+  }
+  if (user.passwordHash) {
+    if (!currentPassword) {
+      return { error: "Enter your current password." };
+    }
+    const valid = await verifyPassword(currentPassword, user.passwordHash);
+    if (!valid) {
+      return { error: "That current password does not match." };
+    }
+  }
+  await db.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await hashPassword(newPassword) },
+  });
+  refreshAccountPages();
+  return { ok: true, message: "Password saved. Use it next time you sign in." };
 }
 
 export async function updateBusinessAction(
