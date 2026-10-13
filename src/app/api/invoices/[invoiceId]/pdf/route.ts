@@ -23,7 +23,13 @@ export async function GET(
 
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
-  const allowed = await canDownload(invoice.id, invoice.workspaceId, invoice.contractorId, token);
+  const allowed = await canDownload(
+    invoice.id,
+    invoice.workspaceId,
+    invoice.contractorId,
+    invoice.contractor.userId,
+    token,
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -42,6 +48,7 @@ async function canDownload(
   invoiceId: string,
   workspaceId: string,
   contractorId: string,
+  contractorUserId: string | null,
   token: string | null,
 ) {
   if (token) {
@@ -68,6 +75,9 @@ async function canDownload(
 
   const user = await getSessionUser();
   if (!user) return false;
+  // The contractor who issued it.
+  if (contractorUserId && contractorUserId === user.id) return true;
+  // Or someone who keeps the books for the client it was billed to.
   const membership = await db.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId: user.id } },
   });

@@ -31,6 +31,9 @@ model User {
   taxId        String?
   clientTerm   String   @default("clients")
   admin        Boolean  @default(false)
+  // Set when a bookkeeper creates the login on someone's behalf with a
+  // temporary password. The app makes them replace it before anything else.
+  mustSetPassword Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
