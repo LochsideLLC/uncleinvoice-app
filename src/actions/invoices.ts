@@ -165,6 +165,19 @@ export async function copyReviewLinkAction(
   return { link };
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_MESSAGE_CHARS = 2000;
+
+function addressList(value: FormDataEntryValue | null): string[] | { error: string } {
+  const parts = String(value ?? "")
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
+  const bad = parts.find((part) => !EMAIL_PATTERN.test(part));
+  if (bad) return { error: `"${bad}" is not a valid email address.` };
+  return [...new Set(parts)];
+}
+
 export async function sendToClientAction(formData: FormData) {
   const workspaceId = String(formData.get("workspaceId") ?? "");
   const invoiceId = String(formData.get("invoiceId") ?? "");
@@ -172,6 +185,41 @@ export async function sendToClientAction(formData: FormData) {
   await sendInvoiceToClient(invoiceId, user);
   revalidatePath(`/app/w/${workspaceId}/invoices/${invoiceId}`);
   revalidatePath(`/invoices/view/${invoiceId}`);
+}
+
+export async function sendToClientComposedAction(
+  _prev: ActionState | null,
+  formData: FormData,
+): Promise<ActionState | null> {
+  const workspaceId = String(formData.get("workspaceId") ?? "");
+  const invoiceId = String(formData.get("invoiceId") ?? "");
+  const { user } = await requireWorkspace(workspaceId);
+  const to = String(formData.get("to") ?? "").trim().toLowerCase();
+  if (!EMAIL_PATTERN.test(to)) return { error: "Enter a valid To address." };
+  const cc = addressList(formData.get("cc"));
+  if ("error" in cc) return cc;
+  const bcc = addressList(formData.get("bcc"));
+  if ("error" in bcc) return bcc;
+  const message = String(formData.get("message") ?? "");
+  if (message.length > MAX_MESSAGE_CHARS) {
+    return { error: "Keep the message under 2,000 characters." };
+  }
+  const invoice = await db.invoice.findUnique({
+    where: { id: invoiceId },
+    select: { workspaceId: true },
+  });
+  if (!invoice || invoice.workspaceId !== workspaceId) {
+    return { error: "That invoice does not belong here." };
+  }
+  await sendInvoiceToClient(invoiceId, user, {
+    to,
+    cc,
+    bcc,
+    message: message.trim() || undefined,
+  });
+  revalidatePath(`/app/w/${workspaceId}/invoices/${invoiceId}`);
+  revalidatePath(`/invoices/view/${invoiceId}`);
+  return { ok: true, message: "Sent." };
 }
 
 export async function contractorUpdateInvoiceAction(

@@ -7,6 +7,7 @@ import { invoiceGrandTotal } from "@/lib/money";
 import { InvoiceDocument, invoiceToDocument } from "@/components/invoice-document";
 import { InvoiceActions } from "@/components/invoice-actions";
 import { InvoiceStatusBar } from "@/components/invoice-status-bar";
+import { mailFromAddress } from "@/lib/mail";
 
 export default async function PublicInvoicePage({
   params,
@@ -65,6 +66,7 @@ export default async function PublicInvoicePage({
           totalCents={totalCents}
           amountPaid={invoice.amountPaid}
           clientEmail={invoice.workspace.email}
+          mailFrom={mailFromAddress()}
         />
       )}
 

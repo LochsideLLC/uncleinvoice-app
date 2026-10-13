@@ -35,9 +35,14 @@ export async function updateProfileAction(
     ? (raw as (typeof CLIENT_TERMS)[number])
     : "clients";
 
+  const emailSignature = optionalText(formData.get("emailSignature")) ?? null;
+  if (emailSignature && emailSignature.length > 1000) {
+    return { error: "Keep the signature under 1,000 characters." };
+  }
+
   await db.user.update({
     where: { id: user.id },
-    data: { name, backupEmail, clientTerm },
+    data: { name, backupEmail, clientTerm, emailSignature },
   });
   refreshAccountPages();
   return { ok: true, message: "Profile saved." };

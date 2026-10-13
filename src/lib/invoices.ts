@@ -190,7 +190,11 @@ export async function sendForReview(invoiceId: string, actor: { email: string; n
   return link;
 }
 
-export async function sendInvoiceToClient(invoiceId: string, actor: { email: string; name: string }) {
+export async function sendInvoiceToClient(
+  invoiceId: string,
+  actor: { email: string; name: string },
+  options?: { to?: string; cc?: string[]; bcc?: string[]; message?: string },
+) {
   const invoice = await db.invoice.findUniqueOrThrow({
     where: { id: invoiceId },
     include: { contractor: true, workspace: true, lineItems: true },
@@ -198,6 +202,14 @@ export async function sendInvoiceToClient(invoiceId: string, actor: { email: str
   if (invoice.status !== "confirmed" && invoice.status !== "sent") {
     throw new Error("The contractor needs to confirm this invoice before it can be sent to the client.");
   }
+
+  const to = options?.to?.trim() || invoice.workspace.email;
+  const sender = await db.user.findUnique({
+    where: { email: actor.email },
+    select: { emailSignature: true },
+  });
+  const signature = sender?.emailSignature?.trim() || "";
+  const message = options?.message?.trim() || "";
 
   const viewToken = createToken();
   await db.magicLink.create({
@@ -213,10 +225,13 @@ export async function sendInvoiceToClient(invoiceId: string, actor: { email: str
   const total = formatMoney(invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps));
 
   await sendEmail({
-    to: invoice.workspace.email,
+    to,
+    cc: options?.cc,
+    bcc: options?.bcc,
     subject: `Invoice ${invoice.number} from ${invoice.contractor.name}`,
     link: viewLink,
     text: [
+      ...(message ? [message, ""] : []),
       `Invoice ${invoice.number}`,
       `From: ${invoice.contractor.name}`,
       `To: ${invoice.workspace.name}`,
@@ -233,6 +248,7 @@ export async function sendInvoiceToClient(invoiceId: string, actor: { email: str
       `View / download: ${APP_URL}/api/invoices/${invoice.id}/pdf?token=${viewToken}`,
       "",
       `Confirmed by ${invoice.confirmedByEmail ?? invoice.contractor.email ?? invoice.contractor.name} on ${formatDate(invoice.confirmedAt)}.`,
+      ...(signature ? ["", signature] : []),
     ].join("\n"),
   });
 
@@ -241,13 +257,13 @@ export async function sendInvoiceToClient(invoiceId: string, actor: { email: str
     data: {
       status: "sent" satisfies InvoiceStatus,
       sentAt: new Date(),
-      sentToEmail: invoice.workspace.email,
+      sentToEmail: to,
     },
   });
   await recordEvent(
     invoice.id,
     "sent_to_client",
-    `Emailed invoice to ${invoice.workspace.email}`,
+    `Emailed invoice to ${to}`,
     actor,
   );
 }
