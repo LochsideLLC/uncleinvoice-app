@@ -366,8 +366,19 @@ call fail. Now the transaction pooler, matching production.
   bearer token.
 - **`uncleinvoice.com` has no SPF, DKIM, DMARC or MX.** The domain has never
   sent mail. Bulk signup mail from a cold domain lands in spam.
-- **`/privacy` and `/terms` both 404**, and the site footer links to both.
-  Found 2026-10-13. Not something to invent on Tom's behalf.
+- ~~`/privacy` and `/terms` both 404~~ **WRITTEN 2026-10-13, PR #13
+  (`52ab1a5`).** Both live and 200. Written from what the code does, not from a
+  template: no analytics or advertising scripts exist anywhere in `src/`, there
+  is exactly one cookie (`ir_session`, 30 days, httpOnly), and there is no
+  payment integration, so the pages say so plainly. Every sub-processor is
+  named. Both state that emailed sign-in and review links are credentials.
+  **Three things Tom has not confirmed and that were inferred:** the operating
+  entity is written as *Lochside LLC* (from the GitHub org, Netlify team and
+  lochsidellc.com); governing law is written as *Texas* (from Bookkeeping
+  Conroe); and **no postal address is given** because inventing one would be
+  worse than omitting it. The privacy page sets the under-13 line, which is the
+  COPPA threshold — worth a human decision given the school-community audience.
+  Not reviewed by a lawyer.
 - **The four AAA contractor emails are still `@uncleinvoice.test`**, which
   cannot route and are printed on each invoice PDF.
 - **The four AAA contractors hold `role=owner`** on that workspace, so any of
