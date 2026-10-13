@@ -297,7 +297,8 @@ with `RESEND_API_KEY` unset.
 ## Session 2026-10-13 (later still) — launch hardening (Ummon)
 
 **Context change from Tom:** Uncle Invoice is going to be marketed to his
-YouTube audience and school community. That turns it from a tool for four
+YouTube audience and his Skool.com community — an adult audience, confirmed
+2026-10-13. That turns it from a tool for four
 known contractors into a public product, and re-ranks everything: email
 delivery becomes necessary rather than optional, and every weak link gets
 exercised by strangers.
@@ -376,9 +377,9 @@ call fail. Now the transaction pooler, matching production.
   entity is written as *Lochside LLC* (from the GitHub org, Netlify team and
   lochsidellc.com); governing law is written as *Texas* (from Bookkeeping
   Conroe); and **no postal address is given** because inventing one would be
-  worse than omitting it. The privacy page sets the under-13 line, which is the
-  COPPA threshold — worth a human decision given the school-community audience.
-  Not reviewed by a lawyer.
+  worse than omitting it. The privacy page sets the under-13 line,
+  which is the COPPA threshold; Tom confirmed on 2026-10-13 that the audience
+  is adults, so this needs no further decision. Not reviewed by a lawyer.
 - **The four AAA contractor emails are still `@uncleinvoice.test`**, which
   cannot route and are printed on each invoice PDF.
 - **The four AAA contractors hold `role=owner`** on that workspace, so any of
