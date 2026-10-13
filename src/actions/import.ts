@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/workspace";
-import { csvRowToCents, parsePaymentCsv } from "@/lib/csv";
+import { csvRowToCents, csvRowToPaidCents, parsePaymentCsv } from "@/lib/csv";
+import { centsToDollars } from "@/lib/money";
 import { nextInvoiceNumber, recordEvent } from "@/lib/invoices";
 import { parseDate } from "@/lib/dates";
 import type { ActionState } from "@/actions/auth";
@@ -59,6 +60,8 @@ export async function importPaymentsAction(
       return { error: error instanceof Error ? error.message : "Bad amount in the spreadsheet." };
     }
 
+    const amountPaid = csvRowToPaidCents(row.amountPaid, amount);
+
     const number = await nextInvoiceNumber(workspaceId);
     const invoice = await db.invoice.create({
       data: {
@@ -67,6 +70,7 @@ export async function importPaymentsAction(
         number,
         status: "draft" satisfies InvoiceStatus,
         issueDate,
+        amountPaid,
         notes: null,
         seededByUserId: user.id,
         lineItems: {
@@ -82,7 +86,9 @@ export async function importPaymentsAction(
     await recordEvent(
       invoice.id,
       "seeded",
-      `Imported from spreadsheet (${row.amount} on ${row.date || "today"}).`,
+      `Imported from spreadsheet (${row.amount} on ${row.date || "today"}, ${
+        amountPaid >= amount ? "paid in full" : amountPaid > 0 ? `${centsToDollars(amountPaid)} paid` : "unpaid"
+      }).`,
       user,
     );
     created += 1;
