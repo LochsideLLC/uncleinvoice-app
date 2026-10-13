@@ -95,6 +95,7 @@ export function QuickInvoiceForm({
     city: string | null;
     region: string | null;
     postalCode: string | null;
+    nextNumber: string;
   }[];
   canSaveClients?: boolean;
 }) {
@@ -122,6 +123,7 @@ export function QuickInvoiceForm({
   const [newClientOpen, setNewClientOpen] = useState(false);
   const [newClientError, setNewClientError] = useState<string | null>(null);
   const [newClientName, setNewClientName] = useState("");
+  const [suggestedNumber, setSuggestedNumber] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState(defaults?.invoiceNumber ?? "");
   const [issueDate, setIssueDate] = useState(defaults?.issueDate ?? today);
   const [dueDate, setDueDate] = useState(defaults?.dueDate ?? "");
@@ -188,6 +190,16 @@ export function QuickInvoiceForm({
     setBillToPostalCode(client.postalCode ?? "");
   }
 
+  function applySuggestedNumber(nextNumber: string) {
+    // A number the person typed themselves always wins. Ours only fills a
+    // blank field, or replaces our own earlier suggestion when they switch
+    // clients mid-form.
+    if (!invoiceNumber || invoiceNumber === suggestedNumber) {
+      setInvoiceNumber(nextNumber);
+      setSuggestedNumber(nextNumber);
+    }
+  }
+
   function pickBillToClient(id: string) {
     setBillToClientId(id);
     const client = clientOptions.find((entry) => entry.id === id);
@@ -202,6 +214,7 @@ export function QuickInvoiceForm({
       return;
     }
     fillBillTo(client);
+    applySuggestedNumber(client.nextNumber);
   }
 
   function matchClients(query: string) {
@@ -241,6 +254,7 @@ export function QuickInvoiceForm({
     setClientOptions((current) => [...current, result.workspace]);
     setBillToClientId(result.workspace.id);
     fillBillTo(result.workspace);
+    applySuggestedNumber(result.workspace.nextNumber);
     setNewClientOpen(false);
     setNewClientError(null);
   }

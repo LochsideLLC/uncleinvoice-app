@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createToken, hashToken } from "@/lib/crypto";
 import { parseDate } from "@/lib/dates";
-import { nextInvoiceNumber, parseLineItems, recordEvent } from "@/lib/invoices";
+import { advanceCounterPast, nextInvoiceNumber, parseLineItems, recordEvent } from "@/lib/invoices";
 import { invoiceBusinessData, parseBusinessInvoiceFields } from "@/lib/invoice-fields";
 import { invoiceGrandTotal, parseAmountPaid } from "@/lib/money";
 import type { ActionState } from "@/actions/auth";
@@ -203,6 +203,10 @@ export async function createPublicInvoiceAction(
         },
       },
     });
+    // A renumbered invoice claims the counter just like a fresh typed one.
+    if (number !== existingInvoice.number) {
+      await advanceCounterPast(existingInvoice.workspaceId, number);
+    }
     await recordEvent(
       existingInvoice.id,
       "edited",
@@ -241,6 +245,11 @@ export async function createPublicInvoiceAction(
       },
     },
   });
+  // A typed number never claimed the counter on its own — move it past
+  // what was just used so the next suggestion stays fresh.
+  if (requestedNumber) {
+    await advanceCounterPast(workspace.id, number);
+  }
   await recordEvent(
     invoice.id,
     "created",

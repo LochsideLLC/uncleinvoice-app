@@ -59,6 +59,7 @@ export type InlineWorkspaceResult =
         city: string | null;
         region: string | null;
         postalCode: string | null;
+        nextNumber: string;
       };
     }
   | { error: string };
@@ -109,6 +110,7 @@ export async function createWorkspaceInlineAction(
       city: workspace.city,
       region: workspace.region,
       postalCode: workspace.postalCode,
+      nextNumber: `${workspace.invoicePrefix}-${String(workspace.nextInvoiceNumber).padStart(4, "0")}`,
     },
   };
 }
