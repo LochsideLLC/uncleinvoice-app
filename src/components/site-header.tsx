@@ -52,9 +52,14 @@ export function SiteHeader({
               Upgrade
             </Link>
             {user.admin ? (
-              <Link href="/admin/sponsors" className="hover:text-ink">
-                Admin
-              </Link>
+              <>
+                <Link href="/admin/view-as" className="hover:text-ink">
+                  View as
+                </Link>
+                <Link href="/admin/sponsors" className="hover:text-ink">
+                  Admin
+                </Link>
+              </>
             ) : null}
             <form action={logoutAction}>
               <button type="submit" className="hover:text-ink">

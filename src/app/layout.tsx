@@ -1,3 +1,4 @@
+import { ViewAsBanner } from "@/components/view-as-banner";
 import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
 import { getSessionUser } from "@/lib/auth";
@@ -28,6 +29,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${fraunces.variable} ${sourceSans.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="flex min-h-full flex-col bg-background text-foreground">
+        <ViewAsBanner />
         <div id="site-chrome" className="print:hidden pt-8">
           <SiteHeader user={user} />
         </div>
