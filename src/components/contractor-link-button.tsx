@@ -57,6 +57,9 @@ export function ContractorLinkButton({
             >
               Send by text
             </a>
+            <a className="btn btn-ghost" href={link} target="_blank" rel="noopener noreferrer">
+              Open it yourself
+            </a>
           </div>
           <p className="text-xs text-muted">
             Give this to {contractorName.split(" ")[0]} however you normally reach them. It
@@ -71,6 +74,10 @@ export function ContractorLinkButton({
           <button className="btn btn-secondary" disabled={pending}>
             {pending ? "Making link…" : "Get their invoice link"}
           </button>
+          <p className="mt-2 text-xs text-muted">
+            Makes the link you give {contractorName.split(" ")[0]} — and lets you open it
+            yourself to see exactly what they will see.
+          </p>
         </form>
       )}
     </div>
