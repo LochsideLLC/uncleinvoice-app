@@ -29,8 +29,14 @@ export async function importPaymentsAction(
     return { error: error instanceof Error ? error.message : "Could not read that file." };
   }
   if (!rows.length) {
-    return { error: "No payment rows found. Need contractor_name and amount." };
+    return { error: "No invoice rows found. Need contractor_name and amount." };
   }
+
+  // Rows with a blank amount_paid follow this default: backfilling payments
+  // that already went out marks them paid, while bringing in invoices that
+  // are still owed leaves them unpaid and ready to send. An explicit
+  // amount_paid value on a row always wins over this default.
+  const defaultPaid = String(formData.get("default_paid") ?? "owed") === "paid";
 
   let created = 0;
   let skipped = 0;
@@ -61,7 +67,7 @@ export async function importPaymentsAction(
       return { error: error instanceof Error ? error.message : "Bad amount in the spreadsheet." };
     }
 
-    const amountPaid = csvRowToPaidCents(row.amountPaid, amount);
+    const amountPaid = csvRowToPaidCents(row.amountPaid, amount, defaultPaid);
 
     // Re-importing the same spreadsheet must not double the books. There is no
     // source transaction id to key on, so a row counts as already imported when

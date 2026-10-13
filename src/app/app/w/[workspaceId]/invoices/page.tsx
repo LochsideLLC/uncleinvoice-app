@@ -66,7 +66,7 @@ export default async function InvoicesPage({
   };
 
   const chip = (active: boolean) =>
-    `rounded-full px-3 py-1.5 text-sm ring-1 ring-line ${active ? "bg-ink text-paper" : "bg-paper hover:bg-paper-2"}`;
+    `rounded-full px-3 py-1.5 text-sm ring-1 ring-line ${active ? "bg-ink chip-active" : "bg-paper hover:bg-paper-2"}`;
 
   return (
     <div className="space-y-6">

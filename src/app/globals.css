@@ -138,6 +138,13 @@ a {
   color: var(--ink);
 }
 
+/* Same reason as .nav-link: on a link, the unlayered `a { color: inherit }`
+   beats Tailwind's layered `text-paper`, leaving the active filter chip with
+   ink text on an ink background. */
+.chip-active {
+  color: var(--paper);
+}
+
 input,
 textarea,
 select,
