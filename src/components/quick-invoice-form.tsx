@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState, type FormEvent } from "react";
 import { createPublicInvoiceAction } from "@/actions/public-invoice";
+import { createWorkspaceInlineAction } from "@/actions/workspaces";
 import { FormBanner } from "@/components/form-banner";
 import { UncleInvoiceCredit } from "@/components/invoice-document";
 import { PAYMENT_TERMS } from "@/lib/invoice-fields";
@@ -52,6 +53,7 @@ export function QuickInvoiceForm({
   viewToken,
   defaults,
   billToClients = [],
+  canSaveClients = false,
 }: {
   defaultFromName?: string;
   defaultFromEmail?: string;
@@ -94,6 +96,7 @@ export function QuickInvoiceForm({
     region: string | null;
     postalCode: string | null;
   }[];
+  canSaveClients?: boolean;
 }) {
   const [state, action, pending] = useActionState(createPublicInvoiceAction, null);
   const today = new Date().toISOString().slice(0, 10);
@@ -114,6 +117,11 @@ export function QuickInvoiceForm({
   const [billToRegion, setBillToRegion] = useState(defaults?.billToRegion ?? "");
   const [billToPostalCode, setBillToPostalCode] = useState(defaults?.billToPostalCode ?? "");
   const [billToClientId, setBillToClientId] = useState("");
+  const [clientOptions, setClientOptions] = useState(billToClients);
+  const [companyOpen, setCompanyOpen] = useState(false);
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [newClientError, setNewClientError] = useState<string | null>(null);
+  const [newClientName, setNewClientName] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState(defaults?.invoiceNumber ?? "");
   const [issueDate, setIssueDate] = useState(defaults?.issueDate ?? today);
   const [dueDate, setDueDate] = useState(defaults?.dueDate ?? "");
@@ -162,9 +170,27 @@ export function QuickInvoiceForm({
     if (computed) setDueDate(computed);
   }
 
+  function fillBillTo(client: {
+    name: string;
+    email: string;
+    phone: string | null;
+    addressLine: string | null;
+    city: string | null;
+    region: string | null;
+    postalCode: string | null;
+  }) {
+    setBillToName(client.name);
+    setBillToEmail(client.email);
+    setBillToPhone(formatUsPhone(client.phone ?? ""));
+    setBillToAddressLine(client.addressLine ?? "");
+    setBillToCity(client.city ?? "");
+    setBillToRegion(client.region ?? "");
+    setBillToPostalCode(client.postalCode ?? "");
+  }
+
   function pickBillToClient(id: string) {
     setBillToClientId(id);
-    const client = billToClients.find((entry) => entry.id === id);
+    const client = clientOptions.find((entry) => entry.id === id);
     if (!client) {
       setBillToName("");
       setBillToEmail("");
@@ -175,13 +201,48 @@ export function QuickInvoiceForm({
       setBillToPostalCode("");
       return;
     }
-    setBillToName(client.name);
-    setBillToEmail(client.email);
-    setBillToPhone(formatUsPhone(client.phone ?? ""));
-    setBillToAddressLine(client.addressLine ?? "");
-    setBillToCity(client.city ?? "");
-    setBillToRegion(client.region ?? "");
-    setBillToPostalCode(client.postalCode ?? "");
+    fillBillTo(client);
+  }
+
+  function matchClients(query: string) {
+    const q = query.trim().toLowerCase();
+    const scored = clientOptions.map((client) => {
+      const name = client.name.toLowerCase();
+      const email = client.email.toLowerCase();
+      if (!q) return { client, score: 0 };
+      if (name.startsWith(q)) return { client, score: 0 };
+      if (name.includes(q)) return { client, score: 1 };
+      if (email.includes(q)) return { client, score: 2 };
+      return { client, score: -1 };
+    });
+    return scored
+      .filter((entry) => entry.score >= 0)
+      .sort(
+        (a, b) => a.score - b.score || a.client.name.localeCompare(b.client.name),
+      )
+      .map((entry) => entry.client);
+  }
+
+  function openNewClient(prefill: string) {
+    setNewClientName(prefill);
+    setNewClientError(null);
+    setCompanyOpen(false);
+    setNewClientOpen(true);
+  }
+
+  async function saveNewClient(formData: FormData) {
+    const result = await createWorkspaceInlineAction(null, formData);
+    if ("error" in result) {
+      setNewClientError(result.error);
+      return;
+    }
+    // Fill from the returned record directly: clientOptions has not
+    // re-rendered yet, so looking the new id up in it would miss.
+    setClientOptions((current) => [...current, result.workspace]);
+    setBillToClientId(result.workspace.id);
+    fillBillTo(result.workspace);
+    setNewClientOpen(false);
+    setNewClientError(null);
   }
 
   function updateLine(index: number, patch: Partial<LineDraft>) {
@@ -198,6 +259,7 @@ export function QuickInvoiceForm({
   }
 
   return (
+    <>
     <form action={action} onSubmit={onSubmit} className="space-y-6">
       {invoiceId ? <input type="hidden" name="invoiceId" value={invoiceId} /> : null}
       {viewToken ? <input type="hidden" name="viewToken" value={viewToken} /> : null}
@@ -398,35 +460,105 @@ export function QuickInvoiceForm({
         <div className="grid items-start gap-8 sm:grid-cols-2">
           <div className="invoice-fields">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Bill to</p>
-            {billToClients.length ? (
-              <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-muted">
-                Saved client
-                <select
-                  id="billToClientId"
-                  aria-label="Saved client"
-                  className="invoice-input mt-1"
-                  value={billToClientId}
-                  onChange={(event) => pickBillToClient(event.target.value)}
-                >
-                  <option value="">Someone new</option>
-                  {billToClients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            <input
-              id="billToName"
-              name="billToName"
-              required
-              aria-label="Client company"
-              className="invoice-input"
-              value={billToName}
-              onChange={(event) => setBillToName(event.target.value)}
-              placeholder="Company"
-            />
+            <div className="relative">
+              <input
+                id="billToName"
+                name="billToName"
+                required
+                role={canSaveClients ? "combobox" : undefined}
+                aria-expanded={canSaveClients ? companyOpen : undefined}
+                aria-autocomplete={canSaveClients ? "list" : undefined}
+                aria-controls={canSaveClients ? "bill-to-client-list" : undefined}
+                aria-label="Client company"
+                className="invoice-input"
+                autoComplete="off"
+                value={billToName}
+                onChange={(event) => {
+                  setBillToName(event.target.value);
+                  setBillToClientId("");
+                }}
+                onFocus={() => {
+                  if (canSaveClients) setCompanyOpen(true);
+                }}
+                onClick={() => {
+                  if (canSaveClients) setCompanyOpen(true);
+                }}
+                onKeyDown={(event) => {
+                  if (!canSaveClients) return;
+                  if (event.key === "Escape") {
+                    setCompanyOpen(false);
+                  } else if (event.key === "ArrowDown" && !companyOpen) {
+                    setCompanyOpen(true);
+                  } else if (event.key === "Enter" && companyOpen) {
+                    const exact = clientOptions.find(
+                      (client) =>
+                        client.name.toLowerCase() === billToName.trim().toLowerCase(),
+                    );
+                    if (exact) {
+                      event.preventDefault();
+                      pickBillToClient(exact.id);
+                      setCompanyOpen(false);
+                    } else if (billToName.trim()) {
+                      event.preventDefault();
+                      openNewClient(billToName.trim());
+                    }
+                  }
+                }}
+                placeholder="Company"
+              />
+              {companyOpen && canSaveClients ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close customer list"
+                    className="fixed inset-0 z-10 cursor-default"
+                    onClick={() => setCompanyOpen(false)}
+                  />
+                  <div
+                    id="bill-to-client-list"
+                    role="listbox"
+                    aria-label="Customers"
+                    className="paper absolute left-0 top-full z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl p-1 text-ink shadow-lg"
+                  >
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-base font-medium normal-case tracking-normal text-accent hover:bg-background"
+                      onClick={() => openNewClient(billToName.trim())}
+                    >
+                      <span aria-hidden="true">+</span>
+                      {billToName.trim() &&
+                      !clientOptions.some(
+                        (client) =>
+                          client.name.toLowerCase() === billToName.trim().toLowerCase(),
+                      )
+                        ? `Add "${billToName.trim()}" as a new customer…`
+                        : "Add new customer…"}
+                    </button>
+                    {matchClients(billToName).map((client) => (
+                      <button
+                        key={client.id}
+                        type="button"
+                        role="option"
+                        aria-selected={billToClientId === client.id}
+                        className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-base font-normal normal-case tracking-normal hover:bg-background"
+                        onClick={() => {
+                          pickBillToClient(client.id);
+                          setCompanyOpen(false);
+                        }}
+                      >
+                        <span>{client.name}</span>
+                        <span className="truncate text-sm text-muted">{client.email}</span>
+                      </button>
+                    ))}
+                    {billToName.trim() && matchClients(billToName).length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-muted">
+                        No saved customers match — add it as new.
+                      </p>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+            </div>
             <input
               id="billToContactName"
               name="billToContactName"
@@ -819,5 +951,85 @@ export function QuickInvoiceForm({
         {pending ? "Saving…" : invoiceId ? "Save changes" : "Looks good — create it"}
       </button>
     </form>
+    {newClientOpen ? (
+      <>
+        <button
+          type="button"
+          aria-label="Close new customer"
+          className="fixed inset-0 z-20 cursor-default bg-ink/30"
+          onClick={() => setNewClientOpen(false)}
+        />
+        <div
+          role="dialog"
+          aria-label="Add a new customer"
+          className="paper fixed inset-y-0 right-0 z-30 flex w-full max-w-md flex-col gap-4 overflow-auto p-6 shadow-2xl"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setNewClientOpen(false);
+          }}
+        >
+          <div>
+            <h3 className="display text-2xl">Add a new customer</h3>
+            <p className="mt-1 text-sm text-muted">
+              Saved to your customer list, then filled straight into this invoice.
+            </p>
+          </div>
+          {newClientError ? (
+            <p className="rounded-2xl bg-red-50 px-4 py-3 text-red-900">{newClientError}</p>
+          ) : null}
+          <form action={saveNewClient} className="space-y-4">
+            <div className="field">
+              <label htmlFor="newClientName">Company</label>
+              <input
+                id="newClientName"
+                name="name"
+                required
+                autoFocus
+                defaultValue={newClientName}
+                placeholder="Acme Appliances"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="newClientEmail">Office email</label>
+              <input id="newClientEmail" name="email" type="email" required />
+            </div>
+            <div className="field">
+              <label htmlFor="newClientPhone">Phone</label>
+              <input id="newClientPhone" name="phone" />
+            </div>
+            <div className="field">
+              <label htmlFor="newClientAddressLine">Street address</label>
+              <input id="newClientAddressLine" name="addressLine" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="field">
+                <label htmlFor="newClientCity">City</label>
+                <input id="newClientCity" name="city" />
+              </div>
+              <div className="field">
+                <label htmlFor="newClientRegion">State</label>
+                <input id="newClientRegion" name="region" />
+              </div>
+              <div className="field">
+                <label htmlFor="newClientPostalCode">ZIP</label>
+                <input id="newClientPostalCode" name="postalCode" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="btn btn-primary">
+                Save customer
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setNewClientOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </>
+    ) : null}
+    </>
   );
 }

@@ -51,6 +51,7 @@ export default async function CreateInvoicePage({
         defaultFromPostalCode={draft?.fromPostalCode || user?.postalCode || ""}
         defaults={draft?.defaults}
         billToClients={billToClients}
+        canSaveClients={!!user}
       />
       <div className="mt-8">
         <W9Note />
