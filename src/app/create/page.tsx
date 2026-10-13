@@ -1,6 +1,7 @@
 import { getSessionUser } from "@/lib/auth";
 import { hashToken } from "@/lib/crypto";
 import { db } from "@/lib/db";
+import { listWorkspaces } from "@/lib/workspace";
 import { toDateInput } from "@/lib/dates";
 import { centsToDollars, invoiceGrandTotal, paymentState } from "@/lib/money";
 import { CreateAccountNudge } from "@/components/create-account-nudge";
@@ -16,6 +17,17 @@ export default async function CreateInvoicePage({
   const user = await getSessionUser();
   const { edit, token } = await searchParams;
   const draft = edit ? await loadInvoiceDraft(edit, token, user?.id) : null;
+  const memberships = user ? await listWorkspaces(user.id) : [];
+  const billToClients = memberships.map((membership) => ({
+    id: membership.workspace.id,
+    name: membership.workspace.name,
+    email: membership.workspace.email,
+    phone: membership.workspace.phone,
+    addressLine: membership.workspace.addressLine,
+    city: membership.workspace.city,
+    region: membership.workspace.region,
+    postalCode: membership.workspace.postalCode,
+  }));
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col px-5 pb-8">
@@ -38,6 +50,7 @@ export default async function CreateInvoicePage({
         defaultFromRegion={draft?.fromRegion || user?.region || ""}
         defaultFromPostalCode={draft?.fromPostalCode || user?.postalCode || ""}
         defaults={draft?.defaults}
+        billToClients={billToClients}
       />
       <div className="mt-8">
         <W9Note />

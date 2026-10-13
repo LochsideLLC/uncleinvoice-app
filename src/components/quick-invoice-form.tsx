@@ -51,6 +51,7 @@ export function QuickInvoiceForm({
   invoiceId,
   viewToken,
   defaults,
+  billToClients = [],
 }: {
   defaultFromName?: string;
   defaultFromEmail?: string;
@@ -83,6 +84,16 @@ export function QuickInvoiceForm({
     billToPostalCode?: string;
     lines?: LineDraft[];
   };
+  billToClients?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    addressLine: string | null;
+    city: string | null;
+    region: string | null;
+    postalCode: string | null;
+  }[];
 }) {
   const [state, action, pending] = useActionState(createPublicInvoiceAction, null);
   const today = new Date().toISOString().slice(0, 10);
@@ -102,10 +113,14 @@ export function QuickInvoiceForm({
   const [billToCity, setBillToCity] = useState(defaults?.billToCity ?? "");
   const [billToRegion, setBillToRegion] = useState(defaults?.billToRegion ?? "");
   const [billToPostalCode, setBillToPostalCode] = useState(defaults?.billToPostalCode ?? "");
+  const [billToClientId, setBillToClientId] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState(defaults?.invoiceNumber ?? "");
   const [issueDate, setIssueDate] = useState(defaults?.issueDate ?? today);
   const [dueDate, setDueDate] = useState(defaults?.dueDate ?? "");
   const [paymentTerms, setPaymentTerms] = useState(defaults?.paymentTerms ?? "");
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [customTermsMode, setCustomTermsMode] = useState(false);
+  const paymentTermsIsPreset = (PAYMENT_TERMS as readonly string[]).includes(paymentTerms);
   const [poNumber, setPoNumber] = useState(defaults?.poNumber ?? "");
   const [taxRate, setTaxRate] = useState(defaults?.taxRate ?? "");
   const [paymentState, setPaymentState] = useState<"unpaid" | "partial" | "paid">(
@@ -145,6 +160,28 @@ export function QuickInvoiceForm({
     setPaymentTerms(nextTerms);
     const computed = dueFromTerms(nextIssue, nextTerms);
     if (computed) setDueDate(computed);
+  }
+
+  function pickBillToClient(id: string) {
+    setBillToClientId(id);
+    const client = billToClients.find((entry) => entry.id === id);
+    if (!client) {
+      setBillToName("");
+      setBillToEmail("");
+      setBillToPhone("");
+      setBillToAddressLine("");
+      setBillToCity("");
+      setBillToRegion("");
+      setBillToPostalCode("");
+      return;
+    }
+    setBillToName(client.name);
+    setBillToEmail(client.email);
+    setBillToPhone(formatUsPhone(client.phone ?? ""));
+    setBillToAddressLine(client.addressLine ?? "");
+    setBillToCity(client.city ?? "");
+    setBillToRegion(client.region ?? "");
+    setBillToPostalCode(client.postalCode ?? "");
   }
 
   function updateLine(index: number, patch: Partial<LineDraft>) {
@@ -207,24 +244,108 @@ export function QuickInvoiceForm({
               }}
             />
           </label>
-          <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-muted">
-            Terms
-            <select
-              id="paymentTerms"
-              name="paymentTerms"
-              aria-label="Payment terms"
-              className="invoice-input mt-1"
-              value={paymentTerms}
-              onChange={(event) => applyTerms(event.target.value)}
-            >
-              <option value="">—</option>
-              {PAYMENT_TERMS.map((term) => (
-                <option key={term} value={term}>
-                  {term}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex flex-col text-xs font-semibold uppercase tracking-wide text-muted">
+            <span id="paymentTermsLabel">Terms</span>
+            <input type="hidden" name="paymentTerms" value={paymentTerms} />
+            <div className="relative">
+              <button
+                type="button"
+                aria-labelledby="paymentTermsLabel"
+                aria-haspopup="listbox"
+                aria-expanded={termsOpen}
+                className="invoice-input mt-1 flex w-full items-center justify-between gap-2 text-left normal-case tracking-normal"
+                onClick={() => {
+                  setCustomTermsMode(false);
+                  setTermsOpen((open) => !open);
+                }}
+              >
+                <span className={paymentTerms ? "text-ink" : "text-muted"}>
+                  {paymentTerms || "—"}
+                </span>
+                <span aria-hidden="true" className="text-muted">
+                  ▾
+                </span>
+              </button>
+              {termsOpen ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close payment terms"
+                    className="fixed inset-0 z-10 cursor-default"
+                    onClick={() => setTermsOpen(false)}
+                  />
+                  <div
+                    role="listbox"
+                    aria-label="Payment terms"
+                    className="paper absolute left-0 top-full z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl p-1 text-ink shadow-lg"
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") setTermsOpen(false);
+                    }}
+                  >
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={!paymentTerms}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base font-normal normal-case tracking-normal hover:bg-background"
+                      onClick={() => {
+                        applyTerms("");
+                        setTermsOpen(false);
+                      }}
+                    >
+                      —
+                    </button>
+                    {PAYMENT_TERMS.map((term) => (
+                      <button
+                        key={term}
+                        type="button"
+                        role="option"
+                        aria-selected={paymentTerms === term}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base font-normal normal-case tracking-normal hover:bg-background"
+                        onClick={() => {
+                          applyTerms(term);
+                          setTermsOpen(false);
+                        }}
+                      >
+                        {term}
+                      </button>
+                    ))}
+                    {customTermsMode ? (
+                      <input
+                        autoFocus
+                        aria-label="Custom payment terms"
+                        className="invoice-input mt-1 w-full text-base font-normal normal-case tracking-normal"
+                        placeholder="Net 90, Due Friday…"
+                        defaultValue={paymentTermsIsPreset ? "" : paymentTerms}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            applyTerms(event.currentTarget.value.trim());
+                            setCustomTermsMode(false);
+                            setTermsOpen(false);
+                          } else if (event.key === "Escape") {
+                            setCustomTermsMode(false);
+                          }
+                        }}
+                        onBlur={(event) => {
+                          const next = event.currentTarget.value.trim();
+                          if (next) applyTerms(next);
+                          setCustomTermsMode(false);
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base font-normal normal-case tracking-normal text-accent hover:bg-background"
+                        onClick={() => setCustomTermsMode(true)}
+                      >
+                        Custom…
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
           <div className="relative">
             <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-muted">
               Pay by
@@ -274,9 +395,28 @@ export function QuickInvoiceForm({
             />
           </label>
         </div>
-        <div className="grid gap-8 sm:grid-cols-2">
+        <div className="grid items-start gap-8 sm:grid-cols-2">
           <div className="invoice-fields">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Bill to</p>
+            {billToClients.length ? (
+              <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-muted">
+                Saved client
+                <select
+                  id="billToClientId"
+                  aria-label="Saved client"
+                  className="invoice-input mt-1"
+                  value={billToClientId}
+                  onChange={(event) => pickBillToClient(event.target.value)}
+                >
+                  <option value="">Someone new</option>
+                  {billToClients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <input
               id="billToName"
               name="billToName"
