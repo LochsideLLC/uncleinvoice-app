@@ -256,6 +256,13 @@ export async function contractorConfirmAction(
       confirmedByEmail: link.email,
     },
   });
+  // Spend the link. The done page and the PDF download look the token up
+  // themselves, so the contractor still gets their copy; what this stops is
+  // a confirmed invoice being reopened and edited by anyone holding the URL.
+  await db.magicLink.updateMany({
+    where: { tokenHash: hashToken(token), purpose: "invoice_review" },
+    data: { usedAt: new Date() },
+  });
   await recordEvent(
     link.invoice.id,
     "confirmed",
@@ -326,6 +333,7 @@ async function loadReviewToken(token: string) {
   if (
     !record ||
     record.purpose !== "invoice_review" ||
+    record.usedAt ||
     record.expiresAt < new Date() ||
     !record.invoice
   ) {
