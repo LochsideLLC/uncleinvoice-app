@@ -359,14 +359,8 @@ call fail. Now the transaction pooler, matching production.
 
 ### Still open for a public launch
 
-- **No email provider.** `RESEND_API_KEY` is unset, so `sendEmail`
-  (`src/lib/mail.ts`) files every message in the Outbox and sends nothing.
-  Tom has no Resend account. Note for whoever sets it up: Resend stores message
-  bodies, and the opt-out needs Pro/Scale for a month, 3,000 emails sent and
-  $50/mo — thresholds this account will not meet. A review-link email body is a
-  bearer token.
-- **`uncleinvoice.com` has no SPF, DKIM, DMARC or MX.** The domain has never
-  sent mail. Bulk signup mail from a cold domain lands in spam.
+- ~~No email provider~~ and ~~no mail DNS~~ — **BOTH DONE 2026-10-13.** See
+  the section below.
 - ~~`/privacy` and `/terms` both 404~~ **WRITTEN 2026-10-13, PR #13
   (`52ab1a5`).** Both live and 200. Written from what the code does, not from a
   template: no analytics or advertising scripts exist anywhere in `src/`, there
@@ -386,3 +380,70 @@ call fail. Now the transaction pooler, matching production.
   them signing in would see the others' payments. This is a manual stopgap, not
   a product defect — the app never adds a contractor as a member
   (`src/actions/workspaces.ts:43` only adds the creator).
+
+## Session 2026-10-13 (end) — email delivery is live (Ummon)
+
+**Uncle Invoice can send mail.** Verified end to end: a real sign-in link sent
+through the app's own `sendEmail` to `lab@bookkeepingconroe.com`, from
+`Uncle Invoice <noreply@uncleinvoice.com>`, Resend message
+`01a13311-c5d7-76fb-b599-834523aa83e9`, status **delivered**.
+
+**How it is set up.** Tom created the Resend account and a Full Access key;
+everything after that was done over the API so no DKIM value was ever
+transcribed by hand.
+
+- Domain `uncleinvoice.com` added to Resend, id
+  `9c650b0e-508a-46d4-844e-e359be7639fc`, region us-east-1. `POST /domains`
+  returns the DNS records in its response, which is what made this hands-off.
+- The four records were written into Cloudflare with the token already in
+  `.env`, by `scratchpad/cf-write.mjs`, which refuses to touch the apex or
+  `www` because those serve the website. Dry run first, then `--apply`.
+- `POST /domains/{id}/verify`, then polled: verified in about 80 seconds, all
+  four records `verified`.
+- A **DMARC** record was added on top of what Resend asked for:
+  `v=DMARC1; p=none; sp=none; aspf=r; adkim=r`. Monitor-only, so it cannot
+  break delivery, and it is what Gmail and Yahoo want to see from a sender
+  reaching strangers.
+
+Mail DNS now on the domain, which had none at all before:
+
+| name | type | value |
+|---|---|---|
+| `resend._domainkey` | TXT | DKIM public key |
+| `send` | TXT | `v=spf1 include:amazonses.com ~all` |
+| `send` | MX | `10 feedback-smtp.us-east-1.amazonses.com` |
+| `rsend` | CNAME | `send.forge.rmta.net` |
+| `_dmarc` | TXT | `v=DMARC1; p=none; …` |
+
+**Two keys, deliberately.** The onboarding key Resend hands out is send-only
+and was rejected with `401 restricted_api_key` when used to add a domain. Tom
+made a Full Access key named `setup`. That key was then used to mint a
+**separate send-only key restricted to this domain** (`POST /api-keys` with
+`permission: sending_access` and `domain_id`), id
+`7812e68c-98d5-4243-a286-ca28277f9e31`, and *that* is what sits on Netlify and
+in ripley's `.env`. Production cannot administer the Resend account, read logs
+or delete anything — it can only send from this domain.
+
+**Tom's remaining action: delete the `setup` key** at https://resend.com/api-keys.
+Nothing uses it any more.
+
+**Netlify env set:** `RESEND_API_KEY` (send-only) and
+`MAIL_FROM="Uncle Invoice <noreply@uncleinvoice.com>"`, all contexts, deployed
+`6acd95a39cd380eba7730b99`.
+
+**Worth knowing before volume grows:** Resend stores message bodies, and a
+review-link email body contains a working bearer token. Turning that storage
+off needs Pro/Scale for a month, 3,000 emails sent, under 5% bounce, and
+$50/mo — thresholds this account will not meet for a long time. Review links
+now live 7 days and die on confirmation, which limits the window, but the
+trade-off is real and should be revisited if the product grows.
+
+### Still open
+
+- **The four AAA contractor emails are still `@uncleinvoice.test`**, which
+  cannot route and are printed on each invoice PDF. Sending to them will bounce.
+  Real addresses are needed before anything goes to those contractors.
+- **Outbound to a client or contractor is still Martin's call, on Tom's
+  approval.** The capability now exists; the authority has not changed.
+- Entity (`Lochside LLC`) and governing law (`Texas`) on the legal pages are
+  still inferred, not confirmed by Tom.
