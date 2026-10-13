@@ -6,6 +6,8 @@ type SendEmailInput = {
   text: string;
   html?: string;
   link?: string;
+  replyTo?: string;
+  attachments?: { filename: string; content: Uint8Array }[];
 };
 
 export async function sendEmail(input: SendEmailInput) {
@@ -30,9 +32,18 @@ export async function sendEmail(input: SendEmailInput) {
       body: JSON.stringify({
         from: process.env.MAIL_FROM ?? "Uncle Invoice <noreply@uncleinvoice.com>",
         to: [input.to],
+        ...(input.replyTo ? { reply_to: input.replyTo } : {}),
         subject: input.subject,
         text: input.text,
         html: input.html ?? `<pre>${escapeHtml(input.text)}</pre>`,
+        ...(input.attachments?.length
+          ? {
+              attachments: input.attachments.map((file) => ({
+                filename: file.filename,
+                content: Buffer.from(file.content).toString("base64"),
+              })),
+            }
+          : {}),
       }),
     });
     if (!res.ok) {

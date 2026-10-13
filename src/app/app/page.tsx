@@ -5,6 +5,7 @@ import { getDashboardStats } from "@/lib/dashboard";
 import { listWorkspaces } from "@/lib/workspace";
 import { DashboardTabs } from "@/components/dashboard-tabs";
 import { ConfirmMyInvoices } from "@/components/confirm-my-invoices";
+import { SendToClient } from "@/components/send-to-client";
 import { db } from "@/lib/db";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
 
@@ -27,6 +28,17 @@ export default async function AppHomePage() {
     },
   });
   const waiting = mine.flatMap((c) => c.invoices);
+  const confirmed = mine.length
+    ? await db.invoice.findMany({
+        where: { contractorId: { in: mine.map((c) => c.id) }, confirmedAt: { not: null } },
+        include: { lineItems: true },
+      })
+    : [];
+  const confirmedTotal = confirmed.reduce(
+    (sum, invoice) => sum + invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps),
+    0,
+  );
+  const alreadySent = confirmed.filter((invoice) => invoice.sentAt).length;
   const waitingTotal = waiting.reduce(
     (sum, invoice) => sum + invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps),
     0,
@@ -48,6 +60,15 @@ export default async function AppHomePage() {
             region: first.region ?? "",
             postalCode: first.postalCode ?? "",
           }}
+        />
+      ) : null}
+
+      {confirmed.length > 0 && first ? (
+        <SendToClient
+          clientName={first.workspace.name}
+          count={confirmed.length}
+          total={formatMoney(confirmedTotal)}
+          alreadySent={alreadySent}
         />
       ) : null}
 

@@ -5,6 +5,10 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import type { ActionState } from "@/actions/auth";
 import type { InvoiceStatus } from "@/lib/status";
+import { buildInvoicePdf } from "@/lib/pdf";
+import { sendEmail } from "@/lib/mail";
+import { formatMoney, invoiceGrandTotal } from "@/lib/money";
+import { invoicesManifestCsv, invoicePdfName } from "@/lib/invoice-files";
 
 /**
  * A signed-in contractor confirming the invoices prepared for them.
@@ -87,5 +91,103 @@ export async function confirmMyInvoicesAction(
   return {
     ok: true,
     message: `Confirmed ${pending.length}. Download them below and email them to your client.`,
+  };
+}
+
+/**
+ * Sends the contractor's confirmed invoices to the client, as attachments,
+ * from the contractor.
+ *
+ * This replaces the contractor downloading a zip, finding it, extracting it,
+ * and composing an email with attachments — most of which is awkward or
+ * impossible on a phone, which is what these people are using. The client
+ * still receives the invoices from the contractor: she caused the send, her
+ * address is the reply-to, and it is recorded against every invoice.
+ */
+export async function sendMyInvoicesToClientAction(): Promise<ActionState> {
+  const user = await requireUser();
+
+  const contractors = await db.contractor.findMany({
+    where: { userId: user.id },
+    include: { workspace: true },
+  });
+  if (!contractors.length) return { error: "There are no invoices on this account." };
+
+  const sentAt = new Date();
+  let total = 0;
+
+  for (const contractor of contractors) {
+    const to = contractor.workspace.email;
+    if (!to) {
+      return {
+        error: `${contractor.workspace.name} has no email address on file. Tell them, and they can add it.`,
+      };
+    }
+
+    const invoices = await db.invoice.findMany({
+      where: { contractorId: contractor.id, confirmedAt: { not: null } },
+      include: { contractor: true, workspace: true, lineItems: { orderBy: { sortOrder: "asc" } } },
+      orderBy: [{ issueDate: "asc" }, { number: "asc" }],
+    });
+    if (!invoices.length) continue;
+
+    const attachments = [];
+    for (const invoice of invoices) {
+      attachments.push({
+        filename: invoicePdfName(invoice.number, invoice.contractor.name),
+        content: await buildInvoicePdf(invoice),
+      });
+    }
+    attachments.push({
+      filename: "invoices.csv",
+      content: new TextEncoder().encode(invoicesManifestCsv(invoices)),
+    });
+
+    const sum = invoices.reduce(
+      (acc, invoice) => acc + invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps),
+      0,
+    );
+
+    await sendEmail({
+      to,
+      replyTo: contractor.email ?? undefined,
+      subject: `Invoices from ${contractor.name}`,
+      text: [
+        `Hi,`,
+        "",
+        `Here are the invoices I should have sent you — ${invoices.length} of them, ${formatMoney(sum)} in total, covering the work you have already paid me for.`,
+        "",
+        `They are attached as PDFs, with a summary in invoices.csv.`,
+        "",
+        `Thanks,`,
+        contractor.name,
+      ].join("\n"),
+      attachments,
+    });
+
+    await db.invoice.updateMany({
+      where: { id: { in: invoices.map((i) => i.id) } },
+      data: { status: "sent" satisfies InvoiceStatus, sentAt, sentToEmail: to },
+    });
+    await db.invoiceEvent.createMany({
+      data: invoices.map((invoice) => ({
+        invoiceId: invoice.id,
+        type: "sent_to_client",
+        message: `Contractor sent ${invoices.length} ${
+          invoices.length === 1 ? "invoice" : "invoices"
+        } to ${to}.`,
+        actorEmail: contractor.email,
+        actorName: contractor.name,
+      })),
+    });
+    total += invoices.length;
+  }
+
+  if (!total) return { error: "Confirm your invoices first, then you can send them." };
+
+  revalidatePath("/app");
+  return {
+    ok: true,
+    message: `Sent ${total} ${total === 1 ? "invoice" : "invoices"} to your client.`,
   };
 }
