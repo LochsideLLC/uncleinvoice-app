@@ -17,9 +17,16 @@ const FILTERS = [
 
 type FilterKey = (typeof FILTERS)[number]["key"];
 
+const shortDate = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "2-digit",
+});
+
 export function InvoiceList({ invoices }: { invoices: InvoiceRow[] }) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const visible = useMemo(() => {
     return invoices.filter((inv) => {
@@ -35,8 +42,32 @@ export function InvoiceList({ invoices }: { invoices: InvoiceRow[] }) {
     });
   }, [invoices, filter, query]);
 
+  const visibleIds = useMemo(() => visible.map((inv) => inv.id), [visible]);
+  const selectedVisible = visibleIds.filter((id) => selected.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAllVisible = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+
+  const selectedTotal = invoices
+    .filter((inv) => selected.has(inv.id))
+    .reduce((sum, inv) => sum + inv.totalCents, 0);
+
   return (
-    <section className="space-y-5">
+    <section className="space-y-4">
       <div>
         <p className="text-sm uppercase tracking-widest text-muted">Invoices</p>
         <h2 className="mt-1 text-3xl">Browse &amp; filter</h2>
@@ -71,37 +102,86 @@ export function InvoiceList({ invoices }: { invoices: InvoiceRow[] }) {
       {visible.length === 0 ? (
         <p className="text-sm text-muted">No invoices match.</p>
       ) : (
-        <div className="paper overflow-hidden rounded-3xl">
-          <ul>
-            {visible.map((invoice) => (
-              <li key={invoice.id} className="border-t border-line first:border-t-0">
-                <Link
-                  href={`/invoices/view/${invoice.id}`}
-                  className="flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 hover:bg-paper-2"
+        <form action="/api/invoices/zip" method="post" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleAllVisible}
+                aria-label="Select all shown"
+              />
+              <span>
+                Select all {visible.length} shown
+                {selected.size > 0 ? ` · ${selected.size} selected, ${formatMoney(selectedTotal)}` : ""}
+              </span>
+            </label>
+            {selected.size > 0 ? (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  className="text-sm text-muted underline underline-offset-2"
                 >
-                  <div>
-                    <p className="font-medium">
-                      {invoice.number}
-                      <span className="text-muted"> · {invoice.clientName}</span>
-                    </p>
-                    <p className="text-sm text-muted">
-                      {invoice.isPaid
-                        ? "Paid"
-                        : (STATUS_LABEL[invoice.status as InvoiceStatus] ?? invoice.status)}
-                    </p>
-                  </div>
-                  <p className="text-sm font-semibold">
-                    {invoice.isPaid
-                      ? formatMoney(invoice.totalCents)
-                      : invoice.dueCents > 0
-                      ? `${formatMoney(invoice.dueCents)} due`
-                      : formatMoney(invoice.totalCents)}
-                  </p>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+                  Clear
+                </button>
+                <button className="btn btn-primary">
+                  Download {selected.size} as ZIP
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {[...selected].map((id) => (
+            <input key={id} type="hidden" name="id" value={id} />
+          ))}
+
+          <div className="paper overflow-hidden rounded-2xl">
+            <ul className="divide-y divide-line">
+              {visible.map((invoice) => {
+                const isSelected = selected.has(invoice.id);
+                return (
+                  <li
+                    key={invoice.id}
+                    className={`flex items-center gap-3 px-4 ${isSelected ? "bg-paper-2" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggle(invoice.id)}
+                      aria-label={`Select ${invoice.number}`}
+                      className="shrink-0"
+                    />
+                    <Link
+                      href={`/invoices/view/${invoice.id}`}
+                      className="flex min-w-0 flex-1 items-center gap-3 py-2 text-sm hover:text-ink"
+                    >
+                      <span className="w-[4.75rem] shrink-0 font-medium tabular-nums">
+                        {invoice.number}
+                      </span>
+                      <span className="w-[5.5rem] shrink-0 text-muted tabular-nums">
+                        {shortDate.format(new Date(invoice.issueDate))}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-muted">
+                        {invoice.clientName}
+                      </span>
+                      <span className="w-20 shrink-0 text-right text-muted">
+                        {invoice.isPaid
+                          ? "Paid"
+                          : (STATUS_LABEL[invoice.status as InvoiceStatus] ?? invoice.status)}
+                      </span>
+                      <span className="w-24 shrink-0 text-right font-semibold tabular-nums">
+                        {invoice.isPaid || invoice.dueCents === 0
+                          ? formatMoney(invoice.totalCents)
+                          : `${formatMoney(invoice.dueCents)} due`}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </form>
       )}
     </section>
   );
