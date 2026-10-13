@@ -65,6 +65,10 @@ export function parseLineItems(formData: FormData): LineInput[] {
 
 export const REVIEW_LINK_DAYS = 7;
 
+// A contractor link has to survive the client forwarding it on, so it lives
+// longer than a single-invoice review link.
+export const CONTRACTOR_LINK_DAYS = 30;
+
 export async function createReviewLink(invoiceId: string, email: string) {
   const token = createToken();
   await db.magicLink.create({
@@ -80,6 +84,41 @@ export async function createReviewLink(invoiceId: string, email: string) {
     },
   });
   return `${APP_URL}/review/${token}`;
+}
+
+/**
+ * One link covering everything a contractor was paid, rather than one link per
+ * invoice. A cleaner with 65 payments is never going to open 65 links.
+ *
+ * The client passes this link to their own contractor however they already
+ * reach them, so we never need to hold the contractor's email or phone.
+ */
+export async function createContractorLink(contractorId: string, email: string) {
+  const token = createToken();
+  await db.magicLink.create({
+    data: {
+      tokenHash: hashToken(token),
+      purpose: "contractor_invoices",
+      email,
+      contractorId,
+      expiresAt: new Date(Date.now() + CONTRACTOR_LINK_DAYS * 24 * 60 * 60 * 1000),
+    },
+  });
+  return `${APP_URL}/c/${token}`;
+}
+
+export async function currentContractorLink(contractorId: string, email: string) {
+  const existing = await db.magicLink.findFirst({
+    where: {
+      contractorId,
+      purpose: "contractor_invoices",
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  if (existing) return null;
+  return createContractorLink(contractorId, email);
 }
 
 export async function sendForReview(invoiceId: string, actor: { email: string; name: string }) {

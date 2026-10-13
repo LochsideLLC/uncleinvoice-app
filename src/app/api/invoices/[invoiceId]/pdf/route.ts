@@ -23,7 +23,7 @@ export async function GET(
 
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
-  const allowed = await canDownload(invoice.id, invoice.workspaceId, token);
+  const allowed = await canDownload(invoice.id, invoice.workspaceId, invoice.contractorId, token);
   if (!allowed) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -38,18 +38,31 @@ export async function GET(
   });
 }
 
-async function canDownload(invoiceId: string, workspaceId: string, token: string | null) {
+async function canDownload(
+  invoiceId: string,
+  workspaceId: string,
+  contractorId: string,
+  token: string | null,
+) {
   if (token) {
     const record = await db.magicLink.findUnique({
       where: { tokenHash: hashToken(token) },
     });
-    if (
-      record &&
-      record.invoiceId === invoiceId &&
-      record.expiresAt >= new Date() &&
-      (record.purpose === "invoice_view" || record.purpose === "invoice_review")
-    ) {
-      return true;
+    if (record && record.expiresAt >= new Date()) {
+      // A single-invoice link opens that invoice.
+      if (
+        record.invoiceId === invoiceId &&
+        (record.purpose === "invoice_view" || record.purpose === "invoice_review")
+      ) {
+        return true;
+      }
+      // A contractor link opens any invoice belonging to that contractor.
+      if (
+        record.purpose === "contractor_invoices" &&
+        record.contractorId === contractorId
+      ) {
+        return true;
+      }
     }
   }
 

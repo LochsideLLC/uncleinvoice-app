@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/workspace";
 import { parseDate } from "@/lib/dates";
 import {
+  createContractorLink,
   createReviewLink,
   nextInvoiceNumber,
   parseLineItems,
@@ -340,4 +341,87 @@ async function loadReviewToken(token: string) {
     return { error: "This review link is invalid or has expired." };
   }
   return { email: record.email, invoice: record.invoice };
+}
+
+/**
+ * Confirms every unconfirmed invoice behind a contractor link in one go.
+ *
+ * A cleaner paid 65 times is not going to open 65 forms, and a confirmation
+ * nobody finishes documents nothing. The attestation names the count and the
+ * total so what is being confirmed is explicit, and it is recorded against
+ * each invoice individually so the client's books still carry a per-invoice
+ * record of who confirmed it and when.
+ */
+export async function contractorConfirmAllAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const token = String(formData.get("token") ?? "");
+  if (formData.get("attest") !== "on") {
+    return { error: "Tick the box to confirm these invoices are accurate." };
+  }
+
+  const record = await db.magicLink.findUnique({
+    where: { tokenHash: hashToken(token) },
+    include: { contractor: { include: { workspace: true } } },
+  });
+  if (
+    !record ||
+    record.purpose !== "contractor_invoices" ||
+    record.expiresAt < new Date() ||
+    !record.contractor
+  ) {
+    return { error: "This link is invalid or has expired." };
+  }
+
+  const pending = await db.invoice.findMany({
+    where: { contractorId: record.contractor.id, confirmedAt: null },
+    select: { id: true },
+  });
+  if (!pending.length) return { error: "These invoices are already confirmed." };
+
+  const confirmedAt = new Date();
+  await db.invoice.updateMany({
+    where: { id: { in: pending.map((invoice) => invoice.id) } },
+    data: {
+      status: "confirmed" satisfies InvoiceStatus,
+      confirmedAt,
+      confirmedByEmail: record.email,
+    },
+  });
+  await db.invoiceEvent.createMany({
+    data: pending.map((invoice) => ({
+      invoiceId: invoice.id,
+      type: "confirmed",
+      message: `Contractor confirmed ${pending.length} ${
+        pending.length === 1 ? "invoice" : "invoices"
+      } as accurate.`,
+      actorEmail: record.email,
+      actorName: record.contractor!.name,
+    })),
+  });
+
+  revalidatePath(`/c/${token}`);
+  return { ok: true, message: `Confirmed ${pending.length}.` };
+}
+
+/**
+ * Mints the link a client hands to one of their contractors.
+ * Returns the URL in `message` so the caller can show and copy it.
+ */
+export async function contractorLinkAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const workspaceId = String(formData.get("workspaceId") ?? "");
+  const contractorId = String(formData.get("contractorId") ?? "");
+  await requireWorkspace(workspaceId);
+
+  const contractor = await db.contractor.findFirst({
+    where: { id: contractorId, workspaceId },
+  });
+  if (!contractor) return { error: "That contractor is not on this client." };
+
+  const link = await createContractorLink(contractor.id, contractor.email ?? "");
+  return { ok: true, message: link };
 }
