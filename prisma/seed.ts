@@ -1,19 +1,55 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 
 const db = new PrismaClient();
 
+/**
+ * Refuse to seed anything that is not a local database.
+ *
+ * On 2026-10-13 this seed's account was found live on production, still
+ * carrying the password that was written down in the public README and still
+ * flagged as a site admin. Anyone who read the repository could have signed in
+ * to uncleinvoice.com as an administrator. Set ALLOW_REMOTE_SEED=1 if you
+ * genuinely mean to seed a remote database.
+ */
+function assertLocalDatabase() {
+  if (process.env.ALLOW_REMOTE_SEED === "1") return;
+  const url = process.env.DATABASE_URL ?? "";
+  let host = "";
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    host = "";
+  }
+  const local = ["localhost", "127.0.0.1", "::1", "db", "postgres"];
+  if (!local.includes(host)) {
+    console.error(
+      `Refusing to seed: DATABASE_URL points at "${host || "an unparseable URL"}", not a local database.\n` +
+        "Seeding writes a known demo account. Set ALLOW_REMOTE_SEED=1 only if you really mean it.",
+    );
+    process.exit(1);
+  }
+}
+
 async function main() {
-  const passwordHash = await bcrypt.hash("demo1234", 12);
+  assertLocalDatabase();
+
+  // Never a fixed password: a hard-coded one ends up written down, and what is
+  // written down ends up in a public repository.
+  const password = process.env.SEED_PASSWORD || randomBytes(9).toString("base64url");
+  const passwordHash = await bcrypt.hash(password, 12);
 
   const bookkeeper = await db.user.upsert({
     where: { email: "ada@ledgerandco.test" },
-    update: { passwordHash, name: "Ada Mensah", admin: true },
+    update: { passwordHash, name: "Ada Mensah", admin: false },
     create: {
       email: "ada@ledgerandco.test",
       name: "Ada Mensah",
       passwordHash,
-      admin: true,
+      // A demo bookkeeper does not need site-admin, and granting it here is
+      // how a seeded account ended up administering production.
+      admin: false,
     },
   });
 
@@ -223,7 +259,8 @@ async function main() {
   });
 
   console.log("Seeded Uncle Invoice demo.");
-  console.log("  Bookkeeper: ada@ledgerandco.test / demo1234");
+  console.log(`  Bookkeeper: ada@ledgerandco.test / ${password}`);
+  console.log("  (generated fresh for this seed run; it is not stored anywhere else)");
   console.log("  Client: Sunrise Cleaning Co.");
   console.log(`  Review sample invoice: /app/w/${workspace.id}/invoices/${march.id}`);
 }
