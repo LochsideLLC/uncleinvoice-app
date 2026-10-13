@@ -74,9 +74,17 @@ export async function requireAdmin() {
   return user;
 }
 
-export function safeNext(raw: string, admin: boolean) {
+/**
+ * Where to land after signing in.
+ *
+ * Everyone lands on /app. Site admins used to be sent to /admin, which is the
+ * sponsor editor and has nothing to do with their own clients and invoices —
+ * signing in dropped them somewhere they had not asked to go. /admin is still
+ * one click away in the header for those who have it.
+ */
+export function safeNext(raw: string) {
   if (raw.startsWith("/") && !raw.startsWith("//")) return raw;
-  return admin ? "/admin" : "/app";
+  return "/app";
 }
 
 export { SESSION_COOKIE };

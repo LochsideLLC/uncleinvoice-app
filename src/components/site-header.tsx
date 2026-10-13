@@ -51,6 +51,11 @@ export function SiteHeader({
             <Link href="/app/profile#upgrade" className="hover:text-ink">
               Upgrade
             </Link>
+            {user.admin ? (
+              <Link href="/admin/sponsors" className="hover:text-ink">
+                Admin
+              </Link>
+            ) : null}
             <form action={logoutAction}>
               <button type="submit" className="hover:text-ink">
                 Sign Out

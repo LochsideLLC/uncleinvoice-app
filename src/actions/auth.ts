@@ -107,7 +107,7 @@ export async function loginAction(
     return { error: "That email and password do not match." };
   }
   await createSession(user.id);
-  redirect(safeNext(String(formData.get("next") ?? ""), user.admin));
+  redirect(safeNext(String(formData.get("next") ?? "")));
 }
 
 export async function logoutAction() {
@@ -167,7 +167,7 @@ export async function consumeLoginToken(token: string) {
   // /auth/verify route handler, which builds its own clean redirect: a
   // relative redirect from here would keep the request's query string, and
   // that query string contains the sign-in token.
-  return { to: safeNext("", user.admin) };
+  return { to: safeNext("") };
 }
 
 export async function setPasswordAction(

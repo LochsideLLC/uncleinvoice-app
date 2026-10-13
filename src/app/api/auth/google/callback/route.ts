@@ -54,5 +54,5 @@ export async function GET(request: Request) {
 
   const user = await findOrCreateGoogleUser(profile);
   await createSession(user.id);
-  redirect(safeNext(stored.next, user.admin));
+  redirect(safeNext(stored.next));
 }
