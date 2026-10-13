@@ -12,6 +12,9 @@ export default async function HomePage() {
           <h1 className="text-4xl leading-[1.12] text-ink sm:text-5xl">
             Create invoices for free
           </h1>
+          <p className="mt-4 text-lg text-muted">
+            Then send them to your customers and clients.
+          </p>
           <Link href="/create" className="btn btn-primary btn-hero mt-10">
             Create Invoice
           </Link>
