@@ -23,6 +23,18 @@ const shortDate = new Intl.DateTimeFormat("en-US", {
   year: "2-digit",
 });
 
+// One workflow word is never the whole story: a confirmed invoice may never
+// have been sent, and a sent one went out on a specific day. Viewed tracking
+// does not exist yet, so the row says what is known.
+function rowStatus(invoice: InvoiceRow): string {
+  if (invoice.isPaid) return "Paid";
+  if (invoice.status === "sent") {
+    return invoice.sentAt ? `Sent ${shortDate.format(new Date(invoice.sentAt))}` : "Sent";
+  }
+  if (invoice.status === "confirmed") return "Confirmed · Not sent";
+  return STATUS_LABEL[invoice.status as InvoiceStatus] ?? invoice.status;
+}
+
 export function InvoiceList({ invoices }: { invoices: InvoiceRow[] }) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
@@ -165,10 +177,8 @@ export function InvoiceList({ invoices }: { invoices: InvoiceRow[] }) {
                       <span className="min-w-0 flex-1 truncate text-muted">
                         {invoice.clientName}
                       </span>
-                      <span className="w-20 shrink-0 text-right text-muted">
-                        {invoice.isPaid
-                          ? "Paid"
-                          : (STATUS_LABEL[invoice.status as InvoiceStatus] ?? invoice.status)}
+                      <span className="w-36 shrink-0 text-right text-muted">
+                        {rowStatus(invoice)}
                       </span>
                       <span className="w-24 shrink-0 text-right font-semibold tabular-nums">
                         {invoice.isPaid || invoice.dueCents === 0
