@@ -14,7 +14,7 @@
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
     "stack": "docker compose up --build",
     "datastore:test": "node scripts/datastore.mjs test",
