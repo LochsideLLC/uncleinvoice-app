@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AttachmentPanel } from "@/components/attachment-panel";
 import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/workspace";
 import { formatDate } from "@/lib/dates";
@@ -23,6 +24,10 @@ export default async function InvoiceDetailPage({
       workspace: true,
       lineItems: { orderBy: { sortOrder: "asc" } },
       events: { orderBy: { createdAt: "desc" } },
+      attachments: {
+        orderBy: { createdAt: "asc" },
+        select: { id: true, label: true, filename: true, contentType: true, byteSize: true },
+      },
     },
   });
   if (!invoice) notFound();
@@ -143,6 +148,12 @@ export default async function InvoiceDetailPage({
               </Link>
             </div>
           )}
+
+          <AttachmentPanel
+            workspaceId={workspaceId}
+            invoiceId={invoice.id}
+            attachments={invoice.attachments}
+          />
 
           <div className="paper rounded-3xl p-6">
             <h3 className="text-xl">Activity</h3>
