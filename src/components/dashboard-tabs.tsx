@@ -11,9 +11,12 @@ type Membership = Awaited<ReturnType<typeof listWorkspaces>>[number];
 export function DashboardTabs({
   stats,
   memberships,
+  clientLimitReached,
 }: {
   stats: DashboardStatsType;
   memberships: Membership[];
+  /** True when their plan keeps one client and they already have it. */
+  clientLimitReached?: boolean;
 }) {
   const [tab, setTab] = useState<"invoices" | "clients">("invoices");
 
@@ -59,13 +62,30 @@ export function DashboardTabs({
             <h2 className="mt-1 text-3xl">Who are we closing this month?</h2>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Link href="/app/workspaces/new" className="btn btn-secondary w-full">
-              Add a client
-            </Link>
+            {clientLimitReached ? (
+              // The offer belongs where the limit is felt, not only on the
+              // pricing page they have no reason to open.
+              <Link href="/app/profile#upgrade" className="btn btn-secondary w-full">
+                Add a client — needs Bookkeeper
+              </Link>
+            ) : (
+              <Link href="/app/workspaces/new" className="btn btn-secondary w-full">
+                Add a client
+              </Link>
+            )}
             <Link href="/app/profile" className="btn btn-secondary w-full">
               Update Profile / Business Info
             </Link>
           </div>
+          {clientLimitReached ? (
+            <p className="text-sm text-muted">
+              Your plan keeps one client. Bookkeeper keeps as many as you do —{" "}
+              <Link href="/app/profile#upgrade" className="text-ink underline">
+                see the plans
+              </Link>
+              .
+            </p>
+          ) : null}
           {memberships.length === 0 ? (
             <div className="paper rounded-3xl p-8">
               <h3 className="text-2xl">No clients yet</h3>
