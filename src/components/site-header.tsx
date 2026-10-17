@@ -2,6 +2,7 @@ import Link from "next/link";
 import { logoutAction } from "@/actions/auth";
 import { AccountMenu } from "@/components/account-menu";
 import { UncleStamp } from "@/components/brand-mark";
+import { isPaidPlan } from "@/lib/plan";
 
 const navLink =
   "nav-link whitespace-nowrap rounded-lg px-2.5 py-2 text-detail font-medium";
@@ -11,6 +12,7 @@ export function SiteHeader({
 }: {
   user?: {
     admin?: boolean;
+    plan?: string | null;
     name?: string;
     businessLogoUrl?: string | null;
     businessWordmarkUrl?: string | null;
@@ -31,7 +33,16 @@ export function SiteHeader({
             <Link href="/app" className={navLink}>
               Dashboard
             </Link>
-            <Link href="/app/profile#upgrade" className={`${navLink} hidden sm:inline-flex`}>
+            <Link
+              href="/app/profile#upgrade"
+              className={
+                isPaidPlan(user.plan)
+                  ? `${navLink} hidden sm:inline-flex`
+                  // Free accounts get a link that reads as an offer rather
+                  // than as one more word in the navigation.
+                  : `${navLink} hidden rounded-full border border-ink/25 bg-[#f3dcc0] text-[#7a3a22] sm:inline-flex`
+              }
+            >
               Upgrade
             </Link>
             {user.admin ? (

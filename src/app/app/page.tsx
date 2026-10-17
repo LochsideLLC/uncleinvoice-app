@@ -6,6 +6,8 @@ import { listWorkspaces } from "@/lib/workspace";
 import { DashboardTabs } from "@/components/dashboard-tabs";
 import { ConfirmMyInvoices } from "@/components/confirm-my-invoices";
 import { SendToClient } from "@/components/send-to-client";
+import { UpgradeNudge } from "@/components/upgrade-nudge";
+import { workspaceLimit } from "@/lib/plan";
 import { db } from "@/lib/db";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
 
@@ -77,7 +79,12 @@ export default async function AppHomePage() {
           Create Invoice
         </Link>
       </div>
-      <DashboardTabs stats={stats} memberships={memberships} />
+      <DashboardTabs
+        stats={stats}
+        memberships={memberships}
+        clientLimitReached={memberships.length >= workspaceLimit(user.plan)}
+      />
+      <UpgradeNudge plan={user.plan} />
     </div>
   );
 }
