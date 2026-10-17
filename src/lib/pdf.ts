@@ -1,5 +1,6 @@
 import { PDFDocument, PDFString, StandardFonts, rgb } from "pdf-lib";
 import { formatDate } from "@/lib/dates";
+import { invoiceShowsBrand } from "@/lib/invoice-branding";
 import {
   amountDue,
   formatMoney,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/money";
 
 type PdfInvoice = {
+  seededByUserId?: string | null;
   showBrand?: boolean;
   number: string;
   issueDate: Date;
@@ -44,6 +46,7 @@ type PdfInvoice = {
     taxId?: string | null;
   };
   contractor: {
+    userId?: string | null;
     name: string;
     email: string | null;
     phone: string | null;
@@ -80,6 +83,7 @@ function pdfSafe(value: string): string {
 }
 
 export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
+  const showBrand = invoice.showBrand ?? await invoiceShowsBrand(invoice);
   const doc = await PDFDocument.create();
   const page = doc.addPage([612, 792]);
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -279,7 +283,7 @@ export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     );
   }
 
-  if (invoice.showBrand !== false) {
+  if (showBrand) {
     const site = "uncleinvoice.com";
     const tag = "Generate free invoices";
     const siteWidth = bold.widthOfTextAtSize(site, 10);

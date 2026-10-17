@@ -5,18 +5,19 @@ import Link from "next/link";
 import { DashboardStats } from "@/components/dashboard-stats";
 import type { DashboardStats as DashboardStatsType } from "@/lib/dashboard";
 import type { listWorkspaces } from "@/lib/workspace";
+import { canBulkDownload, asPlan } from "@/lib/plan";
+import { UpgradeOffer } from "@/components/upgrade-offer";
 
 type Membership = Awaited<ReturnType<typeof listWorkspaces>>[number];
 
 export function DashboardTabs({
   stats,
   memberships,
-  clientLimitReached,
+  plan,
 }: {
   stats: DashboardStatsType;
   memberships: Membership[];
-  /** True when their plan keeps one client and they already have it. */
-  clientLimitReached?: boolean;
+  plan: string;
 }) {
   const [tab, setTab] = useState<"invoices" | "clients">("invoices");
 
@@ -47,51 +48,32 @@ export function DashboardTabs({
                   : { color: "var(--muted)" }
               }
             >
-              {t === "invoices" ? "Invoices" : "Clients"}
+              {t === "invoices" ? "Invoices" : "Customers & clients"}
             </button>
           ))}
         </div>
       </div>
 
       {tab === "invoices" ? (
-        <DashboardStats stats={stats} />
+        <DashboardStats stats={stats} canDownloadBulk={canBulkDownload(plan)} />
       ) : (
         <div className="space-y-4">
           <div>
-            <p className="text-sm uppercase tracking-widest text-muted">Your clients</p>
-            <h2 className="mt-1 text-3xl">Who are we closing this month?</h2>
+            <p className="text-sm uppercase tracking-widest text-muted">Customers &amp; clients</p>
+            <h2 className="mt-1 text-3xl">The businesses you work with</h2>
+            <p className="mt-2 text-sm text-muted">Save the customers you bill on any plan. Bookkeeper adds tools for preparing invoices from your clients&rsquo; books.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {clientLimitReached ? (
-              // The offer belongs where the limit is felt, not only on the
-              // pricing page they have no reason to open.
-              <Link href="/app/profile#upgrade" className="btn btn-secondary w-full">
-                Add a client — needs Bookkeeper
-              </Link>
-            ) : (
-              <Link href="/app/workspaces/new" className="btn btn-secondary w-full">
-                Add a client
-              </Link>
-            )}
-            <Link href="/app/profile" className="btn btn-secondary w-full">
-              Update Profile / Business Info
+            <Link href="/app/workspaces/new" className="btn btn-secondary w-full">
+              Add a customer or client
             </Link>
+            {asPlan(plan) === "bookkeeper" ? <Link href="/app/workspaces/new" className="btn btn-secondary w-full">Set up a client&rsquo;s books</Link> : <UpgradeOffer feature="clients">Explore Bookkeeper</UpgradeOffer>}
           </div>
-          {clientLimitReached ? (
-            <p className="text-sm text-muted">
-              Your plan keeps one client. Bookkeeper keeps as many as you do —{" "}
-              <Link href="/app/profile#upgrade" className="text-ink underline">
-                see the plans
-              </Link>
-              .
-            </p>
-          ) : null}
           {memberships.length === 0 ? (
             <div className="paper rounded-3xl p-8">
-              <h3 className="text-2xl">No clients yet</h3>
+              <h3 className="text-2xl">No businesses saved yet</h3>
               <p className="mt-2 max-w-xl text-muted">
-                Add the business you keep the books for. Then add their contractors and seed
-                the invoices you already know should exist.
+                Add a customer you bill, or a business you keep books for. Their details will be ready the next time you write an invoice.
               </p>
             </div>
           ) : (

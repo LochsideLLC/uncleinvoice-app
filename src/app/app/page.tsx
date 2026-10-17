@@ -6,8 +6,7 @@ import { listWorkspaces } from "@/lib/workspace";
 import { DashboardTabs } from "@/components/dashboard-tabs";
 import { ConfirmMyInvoices } from "@/components/confirm-my-invoices";
 import { SendToClient } from "@/components/send-to-client";
-import { UpgradeNudge } from "@/components/upgrade-nudge";
-import { workspaceLimit } from "@/lib/plan";
+import { UpgradeHint } from "@/components/upgrade-hint";
 import { db } from "@/lib/db";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
 
@@ -82,9 +81,9 @@ export default async function AppHomePage() {
       <DashboardTabs
         stats={stats}
         memberships={memberships}
-        clientLimitReached={memberships.length >= workspaceLimit(user.plan)}
+        plan={user.plan}
       />
-      <UpgradeNudge plan={user.plan} />
+      {stats.sentCount > 0 && waiting.length === 0 && confirmed.length === 0 && <UpgradeHint plan={user.plan} userId={user.id} />}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { logoutAction } from "@/actions/auth";
 import { AccountMenu } from "@/components/account-menu";
 import { UncleStamp } from "@/components/brand-mark";
-import { isPaidPlan } from "@/lib/plan";
+import { asPlan } from "@/lib/plan";
 
 const navLink =
   "nav-link whitespace-nowrap rounded-lg px-2.5 py-2 text-detail font-medium";
@@ -20,7 +20,7 @@ export function SiteHeader({
 }) {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-background/90 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-5">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-5">
         <Link href="/" className="brand-home flex shrink-0 items-center gap-2.5">
           <UncleStamp className="h-9 w-9 shrink-0" />
           <span className="display hidden whitespace-nowrap text-xl leading-none xs:inline">
@@ -34,16 +34,10 @@ export function SiteHeader({
               Dashboard
             </Link>
             <Link
-              href="/app/profile#upgrade"
-              className={
-                isPaidPlan(user.plan)
-                  ? `${navLink} hidden sm:inline-flex`
-                  // Free accounts get a link that reads as an offer rather
-                  // than as one more word in the navigation.
-                  : `${navLink} hidden rounded-full border border-ink/25 bg-[#f3dcc0] text-[#7a3a22] sm:inline-flex`
-              }
+              href="/app/plans"
+              className={navLink}
             >
-              Upgrade
+              {asPlan(user.plan) === "bookkeeper" ? "Your plan" : "Plans"}
             </Link>
             {user.admin ? (
               <>
@@ -59,7 +53,7 @@ export function SiteHeader({
               </>
             ) : null}
             <form action={logoutAction}>
-              <button type="submit" className={navLink}>
+              <button type="submit" className={`${navLink} hidden sm:inline-flex`}>
                 Sign out
               </button>
             </form>

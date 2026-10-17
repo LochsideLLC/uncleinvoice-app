@@ -11,12 +11,11 @@ export default function NewWorkspacePage() {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <Link href="/app" className="text-sm text-muted">
-        ← All clients
+        ← Customers &amp; clients
       </Link>
-      <h1 className="text-3xl">Add a client</h1>
+      <h1 className="text-3xl">Add a customer or client</h1>
       <p className="text-muted">
-        This is the business that paid the contractors. Finished invoices will be emailed
-        here.
+        Save a business you bill or keep books for. Use the email that should receive its invoices. Saving a business does not send anything.
       </p>
       <form action={action} className="paper space-y-4 rounded-3xl p-6">
         <FormBanner state={state} />
@@ -51,7 +50,7 @@ export default function NewWorkspacePage() {
           </div>
         </div>
         <button className="btn btn-primary" disabled={pending}>
-          Save client
+          Save business
         </button>
       </form>
     </div>
