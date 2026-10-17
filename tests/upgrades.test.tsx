@@ -6,12 +6,15 @@ import { state } from "./fixtures/upgrade-data";
 import { createWorkspaceInlineAction, createWorkspaceAction } from "@/actions/workspaces";
 import { invoiceShowsBrand } from "@/lib/invoice-branding";
 import { buildInvoicePdf } from "@/lib/pdf";
-import { asPlan, canImportInvoices, canAttachDocuments, canBulkDownload, canUseContractorLinks } from "@/lib/plan";
-import { requestPlanHref, canRequestPlan, upgradeHref } from "@/lib/upgrade";
+import { PLAN_LABEL, asPaidPlan, asPlan, canImportInvoices, canAttachDocuments, canBulkDownload, canUseContractorLinks, monthlyPrice } from "@/lib/plan";
+import { canRequestPlan, upgradeHref } from "@/lib/upgrade";
+import { applyStripeEvent } from "@/lib/stripe-webhook";
+import { checkoutLineItem, stripeTestSecretKey } from "@/lib/stripe";
+import type Stripe from "stripe";
 import PlansPage from "@/app/app/plans/page";
 import ImportPage from "@/app/app/w/[workspaceId]/import/page";
 
-beforeEach(() => { state.plan = "free"; state.signedIn = true; state.creates = 0; state.paidIds.clear(); state.archivedIds.clear(); });
+beforeEach(() => { state.plan = "free"; state.planSetAt = null; state.planUpdates = 0; state.signedIn = true; state.creates = 0; state.paidIds.clear(); state.archivedIds.clear(); });
 
 const customer = () => { const data = new FormData(); data.set("name", "Sample customer"); data.set("email", "customer@example.test"); return data; };
 
@@ -35,12 +38,15 @@ for (const plan of ["free", "invoice", "bookkeeper"]) {
     assert.equal(markup.includes('type="file"'), plan === "bookkeeper");
     assert.equal(markup.includes("Included with Bookkeeper"), plan !== "bookkeeper");
   });
-  test(`${plan}: plans page offers only higher tiers and explains email requests`, async () => {
+  test(`${plan}: plans page offers only higher tiers through test checkout`, async () => {
     state.plan = plan;
     const markup = renderToStaticMarkup(await PlansPage({ searchParams: Promise.resolve({ feature: "import" }) }));
-    assert.equal(markup.includes("Request Invoice"), plan === "free");
-    assert.equal(markup.includes("Request Bookkeeper"), plan !== "bookkeeper");
-    assert.match(markup, /No payment is taken here/);
+    assert.equal(markup.includes("Choose Invoice"), plan === "free");
+    assert.equal(markup.includes(`Choose ${PLAN_LABEL.bookkeeper}`), plan !== "bookkeeper");
+    assert.match(markup, /Stripe Checkout is in test mode/);
+    assert.match(markup, /\$5\/mo/);
+    assert.match(markup, /\$29\/mo/);
+    assert.equal(markup.includes('action="/api/stripe/checkout"'), plan !== "bookkeeper");
     assert.match(markup, /Save as many billing customers/);
   });
 }
@@ -59,16 +65,51 @@ test("unknown plans get no paid privileges", () => {
   assert.equal(canBulkDownload("enterprise"), false);
 });
 
-test("request links name the plan and contain no invoice or account data", () => {
-  for (const plan of ["invoice", "bookkeeper"] as const) {
-    const url = new URL(requestPlanHref(plan));
-    assert.equal(url.protocol, "mailto:");
-    assert.equal(url.pathname, "info@bookkeepingconroe.com");
-    assert.match(url.searchParams.get("body")!, /Please send me pricing/);
-    assert.doesNotMatch(url.href, /sample-user|customer@example/);
-  }
+test("checkout tiers and prices are fixed on the server", () => {
+  assert.equal(asPaidPlan("invoice"), "invoice");
+  assert.equal(asPaidPlan("bookkeeper"), "bookkeeper");
+  assert.equal(asPaidPlan("free"), null);
+  assert.equal(asPaidPlan("enterprise"), null);
+  assert.equal(monthlyPrice("invoice"), "$5/mo");
+  assert.equal(monthlyPrice("bookkeeper"), "$29/mo");
+  const item = checkoutLineItem("bookkeeper");
+  assert.equal(item.price_data?.unit_amount, 2900);
+  assert.equal(item.price_data?.product_data?.name, `Uncle Invoice ${PLAN_LABEL.bookkeeper}`);
+  assert.throws(() => stripeTestSecretKey(), /STRIPE_SECRET_KEY is not configured/);
+  assert.throws(() => stripeTestSecretKey("sk_live_not-a-real-key"), /must be a Stripe test-mode key/);
+  assert.equal(stripeTestSecretKey("sk_test_not-a-real-key"), "sk_test_not-a-real-key");
   assert.equal(canRequestPlan("bookkeeper", "invoice"), false);
   assert.equal(upgradeHref("import"), "/app/plans?feature=import#matrix");
+});
+
+test("only a paid, fixed-price Stripe event grants a plan, and a lapse removes it", async () => {
+  const checkout = (amount: number, plan = "invoice") => ({
+    type: "checkout.session.completed",
+    created: 1_800_000_000,
+    data: { object: {
+      client_reference_id: "sample-user",
+      metadata: { userId: "sample-user", plan },
+      mode: "subscription",
+      payment_status: "paid",
+      currency: "usd",
+      amount_total: amount,
+    } },
+  }) as unknown as Stripe.Event;
+
+  await applyStripeEvent(checkout(499));
+  assert.equal(state.plan, "free");
+  assert.equal(state.planUpdates, 0);
+  await applyStripeEvent(checkout(500));
+  assert.equal(state.plan, "invoice");
+  assert.equal(state.planUpdates, 1);
+
+  await applyStripeEvent({
+    type: "customer.subscription.updated",
+    created: 1_800_000_001,
+    data: { object: { metadata: { userId: "sample-user", plan: "invoice" }, status: "unpaid" } },
+  } as unknown as Stripe.Event);
+  assert.equal(state.plan, "free");
+  assert.equal(state.planUpdates, 2);
 });
 
 test("invoice credit follows its paid preparer or issuer, not its viewer", async () => {

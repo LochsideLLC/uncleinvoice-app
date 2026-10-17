@@ -14,9 +14,25 @@
  */
 export const PLANS = ["free", "invoice", "bookkeeper"] as const;
 export type Plan = (typeof PLANS)[number];
+export const PAID_PLANS = ["invoice", "bookkeeper"] as const;
+export type PaidPlan = (typeof PAID_PLANS)[number];
+
+export const PLAN_PRICE_CENTS: Record<Plan, number> = {
+  free: 0,
+  invoice: 500,
+  bookkeeper: 2900,
+};
 
 export function asPlan(value?: string | null): Plan {
   return (PLANS as readonly string[]).includes(value ?? "") ? (value as Plan) : "free";
+}
+
+export function asPaidPlan(value?: string | null): PaidPlan | null {
+  return (PAID_PLANS as readonly string[]).includes(value ?? "") ? (value as PaidPlan) : null;
+}
+
+export function monthlyPrice(plan: Plan) {
+  return `$${(PLAN_PRICE_CENTS[plan] / 100).toFixed(0)}/mo`;
 }
 
 export const PLAN_LABEL: Record<Plan, string> = {
