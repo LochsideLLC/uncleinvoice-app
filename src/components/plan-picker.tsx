@@ -1,4 +1,5 @@
 import { PLANS, PLAN_FEATURES, PLAN_LABEL, PLAN_TAGLINE, asPlan } from "@/lib/plan";
+import { canRequestPlan, requestPlanHref } from "@/lib/upgrade";
 
 /**
  * The three tiers side by side, with the one in force marked.
@@ -17,7 +18,7 @@ export function PlanPicker({ current }: { current?: string | null }) {
         return (
           <div
             key={plan}
-            className={`rounded-2xl border p-5 ${
+            className={`flex flex-col rounded-2xl border p-5 ${
               isCurrent ? "border-ink bg-[#f7ecd9]" : "border-line"
             }`}
           >
@@ -40,6 +41,11 @@ export function PlanPicker({ current }: { current?: string | null }) {
                 </li>
               ))}
             </ul>
+            <div className="mt-auto pt-5">
+              {isCurrent ? <p className="text-sm text-muted">You are on this plan.</p> : canRequestPlan(active, plan) && plan !== "free" ? (
+                <a href={requestPlanHref(plan)} className="btn btn-secondary w-full">Request {PLAN_LABEL[plan]}</a>
+              ) : <p className="text-sm text-muted">Included in your plan.</p>}
+            </div>
           </div>
         );
       })}

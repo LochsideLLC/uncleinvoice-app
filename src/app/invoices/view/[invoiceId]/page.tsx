@@ -8,6 +8,10 @@ import { InvoiceDocument, invoiceToDocument } from "@/components/invoice-documen
 import { InvoiceActions } from "@/components/invoice-actions";
 import { InvoiceStatusBar } from "@/components/invoice-status-bar";
 import { mailFromAddress } from "@/lib/mail";
+import { invoiceShowsBrand } from "@/lib/invoice-branding";
+import { UpgradeOffer } from "@/components/upgrade-offer";
+import { BrandingPreview } from "@/components/branding-preview";
+import { asPlan } from "@/lib/plan";
 
 export default async function PublicInvoicePage({
   params,
@@ -39,6 +43,8 @@ export default async function PublicInvoicePage({
   // their own fresh invoice (creation redirects carry a token) and loses
   // Send, Share link, Mark as paid, and Edit.
   const isOwner = !token || access.isMember;
+  const showBrand = await invoiceShowsBrand(invoice);
+  const viewer = access.isMember ? await getSessionUser() : null;
 
   return (
     <div className="mx-auto min-h-full w-full max-w-6xl px-5 pb-8">
@@ -71,7 +77,7 @@ export default async function PublicInvoicePage({
       )}
 
       <div className="relative mt-4">
-        <InvoiceDocument invoice={invoiceToDocument(invoice)} />
+        <InvoiceDocument invoice={invoiceToDocument(invoice)} showBrand={showBrand} />
         {isOwner && invoice.status !== "sent" && (
           <Link
             href={editHref}
@@ -94,6 +100,7 @@ export default async function PublicInvoicePage({
           </Link>
         )}
       </div>
+      {viewer && asPlan(viewer.plan) === "free" && invoice.seededByUserId === viewer.id && showBrand && <div className="mt-6 print:hidden"><UpgradeOffer feature="branding" preview={<BrandingPreview invoice={invoiceToDocument(invoice)} />} className="text-sm text-muted underline underline-offset-4">Preview this invoice without our credit</UpgradeOffer></div>}
     </div>
   );
 }

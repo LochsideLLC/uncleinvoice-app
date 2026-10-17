@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatMoney } from "@/lib/money";
 import { STATUS_LABEL, type InvoiceStatus } from "@/lib/status";
 import type { InvoiceRow } from "@/lib/dashboard";
+import { UpgradeOffer } from "@/components/upgrade-offer";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -35,7 +36,7 @@ function rowStatus(invoice: InvoiceRow): string {
   return STATUS_LABEL[invoice.status as InvoiceStatus] ?? invoice.status;
 }
 
-export function InvoiceList({ invoices }: { invoices: InvoiceRow[] }) {
+export function InvoiceList({ invoices, canDownloadBulk }: { invoices: InvoiceRow[]; canDownloadBulk: boolean }) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -137,9 +138,9 @@ export function InvoiceList({ invoices }: { invoices: InvoiceRow[] }) {
                 >
                   Clear
                 </button>
-                <button className="btn btn-primary">
+                {canDownloadBulk ? <button className="btn btn-primary">
                   Download {selected.size} as ZIP
-                </button>
+                </button> : <UpgradeOffer feature="download">Download selected · Bookkeeper</UpgradeOffer>}
               </div>
             ) : null}
           </div>

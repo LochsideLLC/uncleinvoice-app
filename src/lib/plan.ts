@@ -5,7 +5,10 @@
  * A bookkeeper upgrades once and it covers every client whose books they
  * keep; a solo contractor upgrades their own account. Decided 2026-10-16.
  *
- * Every limit here is advice to the UI. The place a limit actually holds is
+ * Billing contacts are unlimited on every plan. Bookkeeper sells workflow
+ * tools, not permission to bill a second customer; the shared Workspace
+ * model must not impose a bookkeeping-client limit on billing contacts.
+ * Every feature check here is advice to the UI. A restriction actually holds in
  * the server action, which calls these same functions — a hidden button is
  * not a restriction.
  */
@@ -25,13 +28,8 @@ export const PLAN_LABEL: Record<Plan, string> = {
 export const PLAN_TAGLINE: Record<Plan, string> = {
   free: "Write an invoice and keep track of it.",
   invoice: "Your invoices, with your name on them and nobody else's.",
-  bookkeeper: "Prepare invoices for other people's books, in bulk.",
+  bookkeeper: "Turn payment records into invoices contractors can confirm.",
 };
-
-/** How many clients a tier may have. Infinity for the bookkeeper tier. */
-export function workspaceLimit(plan?: string | null) {
-  return asPlan(plan) === "bookkeeper" ? Infinity : 1;
-}
 
 /** Paid tiers drop the Uncle Invoice line off the finished invoice. */
 export function isPaidPlan(plan?: string | null) {
@@ -45,14 +43,10 @@ export function showsUncleInvoiceMark(plan?: string | null) {
 /**
  * The bookkeeper tier is the one that prepares work inside somebody else's
  * books, so everything that only makes sense on someone else's behalf sits
- * behind it: the spreadsheet importer, more than one client, the contractor
+ * behind it: the spreadsheet importer, the contractor
  * confirm-and-send links, bulk download and supporting documents.
  */
 export function canImportInvoices(plan?: string | null) {
-  return asPlan(plan) === "bookkeeper";
-}
-
-export function canKeepMultipleClients(plan?: string | null) {
   return asPlan(plan) === "bookkeeper";
 }
 
@@ -70,13 +64,13 @@ export function canAttachDocuments(plan?: string | null) {
 
 /** The sentence an action returns when a tier is not enough. */
 export function upgradeMessage(what: string) {
-  return `${what} is part of the Bookkeeper plan. See Upgrade in your profile.`;
+  return `${what} is part of Bookkeeper. Open Plans to see how it works. Your existing invoices are still available.`;
 }
 
 /** What each tier lists on the upgrade page. */
 export const PLAN_FEATURES: Record<Plan, string[]> = {
   free: [
-    "One client",
+    "Save as many billing customers as you need",
     "Write and send invoices",
     "Track what is paid and what is still owed",
     "The Uncle Invoice line stays on the invoice",
@@ -84,7 +78,7 @@ export const PLAN_FEATURES: Record<Plan, string[]> = {
   invoice: [
     "Everything in Free",
     "Your invoice, without the Uncle Invoice line on it",
-    "One client",
+    "The same simple invoicing, with only your business on the page",
   ],
   bookkeeper: [
     "Everything in Invoice",

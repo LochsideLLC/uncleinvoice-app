@@ -9,6 +9,7 @@ import { sendForReviewAction, sendToClientAction } from "@/actions/invoices";
 import { StatusBadge } from "@/components/status-badge";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { InvoiceStatusPanel } from "@/components/invoice-status-panel";
+import { canAttachDocuments } from "@/lib/plan";
 
 export default async function InvoiceDetailPage({
   params,
@@ -16,7 +17,7 @@ export default async function InvoiceDetailPage({
   params: Promise<{ workspaceId: string; invoiceId: string }>;
 }) {
   const { workspaceId, invoiceId } = await params;
-  await requireWorkspace(workspaceId);
+  const { user } = await requireWorkspace(workspaceId);
   const invoice = await db.invoice.findFirst({
     where: { id: invoiceId, workspaceId },
     include: {
@@ -111,7 +112,7 @@ export default async function InvoiceDetailPage({
             <div className="paper space-y-4 rounded-3xl p-6">
               <h3 className="text-xl">Send for review</h3>
               <p className="text-sm text-muted">
-                Send your contractor a magic link to review and confirm the invoice. They don't
+                Send your contractor a magic link to review and confirm the invoice. They don&rsquo;t
                 need an account.
               </p>
               {invoice.contractor.email ? (
@@ -153,6 +154,7 @@ export default async function InvoiceDetailPage({
             workspaceId={workspaceId}
             invoiceId={invoice.id}
             attachments={invoice.attachments}
+            canAttach={canAttachDocuments(user.plan)}
           />
 
           <div className="paper rounded-3xl p-6">

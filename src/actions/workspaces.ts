@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { requireWorkspace } from "@/lib/workspace";
 import type { ActionState } from "@/actions/auth";
-import { workspaceLimit } from "@/lib/plan";
 
 const workspaceSchema = z.object({
   name: z.string().trim().min(1, "Client name is required"),
@@ -17,18 +16,6 @@ const workspaceSchema = z.object({
   region: z.string().optional(),
   postalCode: z.string().optional(),
 });
-
-/**
- * How many clients this person may have, against how many they already keep.
- * Checked here rather than only on the button, because the form posts
- * straight to this action.
- */
-async function clientLimitReached(user: { id: string; plan: string }) {
-  const limit = workspaceLimit(user.plan);
-  if (limit === Infinity) return false;
-  const existing = await db.workspaceMember.count({ where: { userId: user.id } });
-  return existing >= limit;
-}
 
 export async function createWorkspaceAction(
   _prev: ActionState,
@@ -47,12 +34,6 @@ export async function createWorkspaceAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form." };
   }
-  if (await clientLimitReached(user)) {
-    return {
-      error: "The Free and Invoice plans keep one client. The Bookkeeper plan keeps as many as you need — see Upgrade in your profile.",
-    };
-  }
-
   const workspace = await db.workspace.create({
     data: {
       ...parsed.data,
@@ -107,12 +88,6 @@ export async function createWorkspaceInlineAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form." };
   }
-  if (await clientLimitReached(user)) {
-    return {
-      error: "The Free and Invoice plans keep one client. The Bookkeeper plan keeps as many as you need — see Upgrade in your profile.",
-    };
-  }
-
   const workspace = await db.workspace.create({
     data: {
       ...parsed.data,

@@ -1,5 +1,82 @@
 # HANDOFF — Uncle Invoice
 
+## Current work — contextual upgrades (2026-10-16, Ummon, ripley)
+
+This section supersedes historical branch/status claims below. Base verified by
+`git fetch origin`: `8780cdb`, main equal to origin/main, initially clean. Work is
+on `feat/contextual-upgrades`; no merge or production deployment in this turn.
+
+Tom approved implementing the upgrade UX recommendation. Implemented:
+
+- Dedicated `/app/plans`: separate Invoice and Bookkeeper stories, interactive
+  branding comparison, three-step bookkeeping workflow, plan comparison, and
+  honest email request buttons. No prices, checkout, automatic activation,
+  trial promise, or outbound send was introduced.
+- Billing contacts are unlimited on ALL plans. Both standalone and inline
+  creation use the existing Workspace model. There is no new managed-client
+  quota or data classification: Bookkeeper now gates its workflow tools, not
+  contact count. Existing client/workspace data was not recategorized or migrated.
+- Contextual dialogs before import, attachments, contractor links, and bulk ZIP
+  download. The import page authorizes before showing the upload form. Server
+  restrictions remain in the actions/routes. Existing attachments stay readable.
+- Dialogs open only on explicit action, use native keyboard/focus behavior, and
+  open Plans in a separate tab. The originating form and selected rows stay
+  mounted. The refresh-plan button uses a Next router refresh after manual
+  activation. No unsaved invoice contents or bearer tokens enter offer URLs,
+  email bodies, or local storage.
+- Dashboard offer is compact, Free-only, after a sent invoice, and suppressed
+  during contractor confirmation/send flows. Dismissal is stored per account
+  and plan in that browser; storage denial falls back to the current visit.
+- Plans stays visible on mobile; Bookkeeper sees Your plan. Profile now links
+  to Plans and has a sign-out button for small screens.
+- Found and fixed a pre-existing paid-benefit defect: `showBrand` existed but
+  no callers resolved paid entitlement. Invoice HTML and every PDF path now
+  check the invoice preparer/linked issuer's paid plan, not the viewer's plan.
+  Archived accounts do not supply entitlement. Missing ownership keeps the
+  credit. Stored invoices are unchanged; this applies at render time.
+- A free preparer can preview their actual invoice without the credit. No
+  offer was added to contractor confirmation pages or recipient-only views.
+
+Verification:
+
+- `npm run test:upgrades`: 20 passed, 0 failed, 0 skipped. Real action/page/PDF
+  code bundled against synthetic in-memory DB/auth fixtures. PDF text checked
+  with Poppler, including retained invoice number, service and total.
+- `npx tsc --noEmit`: passed. `npm run build`: passed; existing Prisma config,
+  middleware convention, and malformed print selector warnings remain.
+- Remote headless Chromium on steelbreeze, separate temporary profile:
+  15 browser checks passed. Includes persistent dismissal, focus/ Escape,
+  preservation of selection and unfinished text, branding toggle, 390px and
+  320px layouts, and no upgrade requests for Bookkeeper. These use real
+  components in an isolated fixture, NOT live database-backed Next pages.
+- Desktop/mobile screenshots inspected at
+  `/tmp/uncleinvoice-upgrade-screens-B4CA8d/` on ripley (temporary artifacts).
+  Initial checks found dialog focus and mobile sample-width problems; fixed
+  and rechecked. An initial browser-script quoting error was also corrected.
+- Whole-repo lint initially reported 8 errors and 2 warnings. One pre-existing
+  apostrophe error in the touched invoice-detail page was fixed. Remaining
+  7 errors are in public-invoice.ts, dashboard-metrics.tsx and form-banner.tsx;
+  image warnings remain in partners/page.tsx. Baseline source checked at HEAD.
+  Final changed-file lint passed with 0 errors and 0 warnings.
+- `npm install --save-dev esbuild@0.28.2 --ignore-scripts` explicitly declares
+  the already-installed test bundler; no dependency version changed.
+  `npm audit` reports 13 findings (12 high, 1 critical), including the existing
+  Next version. Dependency/security upgrades are not part of this UX branch.
+
+Boundaries / follow-up:
+
+- No production data writes, migrations, plan changes, client emails, or
+  production browser sessions. The browser fixture cannot execute app actions.
+- Full Next/database integration, real mail-client handling, cross-device
+  dismissal, and production conversion impact have not been verified.
+- Pricing/checkout remain undecided. No production funnel telemetry was added;
+  requests remain manual emails. Before claiming conversion improvement,
+  measure activated plans together with completed invoices and abandonment.
+- Existing contacts are not divided into customer vs managed-client database
+  types. The distinction is explained through tasks; a future quota would need
+  an explicit data model and migration, not another count of all memberships.
+
+
 Owner: **Ummon** (SWapp lead) as of 2026-10-12, by Tom's direction. Previously
 run out of the Clients room (Sol); before that, executed from Martin's pane.
 See board records `37adaf8b1b4a`, `57d72b8d6a72`, `07c5d3939e49`, `c91069ea647d`.

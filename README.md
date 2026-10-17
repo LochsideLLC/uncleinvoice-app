@@ -7,6 +7,35 @@ Bookkeepers seed a draft from the books. The contractor opens a magic link, edit
 Repo: [lochsidellc/uncleinvoice-app](https://github.com/lochsidellc/uncleinvoice-app)  
 Site: [uncleinvoice.com](https://uncleinvoice.com)
 
+## Plans
+
+Every plan can save unlimited billing customers, create and send invoices, and
+track payments. Invoice removes the Uncle Invoice credit from invoices and
+PDFs. Bookkeeper adds spreadsheet import, contractor confirmation links,
+supporting documents, and bulk downloads across clients. The plan belongs to
+the person, not the customer record.
+
+Signed-in users can compare plans at `/app/plans`. Pricing and checkout are not
+configured: request buttons open an email for the user to review and send.
+Requests do not activate a plan or take payment. Admins still set plans manually.
+
+## Checks
+
+`npm run test:upgrades` checks plan access, customer creation, upgrade pages,
+and PDF branding against synthetic in-memory data. It does not load `.env` or
+connect to a database. It requires `pdftotext` (Poppler).
+
+`scripts/preview-upgrades.mjs` serves an isolated visual fixture after a build.
+`scripts/check-upgrade-browser.mjs` exercises that fixture through port 9339,
+which must point to an isolated browser on another machine (prefer steelbreeze).
+The fixture replaces authentication and server actions; it is not an end-to-end
+test of the deployed app. Never expose the browser debugging port publicly.
+
+## Handoff
+
+Current branch state, verification results, boundaries, and open work are in
+[HANDOFF.md](HANDOFF.md).
+
 ## Local setup (Docker Postgres)
 
 Postgres runs in Docker so the schema matches Supabase. The Next app can run on your machine or in Compose. The database is on **localhost:5433** so it does not collide with other local Postgres containers.
