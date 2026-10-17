@@ -5,6 +5,10 @@
 This section supersedes historical branch/status claims below. Base verified by
 `git fetch origin`: `8780cdb`, main equal to origin/main, initially clean. Work is
 on `feat/contextual-upgrades`; no merge or production deployment in this turn.
+Implementation commit: `d839d6f`. Branch pushed; draft PR
+https://github.com/LochsideLLC/uncleinvoice-app/pull/38. The isolated preview
+server and steelbreeze browser were stopped after verification. No command is
+staged in `/home/tom/ummon`.
 
 Tom approved implementing the upgrade UX recommendation. Implemented:
 
