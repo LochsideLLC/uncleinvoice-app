@@ -7,6 +7,7 @@ export function SiteFooter() {
       <nav className="mt-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-1">
         <Link href="/privacy" className="hover:text-ink transition-colors">Privacy</Link>
         <Link href="/terms" className="hover:text-ink transition-colors">Terms</Link>
+        <Link href="/cookies" className="hover:text-ink transition-colors">Cookies</Link>
         <Link href="mailto:hello@uncleinvoice.com" className="hover:text-ink transition-colors">Contact</Link>
         <Link href="/partners" className="hover:text-ink transition-colors">Partners</Link>
       </nav>
