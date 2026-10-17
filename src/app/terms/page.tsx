@@ -5,194 +5,218 @@ import { LegalPage, LegalSection } from "@/components/legal-page";
 export const metadata: Metadata = {
   title: "Terms — Uncle Invoice",
   description:
-    "The agreement for using Uncle Invoice: what the service does, what you are responsible for, and the limits of what we promise.",
+    "The agreement for using Uncle Invoice, including account, invoice, content, and liability terms.",
 };
 
 export default function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      updated="October 13, 2026"
-      intro="This is the agreement between you and us for using Uncle Invoice. We have tried to write it in words you can actually read."
+      updated="October 17, 2026"
+      intro="These Terms of Service are the agreement between you and Lochside LLC for using Uncle Invoice."
     >
-      <LegalSection heading="Who we are, and agreeing to this">
+      <LegalSection heading="Accepting these terms">
         <p className="text-muted">
-          Uncle Invoice is operated by Lochside LLC. By creating an account or using the
-          site, you agree to what is on this page. If you do not agree, please do not use
-          the service. Questions go to{" "}
-          <a className="text-ink underline" href="mailto:hello@uncleinvoice.com">
-            hello@uncleinvoice.com
-          </a>
-          .
+          Lochside LLC operates Uncle Invoice. By accessing or using the service, you agree
+          to these terms and our{" "}
+          <Link className="text-ink underline" href="/privacy">
+            Privacy Policy
+          </Link>
+          . If you do not agree, do not use the service. You must be legally able to enter
+          this agreement. If you use Uncle Invoice for a company or another person, you
+          confirm that you have authority to bind them to these terms.
         </p>
       </LegalSection>
 
-      <LegalSection heading="What Uncle Invoice does">
+      <LegalSection heading="What the service does">
         <p className="text-muted">
-          It helps you make an invoice. You can build one at{" "}
+          Uncle Invoice helps people create, store, review, confirm, download, and send
+          invoices. You can create an invoice at{" "}
           <Link className="text-ink underline" href="/create">
             /create
           </Link>{" "}
-          without an account, or sign up and keep a history of them. A bookkeeper can
-          prepare a draft invoice from a client&rsquo;s books and send the contractor a link
-          to review, correct and confirm it.
+          without signing in. Signed-in users can keep invoice history and use other
+          features available to their account plan. A bookkeeper can also prepare draft
+          invoices from a client&rsquo;s records for a contractor to review and confirm.
         </p>
       </LegalSection>
 
-      <LegalSection heading="The invoice is yours, and so is its accuracy">
+      <LegalSection heading="Your account and links">
         <p className="text-muted">
-          This is the most important paragraph on the page, so we will not bury it.
-        </p>
-        <p className="text-muted">
-          A draft prepared for you is a starting point, nothing more. When you confirm an
-          invoice you are saying it is accurate. Check the amounts, the dates, the
-          description of the work, and who it is addressed to. We do not verify any of it,
-          we cannot know whether the work happened, and we are not a party to the agreement
-          between you and whoever you are invoicing.
-        </p>
-        <p className="text-muted">
-          If a bookkeeper prepared your draft, it is still your invoice and still your
-          responsibility.
+          Give us accurate account information and keep your password and private links
+          secure. Some links open an account, invoice, PDF, or supporting document without
+          a password. You are responsible for activity under your account and for sharing
+          those links only with intended recipients. Tell us promptly if you believe your
+          account or a private link has been compromised.
         </p>
       </LegalSection>
 
-      <LegalSection heading="We are not your accountant or your lawyer">
+      <LegalSection heading="Invoice accuracy is your responsibility">
         <p className="text-muted">
-          Nothing in this product is tax, legal or accounting advice. An invoice made here
-          is not a tax filing and does not decide how anything should be reported. If the
-          numbers matter — and with tax they usually do — talk to someone qualified who has
-          seen your actual situation.
+          Drafts, imports, totals, PDFs, and other output are tools. You must review the
+          parties, amounts, dates, descriptions, tax treatment, payment status, and every
+          other detail before relying on or sending an invoice. We do not verify that work
+          occurred, that an amount is owed, or that an invoice satisfies a contract or a
+          legal requirement. If a bookkeeper prepared the draft, it remains the issuer&rsquo;s
+          responsibility to review and approve it.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Your account">
+      <LegalSection heading="No professional advice">
         <p className="text-muted">
-          Give us an email address that is really yours, and keep your password to
-          yourself. Some of our emails contain links that sign you in or open an invoice
-          without a password — treat those links the way you would treat a password, and do
-          not forward them. You are responsible for what happens under your account. Tell us
-          promptly if you think someone else is in it.
+          Uncle Invoice does not provide tax, legal, accounting, or financial advice. An
+          invoice is not a tax filing and does not decide how a transaction should be
+          reported. Consult a qualified professional who knows your circumstances when you
+          need professional advice.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Other people's information">
+      <LegalSection heading="Information about other people">
         <p className="text-muted">
-          If you add contractors or clients, you are putting other people&rsquo;s details
-          into our system. You are responsible for having a legitimate reason to hold them
-          and for keeping them accurate. Do not use Uncle Invoice to send anyone invoices
-          they have not agreed to receive.
+          You are responsible for having a lawful and legitimate reason to enter, use, and
+          share information about clients, contractors, employees, or anyone else. Keep it
+          accurate, limit it to what is needed, and do not send messages or invoices to a
+          person who should not receive them.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Things you may not do">
+      <LegalSection heading="Your content">
+        <p className="text-muted">
+          You keep ownership of content you submit, including invoice data, logos, notes,
+          and supporting documents. You give Lochside LLC a non-exclusive license to host,
+          copy, process, display, format, and transmit that content only as needed to run,
+          secure, and support the service and comply with law. You confirm that
+          you have the rights needed to submit the content and grant this license.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="Acceptable use">
+        <p className="text-muted">You may not use Uncle Invoice to:</p>
         <ul className="list-disc space-y-2 pl-5 text-muted">
-          <li>Create invoices for work that did not happen, or for amounts that are not owed.</li>
-          <li>Impersonate another person or business.</li>
-          <li>Upload anything unlawful, or anything you do not have the right to use.</li>
-          <li>Try to reach accounts, workspaces or invoices that are not yours.</li>
-          <li>Attack, overload, or probe the service, or scrape it automatically.</li>
-          <li>Resell the service as if it were your own.</li>
+          <li>Create a false invoice or misrepresent work, identity, payment, or authority.</li>
+          <li>Upload unlawful, malicious, infringing, or unauthorized content.</li>
+          <li>Access another account, workspace, invoice, file, or link without permission.</li>
+          <li>Send spam, malware, or deceptive messages.</li>
+          <li>Probe, disrupt, overload, scrape, or reverse engineer the service.</li>
+          <li>Bypass a security control or account-plan restriction.</li>
+          <li>Resell or present the service as your own without written permission.</li>
         </ul>
+      </LegalSection>
+
+      <LegalSection heading="Plans, prices, and payment">
         <p className="text-muted">
-          We can suspend or close an account that does these things.
+          Some features depend on the plan assigned to an account. Uncle Invoice does not
+          currently take card payments or offer self-service checkout. Plan requests open
+          an email for the user to review and send; sending a request does not itself
+          activate a plan or charge money. If Lochside LLC offers a paid plan, its price,
+          billing period, and any additional terms will be stated before the paid service
+          begins.
         </p>
       </LegalSection>
 
-      <LegalSection heading="What it costs">
+      <LegalSection heading="Our service and intellectual property">
         <p className="text-muted">
-          Uncle Invoice is free to use today, and there is no paid plan you can buy yet.
-          We expect to offer one, and when we do we will say clearly what it costs before
-          charging anyone anything. We are not going to put a price behind work you have
-          already created — your existing invoices stay available to you.
+          Lochside LLC and its licensors own Uncle Invoice, including its software, design,
+          branding, and documentation, except for content supplied by users or third
+          parties. Subject to these terms, we give you a limited, revocable,
+          non-transferable right to use the service for its intended business purpose.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Your content stays yours">
+      <LegalSection heading="Third-party services">
         <p className="text-muted">
-          Your invoices, your logo and your business details belong to you. You give us
-          permission to store, process and display them only so far as running the service
-          requires — showing you your invoices, rendering a PDF, sending a review link you
-          asked us to send. We do not claim ownership and we do not use your content to
-          advertise.
+          Uncle Invoice relies on third-party hosting, database, email, sign-in, DNS, and
+          embedded-media services. Their services can fail or change, and their own terms
+          and privacy policies apply when you interact with them. Lochside LLC is not
+          responsible for a third-party website or service that it does not control.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Availability">
+      <LegalSection heading="Availability and changes">
         <p className="text-muted">
-          We will try to keep the service up and we will not always succeed. There is no
-          uptime guarantee here. We may change features, and we may take the service down
-          for maintenance. If we ever decide to shut it down for good, we will give account
-          holders reasonable notice and a way to export their invoices first.
+          The service may be unavailable, delayed, changed, or discontinued. We do not
+          promise a particular uptime or that every feature will remain available. Keep
+          copies of invoices and records you need for your business. We may change the
+          service, add or remove features, or suspend access for maintenance, security, or
+          legal reasons.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Keep your own copy">
+      <LegalSection heading="Suspension, closure, and deletion">
         <p className="text-muted">
-          Download the PDFs of invoices that matter to you. We take backups, but your books
-          are your responsibility and you should not rely on us as your only copy.
+          You may stop using the service at any time and may request account closure or
+          deletion. We may suspend or close access if you break these terms, create risk
+          for the service or another person, fail to pay an agreed charge, or if the law
+          requires it. When access ends, provisions that by their nature should continue
+          will survive, including ownership, disclaimers, liability limits, and dispute
+          terms.
         </p>
       </LegalSection>
 
       <LegalSection heading="No warranty">
         <p className="text-muted">
-          The service is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo;, without
-          warranties of any kind, express or implied, including any implied warranty of
-          merchantability, fitness for a particular purpose, or non-infringement. We do not
-          warrant that it will be uninterrupted, error-free, or that it will meet your
-          requirements.
+          To the fullest extent allowed by law, the service is provided &ldquo;as is&rdquo;
+          and &ldquo;as available.&rdquo; Lochside LLC disclaims express and implied
+          warranties, including merchantability, fitness for a particular purpose,
+          non-infringement, and any warranty that the service will be uninterrupted,
+          secure, accurate, or error-free.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Limits on what we owe you">
+      <LegalSection heading="Limits on liability">
         <p className="text-muted">
-          To the fullest extent the law allows, we are not liable for indirect, incidental,
-          special or consequential damages, or for lost profits, lost revenue, lost data or
-          lost business, arising out of your use of the service. Our total liability to you
-          for any claim is limited to the greater of the amount you paid us in the twelve
-          months before the claim, or one hundred US dollars.
+          To the fullest extent allowed by law, Lochside LLC and its owners, employees,
+          contractors, and service providers will not be liable for indirect, incidental,
+          special, consequential, exemplary, or punitive damages, or for lost profits,
+          revenue, data, goodwill, or business opportunity arising from the service.
         </p>
         <p className="text-muted">
-          Some places do not allow these limits. Where that is true, they apply to you only
-          as far as that place allows.
-        </p>
-      </LegalSection>
-
-      <LegalSection heading="Ending it">
-        <p className="text-muted">
-          You can stop using Uncle Invoice whenever you like, and you can ask us to delete
-          your account at any time. We can suspend or close an account that breaks these
-          terms or that puts the service or other users at risk. The sections about
-          accuracy, warranties and liability survive the account being closed.
+          To the fullest extent allowed by law, their total liability for all claims
+          arising from the service will not exceed the greater of the amount you paid to
+          Lochside LLC for Uncle Invoice during the 12 months before the event giving rise
+          to the claim or US $100. Some laws do not allow certain exclusions or limits, so
+          those provisions apply only to the extent permitted.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Changes to these terms">
+      <LegalSection heading="Your responsibility for claims">
         <p className="text-muted">
-          If we change this page we will change the date at the top. For a change that
-          genuinely affects your rights, we will email account holders rather than quietly
-          editing the page. Continuing to use the service after a change means you accept
-          it.
+          To the extent allowed by law, you will defend and indemnify Lochside LLC and its
+          owners, employees, and contractors from third-party claims, damages, and
+          reasonable costs arising from your content, your misuse of the service, or your
+          violation of these terms or another person&rsquo;s rights.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Governing law">
+      <LegalSection heading="Governing law and courts">
         <p className="text-muted">
-          These terms are governed by the laws of the State of Texas, United States,
-          without regard to its conflict of law rules. Disputes go to the state or federal
-          courts located in Texas.
+          Texas law governs these terms, without regard to conflict-of-law rules. Any
+          dispute that is not resolved informally must be brought in a state or federal
+          court with jurisdiction in Texas, and each party consents to those courts.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Contact">
+      <LegalSection heading="Other legal terms">
         <p className="text-muted">
-          <a className="text-ink underline" href="mailto:hello@uncleinvoice.com">
-            hello@uncleinvoice.com
+          These terms and the policies they link to are the entire agreement about the
+          service unless Lochside LLC gives you separate written terms. If one provision is
+          unenforceable, the rest remain in effect. A delay in enforcing a provision is not
+          a waiver. You may not assign this agreement without our written consent; Lochside
+          LLC may assign it as part of a merger, reorganization, financing, or sale of the
+          service or business.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="Changes and contact">
+        <p className="text-muted">
+          We will update the date above when these terms change. If a change materially
+          affects existing users&rsquo; rights, we will provide notice appropriate to the
+          change. Continuing to use the service after the updated terms take effect means
+          you accept them. Legal notices and questions about these terms can be sent to{" "}
+          <a className="text-ink underline" href="mailto:notices@uncleinvoice.com">
+            notices@uncleinvoice.com
           </a>
-          . Our{" "}
-          <Link className="text-ink underline" href="/privacy">
-            privacy page
-          </Link>{" "}
-          explains what we do with your data.
+          .
         </p>
       </LegalSection>
     </LegalPage>
