@@ -14,11 +14,6 @@ export function upgradeHref(feature: UpgradeFeature) {
   return `/app/plans?feature=${feature}#matrix`;
 }
 
-export function requestPlanHref(plan: Exclude<Plan, "free">) {
-  const name = plan === "invoice" ? "Invoice" : "Bookkeeper";
-  return `mailto:info@bookkeepingconroe.com?subject=${encodeURIComponent(`Request ${name} plan`)}&body=${encodeURIComponent(`I'd like to learn about the ${name} plan for Uncle Invoice. Please send me pricing and the next steps.\n\nMy Uncle Invoice account email is: `)}`;
-}
-
 export function canRequestPlan(current: string | null | undefined, target: Plan) {
   const ranks = { free: 0, invoice: 1, bookkeeper: 2 };
   return ranks[target] > ranks[asPlan(current)];

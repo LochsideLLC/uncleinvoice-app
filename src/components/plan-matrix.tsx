@@ -1,5 +1,5 @@
-import { PLAN_LABEL, PLANS, asPlan, type Plan } from "@/lib/plan";
-import { canRequestPlan, requestPlanHref } from "@/lib/upgrade";
+import { PLAN_LABEL, PLANS, asPlan, monthlyPrice, type Plan } from "@/lib/plan";
+import { canRequestPlan } from "@/lib/upgrade";
 
 const ROWS: { label: string; plans: Plan[] }[] = [
   { label: "Save as many billing customers as you need", plans: ["free", "invoice", "bookkeeper"] },
@@ -20,7 +20,7 @@ function Cell({ included }: { included: boolean }) {
   );
 }
 
-/** Every tier against every feature, with checks. No checkout yet: requests go by email. */
+/** Every tier against every feature, with a server-validated Stripe checkout. */
 export function PlanMatrix({ current }: { current?: string | null }) {
   const active = asPlan(current);
   return (
@@ -31,6 +31,7 @@ export function PlanMatrix({ current }: { current?: string | null }) {
           {PLANS.map((plan) => (
             <th key={plan} scope="col" className="px-3 py-3 text-center">
               {PLAN_LABEL[plan]}
+              <span className="mt-1 block text-sm font-normal text-muted">{monthlyPrice(plan)}</span>
               {plan === active && (
                 <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.12em] text-muted">Your plan</span>
               )}
@@ -58,7 +59,12 @@ export function PlanMatrix({ current }: { current?: string | null }) {
               ) : plan === "free" || !canRequestPlan(active, plan) ? (
                 <p className="text-sm text-muted">Included in your plan.</p>
               ) : (
-                <a href={requestPlanHref(plan)} className="btn btn-primary w-full">Request {PLAN_LABEL[plan]}</a>
+                <form action="/api/stripe/checkout" method="post">
+                  <input type="hidden" name="plan" value={plan} />
+                  <button type="submit" className="btn btn-primary w-full">
+                    Choose {PLAN_LABEL[plan]}
+                  </button>
+                </form>
               )}
             </td>
           ))}
