@@ -33,6 +33,9 @@ export function SiteHeader({
             <Link href="/app" className={navLink}>
               Dashboard
             </Link>
+            <Link href="/app/whats-new" className={`${navLink} hidden lg:inline-flex`}>
+              What&rsquo;s new
+            </Link>
             <Link
               href="/app/plans"
               className={navLink}
