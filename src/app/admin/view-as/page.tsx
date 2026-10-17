@@ -8,7 +8,10 @@ export default async function ViewAsPage() {
   const admin = await requireAdmin();
   const viewing = await getViewAs();
 
+  // Archived accounts are left out: they cannot sign in, so previewing one
+  // would show a view nobody can actually reach. Manage them under Accounts.
   const users = await db.user.findMany({
+    where: { archivedAt: null },
     select: {
       id: true,
       name: true,

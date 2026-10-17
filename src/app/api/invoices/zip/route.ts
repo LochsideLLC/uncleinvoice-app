@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import JSZip from "jszip";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { canBulkDownload } from "@/lib/plan";
 import { buildInvoicePdf } from "@/lib/pdf";
 import { invoicesManifestCsv, invoicePdfName, safeName } from "@/lib/invoice-files";
 
@@ -16,6 +17,12 @@ import { invoicesManifestCsv, invoicePdfName, safeName } from "@/lib/invoice-fil
 export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canBulkDownload(user.plan)) {
+    return NextResponse.json(
+      { error: "Downloading invoices in bulk is part of the Bookkeeper plan." },
+      { status: 402 },
+    );
+  }
 
   const form = await request.formData();
   const ids = form.getAll("id").map(String).filter(Boolean);

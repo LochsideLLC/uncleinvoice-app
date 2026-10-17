@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { loginAction } from "@/actions/auth";
 import { ContinueWithGoogle } from "@/components/continue-with-google";
@@ -16,6 +16,9 @@ export function LoginForm({
   googleEnabled: boolean;
 }) {
   const [state, action, pending] = useActionState(loginAction, null);
+  // Held here only so "Forgot your password?" can carry the address across
+  // rather than making someone type it twice.
+  const [email, setEmail] = useState("");
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-6 pb-16">
@@ -40,13 +43,34 @@ export function LoginForm({
             <label className="text-center" htmlFor="email">
               Email
             </label>
-            <input id="email" name="email" type="email" required autoComplete="email" />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
           </div>
           <div className="field">
             <label className="text-center" htmlFor="password">
               Password
             </label>
-            <input id="password" name="password" type="password" autoComplete="current-password" />
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+            />
+            <p className="mt-1 text-center text-xs text-muted">
+              <Link
+                href={email ? `/forgot?email=${encodeURIComponent(email)}` : "/forgot"}
+                className="text-ink underline"
+              >
+                Forgot your password?
+              </Link>
+            </p>
           </div>
           <div className="flex flex-col gap-2">
             <button

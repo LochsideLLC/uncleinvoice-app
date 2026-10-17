@@ -64,6 +64,13 @@ export async function getRealSessionUser() {
     }
     return null;
   }
+  // Archiving takes effect on the next request, not whenever the session
+  // happens to expire. The archive action deletes sessions too; this is the
+  // backstop for one created in the same moment.
+  if (session.user.archivedAt) {
+    await db.session.delete({ where: { id: session.id } }).catch(() => undefined);
+    return null;
+  }
   return session.user;
 }
 
@@ -99,9 +106,12 @@ export async function getViewAs() {
   if (!viewAs || viewAs === real.id) return null;
   const target = await db.user.findUnique({
     where: { id: viewAs },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, archivedAt: true },
   });
-  return target ? { admin: { id: real.id, name: real.name }, target } : null;
+  // Archiving someone an admin is already previewing ends the preview on the
+  // next request rather than leaving a stale view open.
+  if (!target || target.archivedAt) return null;
+  return { admin: { id: real.id, name: real.name }, target };
 }
 
 export async function requireUser() {

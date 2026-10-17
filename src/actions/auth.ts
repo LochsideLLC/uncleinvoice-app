@@ -24,6 +24,18 @@ const signupSchema = z.object({
 
 export type ActionState = { error?: string; ok?: boolean; message?: string } | null;
 
+/**
+ * What every sign-in route says to an archived account.
+ *
+ * Deliberately the same wording the wrong-password path uses, so the form
+ * cannot be used to work out which accounts an admin has archived.
+ */
+const ARCHIVED_MESSAGE = "That email and password do not match.";
+
+function isArchived(user: { archivedAt: Date | null } | null) {
+  return Boolean(user?.archivedAt);
+}
+
 export async function signupAction(
   _prev: ActionState,
   formData: FormData,
@@ -41,6 +53,8 @@ export async function signupAction(
   const email = parsed.data.email.toLowerCase();
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) {
+    // Same answer for an archived account as a live one. Signing up is not a
+    // way to find out that an address was archived, nor to resurrect it.
     return { error: "An account with that email already exists. Sign in instead." };
   }
 
@@ -87,7 +101,7 @@ export async function loginAction(
   const user = await db.user.findUnique({ where: { email } });
 
   if (intent === "magic") {
-    if (user) {
+    if (user && !isArchived(user)) {
       const link = await sendLoginLink(user.email, user.id);
       if (!process.env.RESEND_API_KEY) {
         return { ok: true, message: `No email provider is configured, so here is your sign-in link: ${link}` };
@@ -99,8 +113,8 @@ export async function loginAction(
     };
   }
 
-  if (!user?.passwordHash) {
-    return { error: "That email and password do not match." };
+  if (!user?.passwordHash || isArchived(user)) {
+    return { error: ARCHIVED_MESSAGE };
   }
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
@@ -152,6 +166,12 @@ export async function consumeLoginToken(token: string) {
     ? await db.user.findUnique({ where: { id: record.userId } })
     : await db.user.findUnique({ where: { email: record.email } });
 
+  // A link mailed out before the account was archived is dead on arrival.
+  if (isArchived(user)) {
+    await db.magicLink.update({ where: { id: record.id }, data: { usedAt: new Date() } });
+    return { error: "This sign-in link is invalid or has expired." };
+  }
+
   if (!user) {
     user = await db.user.create({
       data: { email: record.email, name: record.email.split("@")[0] ?? "User" },
@@ -185,6 +205,10 @@ export async function setPasswordAction(
 
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) {
+    if (isArchived(existing)) {
+      // Claiming an archived address must not hand the account back.
+      return { error: "This email cannot be used. Ask whoever set it up." };
+    }
     if (existing.passwordHash) {
       return { error: "This email already has a password. Sign in instead." };
     }
@@ -215,5 +239,147 @@ export async function setPasswordAction(
     data: { userId: user.id },
   });
   await createSession(user.id);
+  redirect("/app");
+}
+
+/**
+ * "I forgot my password."
+ *
+ * Deliberately separate from the magic sign-in link above. That one signs you
+ * in and leaves you on /app still not knowing your password; this one ends on
+ * a form that sets a new one. The two use the same MagicLink table, told apart
+ * by `purpose`, so a sign-in link cannot be replayed against the reset form or
+ * the other way round.
+ *
+ * The reply never says whether the address is on file. Anything that answers
+ * that question turns this form into a way to test which of your clients has
+ * an account here.
+ */
+export async function requestPasswordResetAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  if (!email) return { error: "Email is required." };
+
+  const neutral: ActionState = {
+    ok: true,
+    message: "If that email is on file, a link to choose a new password is on the way.",
+  };
+
+  const user = await db.user.findUnique({ where: { email } });
+  if (!user || isArchived(user)) return neutral;
+
+  const token = createToken();
+  await db.magicLink.create({
+    data: {
+      tokenHash: hashToken(token),
+      purpose: "reset",
+      email: user.email,
+      userId: user.id,
+      // An hour, against the sign-in link's two. A reset link is worth more:
+      // it does not just open the account, it changes the lock.
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    },
+  });
+  const link = `${APP_URL}/auth/reset/${token}`;
+  await sendEmail({
+    to: user.email,
+    subject: "Choose a new Uncle Invoice password",
+    link,
+    text:
+      `Someone asked to reset the password for this Uncle Invoice account.\n\n${link}\n\n` +
+      "This link expires in 1 hour and can only be used once. " +
+      "If it was not you, ignore this email — nothing has changed.",
+  });
+
+  if (!process.env.RESEND_API_KEY) {
+    return { ok: true, message: `No email provider is configured, so here is your reset link: ${link}` };
+  }
+  return neutral;
+}
+
+/**
+ * Look a reset token up without spending it, so the page behind the link can
+ * decide between showing the form and saying the link is no good.
+ */
+export async function findResetToken(token: string) {
+  if (!token) return null;
+  // MagicLink carries userId but has no `user` relation in the schema, so the
+  // account is looked up separately rather than included.
+  const record = await db.magicLink.findUnique({
+    where: { tokenHash: hashToken(token) },
+  });
+  if (
+    !record ||
+    record.purpose !== "reset" ||
+    record.usedAt ||
+    record.expiresAt < new Date() ||
+    !record.userId
+  ) {
+    return null;
+  }
+  const user = await db.user.findUnique({
+    where: { id: record.userId },
+    select: { email: true, archivedAt: true },
+  });
+  if (!user || user.archivedAt) return null;
+  return { email: user.email };
+}
+
+export async function resetPasswordAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const token = String(formData.get("token") ?? "");
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+
+  // Re-checked here rather than trusted from the page that rendered the form.
+  // The form is a POST endpoint like any other and can be called directly.
+  const record = token
+    ? await db.magicLink.findUnique({ where: { tokenHash: hashToken(token) } })
+    : null;
+  if (
+    !record ||
+    record.purpose !== "reset" ||
+    record.usedAt ||
+    record.expiresAt < new Date() ||
+    !record.userId
+  ) {
+    return { error: "This reset link is invalid or has expired. Ask for a new one." };
+  }
+  // Archived between the link being sent and the form being submitted.
+  const owner = await db.user.findUnique({
+    where: { id: record.userId },
+    select: { archivedAt: true },
+  });
+  if (isArchived(owner)) {
+    await db.magicLink.update({ where: { id: record.id }, data: { usedAt: new Date() } });
+    return { error: "This reset link is invalid or has expired. Ask for a new one." };
+  }
+
+  await db.$transaction([
+    db.user.update({
+      where: { id: record.userId },
+      data: { passwordHash: await hashPassword(password), mustSetPassword: false },
+    }),
+    // Whoever held the old password is signed out everywhere. A reset that
+    // leaves their session alive has not actually taken the account back.
+    db.session.deleteMany({ where: { userId: record.userId } }),
+    db.magicLink.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+    // Any other reset link still outstanding for this account is spent too,
+    // so an older email sitting in an inbox cannot undo this one.
+    db.magicLink.updateMany({
+      where: { userId: record.userId, purpose: "reset", usedAt: null },
+      data: { usedAt: new Date() },
+    }),
+  ]);
+
+  await createSession(record.userId);
   redirect("/app");
 }
