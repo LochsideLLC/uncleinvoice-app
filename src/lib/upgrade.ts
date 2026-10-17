@@ -11,7 +11,7 @@ export const UPGRADE_OFFERS = {
 export type UpgradeFeature = keyof typeof UPGRADE_OFFERS;
 
 export function upgradeHref(feature: UpgradeFeature) {
-  return `/app/plans?feature=${feature}#${UPGRADE_OFFERS[feature].plan}`;
+  return `/app/plans?feature=${feature}#matrix`;
 }
 
 export function requestPlanHref(plan: Exclude<Plan, "free">) {

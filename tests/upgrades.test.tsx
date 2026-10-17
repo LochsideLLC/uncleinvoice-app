@@ -68,7 +68,7 @@ test("request links name the plan and contain no invoice or account data", () =>
     assert.doesNotMatch(url.href, /sample-user|customer@example/);
   }
   assert.equal(canRequestPlan("bookkeeper", "invoice"), false);
-  assert.equal(upgradeHref("import"), "/app/plans?feature=import#bookkeeper");
+  assert.equal(upgradeHref("import"), "/app/plans?feature=import#matrix");
 });
 
 test("invoice credit follows its paid preparer or issuer, not its viewer", async () => {

@@ -79,6 +79,7 @@ body:has(.standalone-page-marker) footer {
 
 body {
   font-size: 1.125rem;
+  overflow-x: clip;
   background-color: var(--background);
   background-image:
     radial-gradient(ellipse 80% 50% at 10% -10%, rgba(154, 59, 36, 0.08), transparent 50%),
