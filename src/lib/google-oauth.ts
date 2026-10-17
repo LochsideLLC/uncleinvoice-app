@@ -149,6 +149,10 @@ export function googleAuthErrorMessage(code: string | undefined) {
       return "That sign-in link is incomplete. Request a new one.";
     case "link_invalid":
       return "That sign-in link is invalid or has expired. Request a new one.";
+    case "reset_invalid":
+      return "That password reset link is invalid, used, or expired. Ask for a new one.";
+    case "archived":
+      return "This account has been archived and cannot sign in. Ask whoever set it up.";
     case "missing_config":
       return "Google sign-in is not configured yet.";
     case "denied":

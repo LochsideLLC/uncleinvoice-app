@@ -53,6 +53,11 @@ export async function GET(request: Request) {
   }
 
   const user = await findOrCreateGoogleUser(profile);
+  // Google is a separate door into the same account, so archiving has to be
+  // checked here too, not only on the password and link routes.
+  if (user.archivedAt) {
+    fail(from, "archived");
+  }
   await createSession(user.id);
   redirect(safeNext(stored.next));
 }

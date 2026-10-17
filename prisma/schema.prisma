@@ -32,6 +32,14 @@ model User {
   clientTerm   String   @default("clients")
   emailSignature String?
   admin        Boolean  @default(false)
+  // "free", "invoice", or "bookkeeper". The tier lives on the person, not on
+  // the client workspace, so a bookkeeper pays once and it covers every client
+  // whose books they keep.
+  plan         String   @default("free")
+  planSetAt    DateTime?
+  // Set when an admin archives the account. Archived accounts keep every row
+  // they own and cannot sign in by any route; clearing it restores them.
+  archivedAt   DateTime?
   // Set when a bookkeeper creates the login on someone's behalf with a
   // temporary password. The app makes them replace it before anything else.
   mustSetPassword Boolean @default(false)

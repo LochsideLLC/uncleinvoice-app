@@ -16,8 +16,13 @@ export async function startViewAsAction(formData: FormData) {
   if (!admin?.admin) redirect("/app");
 
   const userId = String(formData.get("userId") ?? "");
-  const target = await db.user.findUnique({ where: { id: userId }, select: { id: true } });
-  if (!target) redirect("/admin/view-as");
+  const target = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, archivedAt: true },
+  });
+  // The list already leaves archived accounts out; this is the check that
+  // actually holds, since the form can be posted directly.
+  if (!target || target.archivedAt) redirect("/admin/view-as");
 
   const jar = await cookies();
   jar.set(VIEW_AS_COOKIE, target.id, {

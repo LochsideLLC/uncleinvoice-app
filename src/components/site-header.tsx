@@ -39,6 +39,9 @@ export function SiteHeader({
                 <Link href="/admin/view-as" className={`${navLink} hidden md:inline-flex`}>
                   View as
                 </Link>
+                <Link href="/admin/accounts" className={`${navLink} hidden md:inline-flex`}>
+                  Accounts
+                </Link>
                 <Link href="/admin/sponsors" className={`${navLink} hidden md:inline-flex`}>
                   Admin
                 </Link>

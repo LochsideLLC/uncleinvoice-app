@@ -9,6 +9,7 @@ import { nextInvoiceNumber, recordEvent } from "@/lib/invoices";
 import { parseDate } from "@/lib/dates";
 import type { ActionState } from "@/actions/auth";
 import type { InvoiceStatus } from "@/lib/status";
+import { canImportInvoices, upgradeMessage } from "@/lib/plan";
 
 export async function importPaymentsAction(
   _prev: ActionState,
@@ -16,6 +17,9 @@ export async function importPaymentsAction(
 ): Promise<ActionState> {
   const workspaceId = String(formData.get("workspaceId") ?? "");
   const { user } = await requireWorkspace(workspaceId);
+  if (!canImportInvoices(user.plan)) {
+    return { error: upgradeMessage("Importing invoices from a spreadsheet") };
+  }
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Choose a CSV file first." };

@@ -20,6 +20,7 @@ import { invoiceBusinessData, parseBusinessInvoiceFields } from "@/lib/invoice-f
 import { invoiceGrandTotal, parseAmountPaid } from "@/lib/money";
 import type { ActionState } from "@/actions/auth";
 import type { InvoiceStatus } from "@/lib/status";
+import { canUseContractorLinks, upgradeMessage } from "@/lib/plan";
 
 export async function createInvoiceAction(
   _prev: ActionState,
@@ -522,7 +523,12 @@ export async function contractorLinkAction(
 ): Promise<ActionState> {
   const workspaceId = String(formData.get("workspaceId") ?? "");
   const contractorId = String(formData.get("contractorId") ?? "");
-  await requireWorkspace(workspaceId);
+  const { user } = await requireWorkspace(workspaceId);
+  // Only the person handing the link out needs the plan. The contractor who
+  // opens it has no account at all, and nothing here gates them.
+  if (!canUseContractorLinks(user.plan)) {
+    return { error: upgradeMessage("Contractor confirm-and-send links") };
+  }
 
   const contractor = await db.contractor.findFirst({
     where: { id: contractorId, workspaceId },
