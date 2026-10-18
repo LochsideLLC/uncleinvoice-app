@@ -22,8 +22,9 @@ merge, deploy or production change. Origin is
 `https://github.com/lochsidellc/uncleinvoice-app.git`. No command is staged in
 `/home/tom/ummon`.
 
-The account menu font mismatch was fixed locally: `.account-menu-item` sets
-both entries to `1rem` after the global `button { font: inherit }` rule.
+Commit `c8041a2` fixes the account menu font mismatch: `.account-menu-item`
+sets both entries to `1rem` after the global `button { font: inherit }` rule.
+No test or build was run for this small CSS change; `git diff --check` passed.
 
 **Six merges landed after the older handoff section was written** (that section
 was last written at `4f9fb7c`, PR #38, on 2026-10-16). All six are in
