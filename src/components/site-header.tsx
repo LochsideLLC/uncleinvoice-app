@@ -30,17 +30,17 @@ export function SiteHeader({
 
         {user ? (
           <nav className="flex items-center gap-1">
-            <Link href="/app" className={navLink}>
-              Dashboard
-            </Link>
-            <Link href="/app/whats-new" className={`${navLink} hidden lg:inline-flex`}>
-              What&rsquo;s new
-            </Link>
             <Link
               href="/app/plans"
               className="btn btn-sm btn-sparkle whitespace-nowrap"
             >
               {asPlan(user.plan) === "bookkeeper" ? "Your plan" : "Unlock features"}
+            </Link>
+            <Link href="/app" className={navLink}>
+              Dashboard
+            </Link>
+            <Link href="/app/whats-new" className={`${navLink} hidden lg:inline-flex`}>
+              What&rsquo;s new
             </Link>
             {user.admin ? (
               <>
