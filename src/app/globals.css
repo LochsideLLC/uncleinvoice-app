@@ -224,6 +224,26 @@ button:disabled {
   font-size: 0.9375rem;
 }
 
+/* Text CTA in accent ink. Set here, not as a utility: the unlayered
+   `a { color: inherit }` above beats Tailwind's layered colour utilities,
+   so `text-accent` on a link would render as plain ink. */
+.link-accent {
+  color: var(--accent);
+}
+
+.link-accent:hover {
+  color: var(--accent-hover);
+}
+
+/* Sponsor card description at a true 12px. The project theme maps
+   --text-xs/--text-sm/--text-base all to 1.125rem, so the text-xs utility
+   renders at 18px and can never produce small print. Scoped here so the
+   global scale stays untouched. */
+.sponsor-desc {
+  font-size: 0.75rem;
+  line-height: 1.625;
+}
+
 /* Sparkly upgrade button. Colour is set here rather than with a Tailwind
    utility for the same reason as .nav-link: the unlayered `a { color: inherit }`
    above beats Tailwind's layered colour utilities, so on a Link the label would

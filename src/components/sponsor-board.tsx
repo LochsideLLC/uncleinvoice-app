@@ -1,6 +1,26 @@
-import Link from "next/link";
 import type { Sponsor } from "@prisma/client";
 import { SponsorMark } from "@/components/sponsor-mark";
+
+const LOCAL_LOGOS: Record<string, string> = {
+  "bookkeeping-conroe": "/images/sponsors/bookkeeping-conroe.png",
+  "southwest-digital": "/images/sponsors/southwest-digital.png",
+};
+
+const CARD_COPY: Record<string, string> = {
+  "bookkeeping-conroe":
+    "Bookkeeping and cleanups so you can focus on running your business.",
+  "southwest-digital": "Websites, ads, and the kind of marketing that pays for itself.",
+};
+
+const CARD_NAMES: Record<string, string> = {
+  "southwest-digital": "Southwest Digital Marketing",
+};
+
+function oneSentence(text: string | null): string | null {
+  if (!text) return null;
+  const match = text.match(/^.*?[.!?](\s|$)/);
+  return (match ? match[0] : text).trim();
+}
 
 export function SponsorBoard({
   featured,
@@ -9,61 +29,72 @@ export function SponsorBoard({
   featured: Sponsor[];
   rest: Sponsor[];
 }) {
-  if (featured.length === 0 && rest.length === 0) return null;
+  const sponsors = [...featured, ...rest];
+  if (sponsors.length === 0) return null;
 
   return (
-    <section className="mx-auto mt-16 w-full max-w-5xl border-t border-line px-6 pb-20 pt-12 text-left">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-        Sponsors
-      </p>
-
-      {featured.length > 0 ? (
-        <ul className="mt-4 grid gap-4 sm:grid-cols-2">
-          {featured.map((sponsor) => (
-            <li key={sponsor.id}>
-              <Link
-                href={`/sponsors/${sponsor.slug}`}
-                className="paper flex h-full items-start gap-4 rounded-[1.3rem] p-5 transition hover:-translate-y-0.5"
+    <section aria-label="Sponsors" className="w-full border-t border-line">
+      <div className="mx-auto grid w-full max-w-7xl gap-6 px-6 pb-6 pt-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,4fr)] xl:gap-10">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+            Our sponsors
+          </p>
+          <h2 className="display mt-2 text-3xl leading-tight text-ink">
+            Helping your business grow.
+          </h2>
+        </div>
+        <div className="grid content-start gap-5 xl:grid-cols-2">
+          {sponsors.map((sponsor) => {
+            const logo = LOCAL_LOGOS[sponsor.slug] ?? sponsor.logoUrl;
+            const name = CARD_NAMES[sponsor.slug] ?? sponsor.name;
+            const description =
+              CARD_COPY[sponsor.slug] ?? oneSentence(sponsor.tagline);
+            return (
+              <a
+                key={sponsor.id}
+                href={sponsor.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${name} — Learn more (opens in a new tab)`}
+                className="paper group flex flex-col overflow-hidden rounded-[1.3rem] border border-line transition-shadow hover:shadow-lg"
               >
-                <SponsorMark name={sponsor.name} logoUrl={sponsor.logoUrl} large />
-                <div className="min-w-0">
-                  <p className="display text-xl text-ink">{sponsor.name}</p>
-                  {sponsor.tagline ? (
-                    <p className="mt-1 text-sm leading-relaxed text-muted">
-                      {sponsor.tagline}
+                <div className="flex min-w-0 flex-1 flex-col p-3">
+                  <div className="flex items-center gap-2.5">
+                    {logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={logo}
+                        alt=""
+                        loading="lazy"
+                        className="h-6 w-6 shrink-0 rounded-md bg-white object-contain"
+                      />
+                    ) : (
+                      <SponsorMark name={sponsor.name} />
+                    )}
+                    <p className="display min-w-0 text-sm font-semibold leading-tight text-ink">
+                      {name}
+                    </p>
+                  </div>
+                  {description ? (
+                    <p className="sponsor-desc mt-1 text-muted">
+                      {description}
                     </p>
                   ) : null}
+                  <span className="link-accent mt-1 inline-flex items-center gap-1 text-xs font-semibold">
+                    Learn more
+                    <span
+                      aria-hidden="true"
+                      className="transition-transform group-hover:translate-x-0.5"
+                    >
+                      →
+                    </span>
+                  </span>
                 </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {rest.length > 0 ? (
-        <ul
-          className={`divide-y divide-line overflow-hidden rounded-[1.3rem] border border-line bg-paper ${
-            featured.length > 0 ? "mt-8" : "mt-4"
-          }`}
-        >
-          {rest.map((sponsor) => (
-            <li key={sponsor.id}>
-              <Link
-                href={`/sponsors/${sponsor.slug}`}
-                className="flex items-center gap-3 px-4 py-3 transition hover:bg-paper-2"
-              >
-                <SponsorMark name={sponsor.name} logoUrl={sponsor.logoUrl} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-ink">{sponsor.name}</p>
-                  {sponsor.tagline ? (
-                    <p className="truncate text-sm text-muted">{sponsor.tagline}</p>
-                  ) : null}
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+              </a>
+            );
+          })}
+        </div>
+      </div>
     </section>
   );
 }

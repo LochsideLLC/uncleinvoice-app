@@ -1,5 +1,35 @@
 # HANDOFF — Uncle Invoice
 
+## Current state — 2026-10-18 (homepage hero, uncommitted on branch)
+
+Tom supplied a mock and the hero asset (`public/images/contractor-paid-hero.png`,
+untracked, 2 MB). `src/app/page.tsx` rebuilt on branch `feat/homepage-hero`:
+two-column hero (headline, sub, Create Invoice — Free CTA, 5-item checklist,
+hero image right; stacked on mobile). Sponsors now bordered cards beside a "Brought to you by" intro column, per
+Tom's second mock. Card: logomark + serif name, two-line description
+(hand copy per slug in code, DB tagline fallback), cover photo right
+(`sponsors/*-cover.png`; mock's exact shots were absent from nostromo —
+BC desk flat-lay and SWD dusk laptop came from Tom into `public/images/`),
+pill CTA "Visit {name} →" (new `.btn-outline` class, since removed —
+whole-card links now). Revised per brief: compact intro ("Our sponsors" /
+"Helping your business grow.", no sub copy, 1:4 grid), cards 62/38 with
+aspect-4:3 object-center covers (calculator and laptop screen preserved, no
+stretch), whole-card `<a>` links with "Learn more →" spans (aria-labeled).
+Side-by-side at xl+ (name fits one line even at 1280); stacked full-width
+below. Viewport-verified with headless Chromium screenshots at 1920x1080
+(both cards above fold), 1440, 1280, 1100, and 390: side-by-side vs stacked
+correct everywhere, no overflow, text and subjects legible. tsc/eslint
+clean, 22/22 tests, `next build` passes, render asserted 13/13.
+Uncommitted on feat/homepage-hero. Link clicks not exercised (screenshot-mode
+browser, no driver); Tom gives visual sign-off.
+
+**Card targets hit: photo 64, content 100 (browser-measured).** Root cause of
+the earlier confusion: the Tailwind theme maps --text-xs/--text-sm/--text-base
+ALL to 1.125rem, so every text-xs/text-sm in the app renders at 18px and no
+small print was possible. Fixed scoped (`.sponsor-desc` at true 12px) without
+touching the global scale. FLAG: that theme override is likely unintentional
+and affects the whole site — separate decision whether to restore the scale.
+
 ## Current state — 2026-10-18 (Stripe test cleanup + webhook, Muse pickup)
 
 Codex hit its usage limit mid-turn (reset 5:17 PM) after canceling the four
@@ -52,8 +82,20 @@ Auto-placement then seats Bill/junk/From/junk, dropping From a row. Real fix
 in tree: both sections explicitly pinned (`sm:col-start-1/2`,
 `sm:row-start-1`) — explicitly placed items seat before auto-placed junk, so
 ANY sibling-injecting extension is neutralized, vendor-neutral. Mobile
-unchanged (single column, auto flow). tsc clean, 22/22. Still needs ship +
-Tom's LastPass-on retest to close.
+unchanged (single column, auto flow). tsc clean, 22/22.
+
+**Shipped as PR #45 (`358931c`), branch pruned.** Tom ordered commit/push/
+merge/prune: committed `3b6e2a9`, pushed, opened PR #45, squash-merged to
+main. Netlify production serves `358931c` (ready); live `/create` HTML
+contains both pinned classes. Local + remote topic branches deleted,
+`main` fast-forwarded and clean. Remaining: Tom retests `/create` with
+LastPass on and confirms two columns stick.
+
+**Outage caused and fixed same turn.** PR #45 reads `User.accountType` but
+migration `20261018190000` had never been applied: every logged-in page
+500d (logged-out fine, which is why pre-merge checks passed). Tom said
+`apply`; ran `prisma migrate deploy` (pure `ADD COLUMN ... DEFAULT
+'other'`), verified the column reads back. Site answers 200s again.
 
 **Not done — needs Tom.** (1) Tom re-runs the upgrade flow himself, then one
 end-to-end checkout is still untested. (2) Duplicate-active-subscription
