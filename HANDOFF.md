@@ -29,6 +29,12 @@ before triggering, so no new code shipped). New deploy
 `6ad52175767b0dde0cb99cdf` is `ready`; live route still `400` with no
 signature. Board hold released, job closed as done.
 
+**Pushed same turn.** Tom said "push everything": committed all local work
+as `14d30db` (plus a test fix tracking `PLAN_LABEL`, 21/21 tests pass, tsc
+clean after `prisma generate`) and pushed topic branch
+`fix/unlock-features-nav-label` to origin. No PR opened, no merge, no
+production deploy — live site still serves `2f152e3`.
+
 **Not done — needs Tom.** (1) Tom re-runs the upgrade flow himself, then one
 end-to-end checkout is still untested. (2) Duplicate-active-subscription
 prevention and conflicting-event handling from the earlier plan are untouched.
