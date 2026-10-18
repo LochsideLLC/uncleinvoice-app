@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth";
 import { createToken, hashToken } from "@/lib/crypto";
 import { sendEmail } from "@/lib/mail";
+import { ACCOUNT_TYPES } from "@/lib/account-type";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
@@ -20,6 +21,7 @@ const signupSchema = z.object({
   email: z.string().email("Enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
   intent: z.enum(["password", "magic"]).default("password"),
+  accountType: z.enum(ACCOUNT_TYPES).default("other"),
 });
 
 export type ActionState = { error?: string; ok?: boolean; message?: string } | null;
@@ -45,6 +47,7 @@ export async function signupAction(
     email: formData.get("email"),
     password: formData.get("password") || undefined,
     intent: formData.get("intent") || "password",
+    accountType: formData.get("accountType") || "other",
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
@@ -60,7 +63,7 @@ export async function signupAction(
 
   if (parsed.data.intent === "magic") {
     const user = await db.user.create({
-      data: { email, name: parsed.data.name },
+      data: { email, name: parsed.data.name, accountType: parsed.data.accountType },
     });
     const link = await sendLoginLink(user.email, user.id);
     return {
@@ -79,11 +82,12 @@ export async function signupAction(
     data: {
       email,
       name: parsed.data.name,
+      accountType: parsed.data.accountType,
       passwordHash: await hashPassword(parsed.data.password),
     },
   });
   await createSession(user.id);
-  redirect("/app");
+  redirect(parsed.data.accountType === "bookkeeper" ? "/app/plans?welcome=bookkeeper" : "/app");
 }
 
 export async function loginAction(
@@ -231,6 +235,7 @@ export async function setPasswordAction(
     data: {
       email,
       name: name || email.split("@")[0] || "Contractor",
+      accountType: "contractor",
       passwordHash: await hashPassword(password),
     },
   });

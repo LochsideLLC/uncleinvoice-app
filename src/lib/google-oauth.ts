@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
+import { asAccountType, type AccountType } from "@/lib/account-type";
 
 export const GOOGLE_OAUTH_COOKIE = "ir_google_oauth";
 
@@ -8,6 +9,7 @@ export type GoogleOAuthState = {
   verifier: string;
   next: string;
   from: string;
+  accountType: AccountType;
   redirectUri: string;
 };
 
@@ -75,6 +77,7 @@ export function decodeGoogleOAuthState(raw: string | undefined): GoogleOAuthStat
       verifier: parsed.verifier,
       next: typeof parsed.next === "string" ? parsed.next : "",
       from: safeAuthReturnPath(typeof parsed.from === "string" ? parsed.from : null),
+      accountType: asAccountType(parsed.accountType),
       redirectUri: parsed.redirectUri,
     };
   } catch {
@@ -128,19 +131,19 @@ export async function fetchGoogleProfile(accessToken: string) {
   };
 }
 
-export async function findOrCreateGoogleUser(profile: { email: string; name: string }) {
+export async function findOrCreateGoogleUser(profile: { email: string; name: string }, accountType: AccountType = "other") {
   const existing = await db.user.findUnique({ where: { email: profile.email } });
   const user =
     existing ??
     (await db.user.create({
-      data: { email: profile.email, name: profile.name },
+      data: { email: profile.email, name: profile.name, accountType },
     }));
 
   await db.contractor.updateMany({
     where: { email: profile.email, userId: null },
     data: { userId: user.id },
   });
-  return user;
+  return { user, created: !existing };
 }
 
 export function googleAuthErrorMessage(code: string | undefined) {

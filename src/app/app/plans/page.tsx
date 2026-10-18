@@ -3,23 +3,32 @@ import { requireUser } from "@/lib/auth";
 import { asPlan } from "@/lib/plan";
 import { UPGRADE_OFFERS } from "@/lib/upgrade";
 import { PlanMatrix } from "@/components/plan-matrix";
+import { CheckoutSuccessModal } from "@/components/checkout-success-modal";
 
 export const metadata = { title: "Plans — Uncle Invoice" };
 
 export default async function PlansPage({
   searchParams,
 }: {
-  searchParams: Promise<{ feature?: string; checkout?: string }>;
+  searchParams: Promise<{ feature?: string; checkout?: string; welcome?: string }>;
 }) {
   const user = await requireUser();
-  const { feature, checkout } = await searchParams;
+  const { feature, checkout, welcome } = await searchParams;
   const context = feature && Object.hasOwn(UPGRADE_OFFERS, feature) ? UPGRADE_OFFERS[feature as keyof typeof UPGRADE_OFFERS] : null;
   const current = asPlan(user.plan);
+  const paidPlan = current === "free" ? null : current;
   return <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 px-6 sm:px-8">
     <header className="mx-auto w-full max-w-6xl pb-4 sm:pb-6">
       <Link href="/app" className="text-sm text-muted underline">← Back to your invoices</Link>
       {context && <p className="mt-4 max-w-2xl rounded-xl bg-paper-2 p-4">You came here for: {context.title}</p>}
-      {checkout === "success" && <p className="notice mt-4 max-w-2xl">Payment received. Stripe is updating your plan now.</p>}
+      {checkout === "success" && <CheckoutSuccessModal plan={paidPlan} />}
+      {welcome === "bookkeeper" && current !== "bookkeeper" ? (
+        <div className="mt-4 max-w-2xl rounded-xl border border-line bg-paper-2 p-4">
+          <p className="font-semibold">Welcome, bookkeeper.</p>
+          <p className="mt-1 text-sm text-muted">Bookkeeper turns payment exports into invoice drafts contractors can review, confirm, and send to your clients.</p>
+          <Link href="/upgrades/bookkeeper" className="mt-2 inline-block text-sm text-ink underline">See how Bookkeeper works</Link>
+        </div>
+      ) : null}
       {checkout === "canceled" && <p className="mt-4 max-w-2xl rounded-xl bg-paper-2 p-4">Checkout canceled. Your plan has not changed.</p>}
     </header>
     <section id="matrix" aria-label="Plan comparison" className="scroll-mt-24">

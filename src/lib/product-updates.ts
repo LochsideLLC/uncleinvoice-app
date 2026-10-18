@@ -19,6 +19,6 @@ export const PRODUCT_UPDATES = [
   { status: "shipped", title: "Supporting documents and bulk downloads", description: "Attach backup documents to an invoice and download selected invoices together in a ZIP with a matching manifest." },
   { status: "shipped", title: "Your business on the page", description: "Save business details, a logo or wordmark, and profile information. Paid plans remove the Uncle Invoice credit from finished invoices." },
   { status: "shipped", title: "Account and admin safeguards", description: "Sign in with a password or Google, reset and change passwords, archive accounts, and let admins preview the product as another account." },
-  { status: "shipped", title: "Plans that explain the workflow", description: "Compare Free, Invoice, and Bookkeeper, preview paid branding, and see an upgrade explanation without losing unfinished invoice work." },
+  { status: "shipped", title: "Plans that explain the workflow", description: "Compare Free, Contractor, and Bookkeeper, preview paid branding, and see an upgrade explanation without losing unfinished invoice work." },
   { status: "coming-soon", title: "Payment reminders", description: "Send a follow-up from an invoice when a balance is still outstanding." },
 ] satisfies readonly ProductUpdate[];

@@ -1,5 +1,6 @@
 /**
- * The two paid tiers, and what each one unlocks.
+ * The two paid tiers, and what each one unlocks. `invoice` is the stable
+ * internal billing key; customers see the plan as Contractor.
  *
  * The tier lives on the **person** (User.plan), not on the client workspace.
  * A bookkeeper upgrades once and it covers every client whose books they
@@ -37,7 +38,7 @@ export function monthlyPrice(plan: Plan) {
 
 export const PLAN_LABEL: Record<Plan, string> = {
   free: "Free",
-  invoice: "Invoice",
+  invoice: "Contractor",
   bookkeeper: "Bookkeeper",
 };
 
@@ -97,7 +98,7 @@ export const PLAN_FEATURES: Record<Plan, string[]> = {
     "The same simple invoicing, with only your business on the page",
   ],
   bookkeeper: [
-    "Everything in Invoice",
+    "Everything in Contractor",
     "As many clients as you keep books for",
     "Import a spreadsheet of payments and turn it into invoices",
     "Send a contractor a link to confirm their own invoices",

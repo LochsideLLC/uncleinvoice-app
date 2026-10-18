@@ -30,11 +30,16 @@ export function PlanMatrix({ current }: { current?: string | null }) {
           <th scope="col" className="py-3 pr-4 font-medium text-muted">Compare the plans</th>
           {PLANS.map((plan) => (
             <th key={plan} scope="col" className="px-3 py-3 text-center">
-              {PLAN_LABEL[plan]}
+              <span className="flex items-center justify-center gap-2 whitespace-nowrap">
+                {PLAN_LABEL[plan]}
+                {plan === active ? (
+                  <span title="Your plan" className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-accent-ink">
+                    <span className="sr-only">Your plan: </span>
+                    <span aria-hidden="true">Current</span>
+                  </span>
+                ) : null}
+              </span>
               <span className="mt-1 block text-sm font-normal text-muted">{monthlyPrice(plan)}</span>
-              {plan === active && (
-                <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.12em] text-muted">Your plan</span>
-              )}
             </th>
           ))}
         </tr>

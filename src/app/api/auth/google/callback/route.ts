@@ -83,12 +83,18 @@ export async function GET(request: Request) {
     fail(origin, from, "no_email");
   }
 
-  const user = await findOrCreateGoogleUser(profile);
+  const { user, created } = await findOrCreateGoogleUser(profile, stored.accountType);
   // Google is a separate door into the same account, so archiving has to be
   // checked here too, not only on the password and link routes.
   if (user.archivedAt) {
     fail(origin, from, "archived");
   }
   await createSession(user.id);
+  if (created && stored.from === "/login") {
+    redirect(absolute(origin, "/app/onboarding"));
+  }
+  if (created && user.accountType === "bookkeeper") {
+    redirect(absolute(origin, "/app/plans?welcome=bookkeeper"));
+  }
   redirect(absolute(origin, safeNext(stored.next)));
 }

@@ -153,6 +153,10 @@ button {
   font: inherit;
 }
 
+.account-menu-item {
+  font-size: 1rem;
+}
+
 .paper {
   background: var(--paper);
   border: 1px solid var(--line);
