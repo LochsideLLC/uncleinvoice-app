@@ -1,8 +1,146 @@
 # HANDOFF — Uncle Invoice
 
-## Current work — contextual upgrades (2026-10-16, Ummon, ripley)
+## Current state — 2026-10-18 (Ummon, ripley)
 
-This section supersedes historical branch/status claims below. Base verified by
+This section supersedes every branch, status and "still open" claim below it.
+Nothing was implemented in this turn; this is a refresh of the record plus a
+branch cleanup, because the file had gone four merges stale.
+
+**Checkout.** `ripley:~/projects/uncleinvoice-app`, branch `main`, clean,
+level with `origin/main` at `0be8686` "Add test-mode Stripe checkout (#42)"
+after `git fetch origin`. `npm install` run here 2026-10-18, exit 0; it
+installed the `stripe` package that #42 added and left `package-lock.json`
+unchanged. Origin is `https://github.com/lochsidellc/uncleinvoice-app.git`.
+Only `main` exists locally and on origin. No command is staged in
+`/home/tom/ummon`.
+
+**Four merges landed since this file was last written** (it was last written
+at `4f9fb7c`, PR #38, on 2026-10-16). All four are in production:
+
+| Commit | PR | What it did |
+| --- | --- | --- |
+| `5dc59f8` | #39 | Rebuilt `/app/plans` around a comparison matrix; `plan-picker.tsx` replaced by `plan-matrix.tsx`. |
+| `d6eb36b` | #40 | Rewrote `/privacy` and `/terms`, added `/cookies`, linked it from the footer. |
+| `5f0ae02` | #41 | Added the signed-in `/app/whats-new` page, its header link, and `src/lib/product-updates.ts`. |
+| `0be8686` | #42 | Added test-mode Stripe checkout: `/api/stripe/checkout`, `/api/stripe/webhook`, `src/lib/stripe.ts`, `src/lib/stripe-webhook.ts`. |
+
+**Pricing and checkout are no longer undecided.** Earlier sections in this
+file say "no checkout and no prices, by Tom's decision, and the upgrade page
+points at info@bookkeepingconroe.com". That is now wrong. `src/lib/plan.ts`
+fixes prices on the server at Invoice **$5/mo** (`500` cents) and Bookkeeper
+**$29/mo** (`2900` cents), and #42 wired a real Stripe Checkout session.
+
+**But the live checkout cannot complete, and this is the one thing to know.**
+`src/lib/stripe.ts` requires `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
+Netlify's production environment has **neither** — verified 2026-10-18 with
+`netlify env:list`, which returns only `APP_URL`, `DATABASE_URL`,
+`DIRECT_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `MAIL_FROM`,
+`RESEND_API_KEY`, `NODE_VERSION` and `NEXT_TELEMETRY_DISABLED`. So a signed-in
+person who presses an upgrade button on `/app/plans` gets a **503** with
+`{"error":"STRIPE_SECRET_KEY is not configured"}`, not a Stripe page. The
+failure is handled rather than a crash, but it is still a dead button in front
+of paying customers. Nobody can pay until Tom adds the two keys.
+
+**Test mode is enforced in code, deliberately.** `stripeTestSecretKey()`
+rejects any key that does not match `/^(?:sk|rk)_test_/`. A live-mode key will
+be refused with "STRIPE_SECRET_KEY must be a Stripe test-mode key", so
+switching this on for real money is a code change, not just an env change.
+`stripeWebhookSecret()` likewise requires a `whsec_` prefix.
+
+**Live verification done 2026-10-18 against `https://uncleinvoice.com`:**
+
+- `POST /api/stripe/checkout` with no session → `401 {"error":"Sign in required"}`
+- `POST /api/stripe/webhook` with no signature → `400 {"error":"Missing Stripe signature"}`
+- `GET /cookies` → 200, `GET /privacy` → 200, `GET /terms` → 200
+- `GET /app/whats-new` → 307 to `/login?next=%2Fapp%2Fwhats-new`
+
+So all four routes are deployed. Production deploy is Netlify
+`6ad3a27c09b2695f6d8725dc`, state `ready`, commit `0be8686`, site
+`c603abb3-3db2-40db-a876-f96d40c9e9fd`.
+
+**One Netlify detail worth not misreading.** The deploy list shows
+`error` for `d6eb36b` and `5f0ae02`. Those are not failed builds in the
+usual sense: all three merges landed within 12 seconds of each other, so each
+build was superseded by the next. Only `0be8686` ran to completion, and it is
+what production serves. The auto-build hook fired on its own again — by the
+count kept in earlier board records, that hook has now worked three times
+running and failed once (2026-10-13).
+
+**Branch cleanup done in this turn.** Three merged husks were left on origin
+after #40/#41/#42 squash-merged: `legal-pages-cookie-notice`,
+`feat/whats-new-page`, `feat/stripe-test-checkout`. Because a squash merge
+makes the branch commit a non-ancestor, `git branch -r --merged` does not
+list them, so each was checked by content instead: for every file the branch
+touched, `git diff origin/<branch> origin/main -- <files>` was empty. All
+three were proved identical to `origin/main` before deletion.
+
+### Checks run 2026-10-18 on `0be8686`
+
+- `npx tsc --noEmit` — **passed**, 0 errors. (It failed first with four
+  `TS2307 Cannot find module 'stripe'` errors; that was only the uninstalled
+  dependency, fixed by `npm install`, not a defect.)
+- `npm run test:upgrades` — **21 passed, 0 failed, 0 skipped**. Four tests are
+  new since #38, covering the checkout surface: plans offers only higher tiers
+  through test checkout, checkout tiers and prices are fixed on the server,
+  only a paid fixed-price Stripe event grants a plan and a lapse removes it,
+  and unknown plans get no paid privileges.
+- `npm run build` — **passed** (`prisma generate && next build`).
+- `npm run lint` — **exit 1: 7 errors, 2 warnings.** This is the unchanged
+  pre-existing baseline, identical to what #38 recorded: errors in
+  `src/actions/public-invoice.ts`, `src/components/dashboard-metrics.tsx` and
+  `src/components/form-banner.tsx` (two `prefer-const`, two
+  `react-hooks/set-state-in-effect`, and others), warnings in
+  `src/app/partners/page.tsx`. #40, #41 and #42 added no new lint problems.
+  5 of the 7 are `--fix`-able and nobody has fixed them.
+
+### Not checked, and say so rather than assume
+
+- **No browser pass.** Not attempted. Per standing instruction the browser is
+  only driven on `steelbreeze`, which is still not paired, so no page was
+  loaded in a real browser. Nothing on `/app/plans`, `/app/whats-new`,
+  `/cookies` or the checkout button has been seen rendered.
+- **The whole Stripe path is unexercised end to end.** No checkout session has
+  ever been created, no webhook has ever been received, and the plan-granting
+  code in `src/lib/stripe-webhook.ts` has only ever run against synthetic test
+  fixtures. The first real test needs the keys set.
+- **No production database read this turn.** The 5 users / 3 workspaces /
+  6 contractors / 137 invoices figures in older sections are from 2026-10-17
+  and were not re-counted.
+- The legal text in #40 was not reviewed by a lawyer, and nothing in this
+  repo makes it accurate for Tom's actual data practices beyond what the
+  author wrote.
+
+### Needs Tom
+
+1. **Add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to Netlify
+   production**, or the upgrade buttons stay dead. Test-mode keys only — the
+   code refuses anything else.
+2. Register the webhook endpoint `https://uncleinvoice.com/api/stripe/webhook`
+   in the Stripe dashboard and take its signing secret from there.
+3. Decide whether $5 and $29 are the real prices before live mode, since they
+   are compiled into `src/lib/plan.ts` rather than read from Stripe.
+4. Carried forward, still unanswered: settle the $778.32 PayPal question
+   before any contractor is contacted; authorize a scratch Postgres so PR #1's
+   migration is exercised before merge; decide whether real contractor names
+   ever go to the live site.
+
+### Carried forward, unchanged and still open
+
+- **No test runner for the app as a whole.** `npm run test:upgrades` is one
+  bespoke script covering the upgrade and checkout surface. Everything else is
+  hand-verified.
+- **`MagicLink_contractorId_idx` drift** between the live database and
+  `schema.prisma` is still unresolved.
+- **No deletion audit trail**, which is what made the 2026-10-16 "where did
+  the contractor accounts go" question take forensics.
+- The importer defects below (no idempotency, no contractor/period grouping,
+  backwards auto-send default) are untouched.
+
+## Session 2026-10-16 — contextual upgrades (Ummon)
+
+Historical. PR #38 is merged; four more merges landed after it, so the state
+below is superseded by the 2026-10-18 section at the top of this file. Base
+verified at the time by
 `git fetch origin`: `8780cdb`, main equal to origin/main, initially clean. Work is
 on `feat/contextual-upgrades`; no merge or production deployment in this turn.
 Implementation commit: `d839d6f`. Branch pushed; draft PR
