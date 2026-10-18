@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { logoutAction } from "@/actions/auth";
 import { AccountMenu } from "@/components/account-menu";
 import { UncleStamp } from "@/components/brand-mark";
 import { asPlan } from "@/lib/plan";
@@ -30,14 +29,14 @@ export function SiteHeader({
 
         {user ? (
           <nav className="flex items-center gap-1">
+            <Link href="/app" className={navLink}>
+              Dashboard
+            </Link>
             <Link
               href="/app/plans"
               className="btn btn-sm btn-sparkle whitespace-nowrap"
             >
               {asPlan(user.plan) === "bookkeeper" ? "Your plan" : "Unlock features"}
-            </Link>
-            <Link href="/app" className={navLink}>
-              Dashboard
             </Link>
             <Link href="/app/whats-new" className={`${navLink} hidden lg:inline-flex`}>
               What&rsquo;s new
@@ -55,15 +54,9 @@ export function SiteHeader({
                 </Link>
               </>
             ) : null}
-            <form action={logoutAction}>
-              <button type="submit" className={`${navLink} hidden sm:inline-flex`}>
-                Sign out
-              </button>
-            </form>
             <AccountMenu
               name={user.name ?? "Account"}
               logoUrl={user.businessLogoUrl || user.businessWordmarkUrl}
-              admin={user.admin}
             />
           </nav>
         ) : (
