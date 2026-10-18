@@ -40,7 +40,7 @@ export function SiteHeader({
               href="/app/plans"
               className="btn btn-sm btn-sparkle whitespace-nowrap"
             >
-              {asPlan(user.plan) === "bookkeeper" ? "Your plan" : "Plans"}
+              {asPlan(user.plan) === "bookkeeper" ? "Your plan" : "Unlock features"}
             </Link>
             {user.admin ? (
               <>
