@@ -29,6 +29,9 @@ export function SiteHeader({
 
         {user ? (
           <nav className="flex items-center gap-1">
+            <Link href="/how-it-works" className={`${navLink} hidden sm:inline-flex`}>
+              How it works
+            </Link>
             <Link href="/app" className={navLink}>
               Dashboard
             </Link>
@@ -61,6 +64,9 @@ export function SiteHeader({
           </nav>
         ) : (
           <nav className="flex items-center gap-2">
+            <Link href="/how-it-works" className={`${navLink} hidden sm:inline-flex`}>
+              How it works
+            </Link>
             <Link href="/login" className={navLink}>
               Sign in
             </Link>

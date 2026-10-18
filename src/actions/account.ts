@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { hashPassword, requireUser, verifyPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { optionalText } from "@/lib/invoice-fields";
@@ -8,6 +9,7 @@ import { formatUsPhone, phoneDigits } from "@/lib/us-address";
 import type { ActionState } from "@/actions/auth";
 
 import { CLIENT_TERMS } from "@/lib/client-terms";
+import { ACCOUNT_TYPES } from "@/lib/account-type";
 
 const MAX_LOGO_CHARS = 400_000;
 const LOGO_PATTERN = /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=\s]+$/;
@@ -16,6 +18,16 @@ function refreshAccountPages() {
   revalidatePath("/", "layout");
   revalidatePath("/app");
   revalidatePath("/app/profile");
+}
+
+export async function updateAccountTypeAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const raw = String(formData.get("accountType") ?? "");
+  if (!(ACCOUNT_TYPES as readonly string[]).includes(raw)) return;
+  await db.user.update({ where: { id: user.id }, data: { accountType: raw } });
+  revalidatePath("/app");
+  if (raw === "bookkeeper") redirect("/app/plans?welcome=bookkeeper");
+  redirect("/app");
 }
 
 export async function updateProfileAction(

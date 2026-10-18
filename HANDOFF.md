@@ -1,5 +1,80 @@
 # HANDOFF — Uncle Invoice
 
+## Current state — 2026-10-18 (Stripe test cleanup + webhook, Muse pickup)
+
+Codex hit its usage limit mid-turn (reset 5:17 PM) after canceling the four
+test subscriptions. Muse picked up in the same Herdr tab (`w1F:t5`) from the
+Codex log `rollout-2026-10-18T13-10-56-01a15035` and finished item 2.
+
+**Done.** All four Stripe test subscriptions are canceled
+(`sub_1URzMo2R5qsZ6eIFzlrNW1FD`, `sub_1URyiX2R5qsZ6eIFgebcO1hK`,
+`sub_1URaiK2R5qsZ6eIFL0woGNhO`, `sub_1URaYl2R5qsZ6eIF2iBdDFe4` — Codex's last visible run showed them
+canceling and a fresh list confirms `active-subs:0`). New test webhook
+endpoint `we_1URzXd2R5qsZ6eIFSziwpMt8` → `https://uncleinvoice.com/api/stripe/webhook`
+(test mode, enabled) with exactly the four events the app handles
+(`checkout.session.completed`, `customer.subscription.deleted`,
+`.paused`, `.updated`). `STRIPE_WEBHOOK_SECRET` in Netlify **production**
+updated to the new endpoint's signing secret (verified present, value never
+printed). First endpoint created this turn was deleted unused because the
+Netlify CLI echoed its secret into the session log; the leaked value died
+with the endpoint and is not the configured one.
+
+**Verified.** `POST https://uncleinvoice.com/api/stripe/webhook` with no
+signature → `400` (route live). Stripe `active-subs:0`,
+`webhook_endpoints` lists only the new endpoint.
+
+**Redeploy done same turn.** Tom said "ok do that": Netlify rebuilt the
+identical commit (`2f152e3cd`, verified `origin/main` matched production
+before triggering, so no new code shipped). New deploy
+`6ad52175767b0dde0cb99cdf` is `ready`; live route still `400` with no
+signature. Board hold released, job closed as done.
+
+**Not done — needs Tom.** (1) Tom re-runs the upgrade flow himself, then one
+end-to-end checkout is still untested. (2) Duplicate-active-subscription
+prevention and conflicting-event handling from the earlier plan are untouched.
+No command is staged in `/home/tom/ummon-t5`.
+
+## Current state — 2026-10-18 (plan name)
+
+Tom asked to rename the customer-facing `Invoice` plan to `Contractor`.
+`PLAN_LABEL.invoice` now displays `Contractor`, and the public explainer route is
+`/upgrades/contractor`. The internal plan key remains `invoice`; Stripe price
+configuration, stored subscriptions, and webhook metadata continue using that
+key, so existing billing stays compatible. The current-plan marker now sits
+beside the plan name instead of creating a taller header cell. The screenshot
+and a read-only local account lookup both show the Tom-named account on `free`,
+not `bookkeeper`. Work remains local and uncommitted. `git diff --check` passed.
+No tests, typecheck, build, browser review, push, or deploy was run.
+
+## Current state — 2026-10-18 (local product update)
+
+Tom asked for account signup to ask whether someone is a contractor,
+bookkeeper, or other; for bookkeepers to be shown the Bookkeeper upgrade; and
+for a public “How it works” page linking to separate Contractor and Bookkeeper
+upgrade pages. This work is on `fix/unlock-features-nav-label`, based on
+`origin/main` after `git fetch origin`. The branch was already 8 commits ahead
+of `origin/main`; this work is uncommitted. No push, PR, merge, deploy, or
+production migration was performed.
+
+The implementation adds `User.accountType` with a default of `other`, records
+signup choices for password, magic-link, and Google signup, asks new Google
+login users to choose a role, and sends a new bookkeeper to the plan matrix
+with a Bookkeeper introduction. The public routes are `/how-it-works`,
+`/upgrades/contractor`, and `/upgrades/bookkeeper`; “How it works” is in the site
+header and footer. New public pages describe QuickBooks and other imports as
+spreadsheet-based, not direct connections.
+
+Product boundary to keep visible: today the contractor flow uses a contractor
+record and private review link; it does not create a contractor login account.
+The Bookkeeper page says so rather than promising a login that the app does not
+currently provide. The additive migration
+`prisma/migrations/20261018190000_user_account_type/migration.sql` has not been
+applied to any database.
+
+`git diff --check` passed. No tests, typecheck, build, or browser review was run
+for this update. Do not describe it as tested. No command is staged in
+`/home/tom/ummon`.
+
 ## Current state — 2026-10-18 (Ummon, ripley)
 
 This section supersedes every branch, status and "still open" claim below it.

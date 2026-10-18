@@ -8,6 +8,7 @@ import {
   googleConfigured,
   safeAuthReturnPath,
 } from "@/lib/google-oauth";
+import { asAccountType } from "@/lib/account-type";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
     verifier,
     next: url.searchParams.get("next") ?? "",
     from,
+    accountType: from === "/signup" ? asAccountType(url.searchParams.get("accountType")) : "other",
     redirectUri,
   });
 

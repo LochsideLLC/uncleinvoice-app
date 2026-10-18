@@ -36,6 +36,7 @@ model User {
   // the client workspace, so a bookkeeper pays once and it covers every client
   // whose books they keep.
   plan         String   @default("free")
+  accountType  String   @default("other")
   planSetAt    DateTime?
   // Set when an admin archives the account. Archived accounts keep every row
   // they own and cannot sign in by any route; clearing it restores them.

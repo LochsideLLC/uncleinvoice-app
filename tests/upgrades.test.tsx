@@ -41,7 +41,7 @@ for (const plan of ["free", "invoice", "bookkeeper"]) {
   test(`${plan}: plans page offers only higher tiers through test checkout`, async () => {
     state.plan = plan;
     const markup = renderToStaticMarkup(await PlansPage({ searchParams: Promise.resolve({ feature: "import" }) }));
-    assert.equal(markup.includes("Choose Invoice"), plan === "free");
+    assert.equal(markup.includes(`Choose ${PLAN_LABEL.invoice}`), plan === "free");
     assert.equal(markup.includes(`Choose ${PLAN_LABEL.bookkeeper}`), plan !== "bookkeeper");
     assert.match(markup, /Stripe Checkout is in test mode/);
     assert.match(markup, /\$5\/mo/);
