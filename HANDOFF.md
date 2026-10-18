@@ -4,8 +4,9 @@
 
 This section supersedes every branch, status and "still open" claim below it.
 Tom asked for the signed-in navigation label `Plans` to read `Unlock features`,
-positioned to the left of `Dashboard`, and explicitly said not to push until he
-says.
+with `Dashboard` to its left. He also asked to remove the standalone `Sign out`
+control and put `Profile` and `Sign out` in a menu opened from the profile icon.
+He explicitly said not to push until he says.
 
 **Checkout.** `ripley:~/projects/uncleinvoice-app`, branch
 `fix/unlock-features-nav-label`, based on `origin/main` at `2f152e3` "Make the
@@ -13,8 +14,11 @@ Plans link in the header a sparkly button (#44)" after `git fetch origin`.
 Implementation commit `c69ce6e` changes the label in
 `src/components/site-header.tsx`: Free and Invoice accounts now see `Unlock
 features`; Bookkeeper accounts still see `Your plan`. The follow-up ordering
-commit `dc55815` places that button before `Dashboard`. The branch and commits
-are local only: no push, PR, merge, deploy or production change. Origin is
+commit `dc55815` is superseded by Tom's latest direction: `Dashboard` is again
+first. Commit `da83f94` removes the standalone `Sign out` control and changes
+the profile icon from a direct link into a native disclosure menu holding
+`Profile` and `Sign out`. The branch and commits are local only: no push, PR,
+merge, deploy or production change. Origin is
 `https://github.com/lochsidellc/uncleinvoice-app.git`. No command is staged in
 `/home/tom/ummon`.
 
@@ -79,11 +83,16 @@ three were proved identical to `origin/main` before deletion.
 
 ### Checks run 2026-10-18
 
-On local implementation commits `c69ce6e` and `dc55815`:
+On local implementation commits `c69ce6e`, `dc55815` and `da83f94`:
 
 - `npx tsc --noEmit` — **passed**, 0 errors.
 - `npm run test:upgrades` — **21 passed, 0 failed, 0 skipped**.
 - `npx eslint src/components/site-header.tsx` — **passed**, 0 errors and 0 warnings.
+- `npx eslint src/components/site-header.tsx src/components/account-menu.tsx` —
+  **passed**, 0 errors and 0 warnings after the account-menu change.
+- `npm run build` — **passed** after the account-menu change. It still reports
+  the existing Prisma config deprecation, Next middleware deprecation and
+  malformed `.print\\:hidden` selector warning.
 - `git diff --check` — **passed** before the implementation commit.
 
 Earlier on `0be8686`:
