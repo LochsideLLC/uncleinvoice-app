@@ -35,6 +35,26 @@ clean after `prisma generate`) and pushed topic branch
 `fix/unlock-features-nav-label` to origin. No PR opened, no merge, no
 production deploy — live site still serves `2f152e3`.
 
+**LastPass vs the invoice grid (uncommitted, undeployed).** `/create` flashed
+2-col then stacked with LastPass on; clean in incognito and with LastPass off,
+so the extension is guilty (its field icons correlate with the breakage; a
+known bad LastPass release breaks page rendering the same way). Fix in the
+working tree: `data-lpignore="true"` on the invoice `<form>` only — an
+invoice has no credentials, so password managers have no business touching
+it. Login/signup pages untouched. tsc clean, 22/22 tests (one new: grid +
+lpignore assertions). NOT proven on Tom's screen yet — needs merge + deploy,
+then he re-tests with LastPass on.
+
+**Mechanism found via Tom's saved DOM (`~/ummon-t5` analysis).** The live grid
+holds 4 children, not 2: LastPass injects two bare `<div>`s as direct grid
+siblings (plus its icon svg set and one `webclient-infield.html` iframe).
+Auto-placement then seats Bill/junk/From/junk, dropping From a row. Real fix
+in tree: both sections explicitly pinned (`sm:col-start-1/2`,
+`sm:row-start-1`) — explicitly placed items seat before auto-placed junk, so
+ANY sibling-injecting extension is neutralized, vendor-neutral. Mobile
+unchanged (single column, auto flow). tsc clean, 22/22. Still needs ship +
+Tom's LastPass-on retest to close.
+
 **Not done — needs Tom.** (1) Tom re-runs the upgrade flow himself, then one
 end-to-end checkout is still untested. (2) Duplicate-active-subscription
 prevention and conflicting-event handling from the earlier plan are untouched.

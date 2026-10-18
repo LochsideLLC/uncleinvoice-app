@@ -274,7 +274,7 @@ export function QuickInvoiceForm({
 
   return (
     <>
-    <form action={action} onSubmit={onSubmit} className="space-y-6">
+    <form action={action} onSubmit={onSubmit} className="space-y-6" data-lpignore="true">
       {invoiceId ? <input type="hidden" name="invoiceId" value={invoiceId} /> : null}
       {viewToken ? <input type="hidden" name="viewToken" value={viewToken} /> : null}
       <FormBanner
@@ -472,7 +472,7 @@ export function QuickInvoiceForm({
           </label>
         </div>
         <div className="grid items-start gap-8 sm:grid-cols-2">
-          <div className="invoice-fields">
+          <div className="invoice-fields sm:col-start-1 sm:row-start-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Bill to</p>
             <div className="relative">
               <input
@@ -644,7 +644,7 @@ export function QuickInvoiceForm({
             />
           </div>
 
-          <div className="invoice-fields">
+          <div className="invoice-fields sm:col-start-2 sm:row-start-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">From</p>
             <input
               id="fromContactName"

@@ -13,6 +13,7 @@ import { checkoutLineItem, stripeTestSecretKey } from "@/lib/stripe";
 import type Stripe from "stripe";
 import PlansPage from "@/app/app/plans/page";
 import ImportPage from "@/app/app/w/[workspaceId]/import/page";
+import { QuickInvoiceForm } from "@/components/quick-invoice-form";
 
 beforeEach(() => { state.plan = "free"; state.planSetAt = null; state.planUpdates = 0; state.signedIn = true; state.creates = 0; state.paidIds.clear(); state.archivedIds.clear(); });
 
@@ -50,6 +51,18 @@ for (const plan of ["free", "invoice", "bookkeeper"]) {
     assert.match(markup, /Save as many billing customers/);
   });
 }
+
+test("invoice form keeps Bill-to and From side by side on wide screens", () => {
+  const markup = renderToStaticMarkup(<QuickInvoiceForm />);
+  const grid = markup.indexOf("sm:grid-cols-2");
+  const billTo = markup.indexOf(">Bill to<");
+  const from = markup.indexOf(">From<");
+  assert.ok(grid !== -1, "two-column grid class present");
+  assert.ok(billTo !== -1 && from !== -1, "both sections render");
+  assert.ok(grid < billTo && billTo < from, "both sections sit inside the grid");
+  assert.ok(markup.includes('data-lpignore="true"'), "password managers told to leave invoice fields alone");
+  assert.ok(markup.includes("sm:col-start-1") && markup.includes("sm:col-start-2"), "sections pinned against injected siblings");
+});
 
 test("customer creation still requires sign-in and valid details", async () => {
   assert.ok("error" in await createWorkspaceInlineAction(null, new FormData()));
