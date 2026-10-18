@@ -19,11 +19,11 @@ export function AccountMenu({
       </summary>
       <div className="paper absolute right-0 top-full z-50 mt-2 w-48 rounded-xl p-2">
         <p className="truncate px-3 py-2 text-detail font-semibold">{name}</p>
-        <Link href="/app/profile" className="nav-link block rounded-lg px-3 py-2 text-detail font-medium">
+        <Link href="/app/profile" className="account-menu-item nav-link block rounded-lg px-3 py-2 font-medium">
           Profile
         </Link>
         <form action={logoutAction}>
-          <button type="submit" className="nav-link block w-full rounded-lg px-3 py-2 text-left text-detail font-medium">
+          <button type="submit" className="account-menu-item nav-link block w-full rounded-lg px-3 py-2 text-left font-medium">
             Sign out
           </button>
         </form>
