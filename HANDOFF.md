@@ -3,19 +3,24 @@
 ## Current state — 2026-10-18 (Ummon, ripley)
 
 This section supersedes every branch, status and "still open" claim below it.
-Nothing was implemented in this turn; this is a refresh of the record plus a
-branch cleanup, because the file had gone four merges stale.
+Tom asked for the signed-in navigation label `Plans` to read `Unlock features`,
+positioned to the left of `Dashboard`, and explicitly said not to push until he
+says.
 
-**Checkout.** `ripley:~/projects/uncleinvoice-app`, branch `main`, clean,
-level with `origin/main` at `0be8686` "Add test-mode Stripe checkout (#42)"
-after `git fetch origin`. `npm install` run here 2026-10-18, exit 0; it
-installed the `stripe` package that #42 added and left `package-lock.json`
-unchanged. Origin is `https://github.com/lochsidellc/uncleinvoice-app.git`.
-Only `main` exists locally and on origin. No command is staged in
+**Checkout.** `ripley:~/projects/uncleinvoice-app`, branch
+`fix/unlock-features-nav-label`, based on `origin/main` at `2f152e3` "Make the
+Plans link in the header a sparkly button (#44)" after `git fetch origin`.
+Implementation commit `c69ce6e` changes the label in
+`src/components/site-header.tsx`: Free and Invoice accounts now see `Unlock
+features`; Bookkeeper accounts still see `Your plan`. The follow-up ordering
+commit `dc55815` places that button before `Dashboard`. The branch and commits
+are local only: no push, PR, merge, deploy or production change. Origin is
+`https://github.com/lochsidellc/uncleinvoice-app.git`. No command is staged in
 `/home/tom/ummon`.
 
-**Four merges landed since this file was last written** (it was last written
-at `4f9fb7c`, PR #38, on 2026-10-16). All four are in production:
+**Six merges landed after the older handoff section was written** (that section
+was last written at `4f9fb7c`, PR #38, on 2026-10-16). All six are in
+production:
 
 | Commit | PR | What it did |
 | --- | --- | --- |
@@ -23,6 +28,8 @@ at `4f9fb7c`, PR #38, on 2026-10-16). All four are in production:
 | `d6eb36b` | #40 | Rewrote `/privacy` and `/terms`, added `/cookies`, linked it from the footer. |
 | `5f0ae02` | #41 | Added the signed-in `/app/whats-new` page, its header link, and `src/lib/product-updates.ts`. |
 | `0be8686` | #42 | Added test-mode Stripe checkout: `/api/stripe/checkout`, `/api/stripe/webhook`, `src/lib/stripe.ts`, `src/lib/stripe-webhook.ts`. |
+| `be06fbe` | #43 | Refreshed this handoff after #39-#42 and pruned their merged branch husks. |
+| `2f152e3` | #44 | Made the signed-in Plans link a sparkly, reduced-motion-aware button. |
 
 **Pricing and checkout are no longer undecided.** Earlier sections in this
 file say "no checkout and no prices, by Tom's decision, and the upgrade page
@@ -30,16 +37,14 @@ points at info@bookkeepingconroe.com". That is now wrong. `src/lib/plan.ts`
 fixes prices on the server at Invoice **$5/mo** (`500` cents) and Bookkeeper
 **$29/mo** (`2900` cents), and #42 wired a real Stripe Checkout session.
 
-**But the live checkout cannot complete, and this is the one thing to know.**
-`src/lib/stripe.ts` requires `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
-Netlify's production environment has **neither** — verified 2026-10-18 with
-`netlify env:list`, which returns only `APP_URL`, `DATABASE_URL`,
-`DIRECT_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `MAIL_FROM`,
-`RESEND_API_KEY`, `NODE_VERSION` and `NEXT_TELEMETRY_DISABLED`. So a signed-in
-person who presses an upgrade button on `/app/plans` gets a **503** with
-`{"error":"STRIPE_SECRET_KEY is not configured"}`, not a Stripe page. The
-failure is handled rather than a crash, but it is still a dead button in front
-of paying customers. Nobody can pay until Tom adds the two keys.
+**But the live checkout still cannot finish account activation, and this is the
+one thing to know.** `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are now
+present in Netlify's production function scope; both were checked without
+printing their values. The Stripe key is test mode. However, a read-only Stripe
+API query on 2026-10-18 returned **zero webhook endpoints** in the account.
+Nothing can deliver `checkout.session.completed` or subscription-lapse events
+to the app, so a checkout cannot grant or remove a plan. No checkout session
+was created in the verification turn because Tom had asked only for status.
 
 **Test mode is enforced in code, deliberately.** `stripeTestSecretKey()`
 rejects any key that does not match `/^(?:sk|rk)_test_/`. A live-mode key will
@@ -54,19 +59,17 @@ switching this on for real money is a code change, not just an env change.
 - `GET /cookies` → 200, `GET /privacy` → 200, `GET /terms` → 200
 - `GET /app/whats-new` → 307 to `/login?next=%2Fapp%2Fwhats-new`
 
-So all four routes are deployed. Production deploy is Netlify
-`6ad3a27c09b2695f6d8725dc`, state `ready`, commit `0be8686`, site
+So all four routes are deployed. Current production deploy is Netlify
+`6ad5001e36bce579f3670387`, state `ready`, commit `2f152e3`, site
 `c603abb3-3db2-40db-a876-f96d40c9e9fd`.
 
 **One Netlify detail worth not misreading.** The deploy list shows
-`error` for `d6eb36b` and `5f0ae02`. Those are not failed builds in the
+`error` for `d6eb36b` and `5f0ae02`. Those were not failed builds in the
 usual sense: all three merges landed within 12 seconds of each other, so each
-build was superseded by the next. Only `0be8686` ran to completion, and it is
-what production serves. The auto-build hook fired on its own again — by the
-count kept in earlier board records, that hook has now worked three times
-running and failed once (2026-10-13).
+build was superseded by the next. `0be8686` ran to completion at the time; the
+newer ready deploy of `2f152e3` is what production serves now.
 
-**Branch cleanup done in this turn.** Three merged husks were left on origin
+**Prior branch cleanup.** Three merged husks were left on origin
 after #40/#41/#42 squash-merged: `legal-pages-cookie-notice`,
 `feat/whats-new-page`, `feat/stripe-test-checkout`. Because a squash merge
 makes the branch commit a non-ancestor, `git branch -r --merged` does not
@@ -74,7 +77,16 @@ list them, so each was checked by content instead: for every file the branch
 touched, `git diff origin/<branch> origin/main -- <files>` was empty. All
 three were proved identical to `origin/main` before deletion.
 
-### Checks run 2026-10-18 on `0be8686`
+### Checks run 2026-10-18
+
+On local implementation commits `c69ce6e` and `dc55815`:
+
+- `npx tsc --noEmit` — **passed**, 0 errors.
+- `npm run test:upgrades` — **21 passed, 0 failed, 0 skipped**.
+- `npx eslint src/components/site-header.tsx` — **passed**, 0 errors and 0 warnings.
+- `git diff --check` — **passed** before the implementation commit.
+
+Earlier on `0be8686`:
 
 - `npx tsc --noEmit` — **passed**, 0 errors. (It failed first with four
   `TS2307 Cannot find module 'stripe'` errors; that was only the uninstalled
@@ -98,11 +110,12 @@ three were proved identical to `origin/main` before deletion.
 - **No browser pass.** Not attempted. Per standing instruction the browser is
   only driven on `steelbreeze`, which is still not paired, so no page was
   loaded in a real browser. Nothing on `/app/plans`, `/app/whats-new`,
-  `/cookies` or the checkout button has been seen rendered.
+  `/cookies`, the checkout button, or the new `Unlock features` label has been
+  seen rendered.
 - **The whole Stripe path is unexercised end to end.** No checkout session has
   ever been created, no webhook has ever been received, and the plan-granting
   code in `src/lib/stripe-webhook.ts` has only ever run against synthetic test
-  fixtures. The first real test needs the keys set.
+  fixtures. The first real test needs the webhook endpoint registered.
 - **No production database read this turn.** The 5 users / 3 workspaces /
   6 contractors / 137 invoices figures in older sections are from 2026-10-17
   and were not re-counted.
@@ -112,14 +125,12 @@ three were proved identical to `origin/main` before deletion.
 
 ### Needs Tom
 
-1. **Add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to Netlify
-   production**, or the upgrade buttons stay dead. Test-mode keys only — the
-   code refuses anything else.
-2. Register the webhook endpoint `https://uncleinvoice.com/api/stripe/webhook`
-   in the Stripe dashboard and take its signing secret from there.
-3. Decide whether $5 and $29 are the real prices before live mode, since they
+1. Register the webhook endpoint `https://uncleinvoice.com/api/stripe/webhook`
+   in the Stripe dashboard, set its signing secret in Netlify, and run one full
+   test-mode checkout before treating billing as working.
+2. Decide whether $5 and $29 are the real prices before live mode, since they
    are compiled into `src/lib/plan.ts` rather than read from Stripe.
-4. Carried forward, still unanswered: settle the $778.32 PayPal question
+3. Carried forward, still unanswered: settle the $778.32 PayPal question
    before any contractor is contacted; authorize a scratch Postgres so PR #1's
    migration is exercised before merge; decide whether real contractor names
    ever go to the live site.
