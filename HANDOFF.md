@@ -26,6 +26,13 @@ Commit `c8041a2` fixes the account menu font mismatch: `.account-menu-item`
 sets both entries to `1rem` after the global `button { font: inherit }` rule.
 No test or build was run for this small CSS change; `git diff --check` passed.
 
+Tom asked to replace the checkout success banner with a modal that thanks the
+customer and lists the features unlocked. The local implementation is in
+`src/components/checkout-success-modal.tsx`; it names the current paid plan and
+its unlocked features. If the webhook has not activated the plan yet, it says
+setup is still finishing. The modal closes with Continue or Escape and removes
+the success query from the URL. No tests or build were run for this update.
+
 **Six merges landed after the older handoff section was written** (that section
 was last written at `4f9fb7c`, PR #38, on 2026-10-16). All six are in
 production:
