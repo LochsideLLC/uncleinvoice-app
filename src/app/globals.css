@@ -220,6 +220,98 @@ button:disabled {
   font-size: 0.9375rem;
 }
 
+/* Sparkly upgrade button. Colour is set here rather than with a Tailwind
+   utility for the same reason as .nav-link: the unlayered `a { color: inherit }`
+   above beats Tailwind's layered colour utilities, so on a Link the label would
+   otherwise render in muted ink on a brass background. */
+.btn-sparkle {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: var(--accent-ink);
+  background: linear-gradient(100deg, var(--accent) 0%, #b8552f 45%, var(--brass) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 246, 234, 0.35),
+    0 10px 24px -14px rgba(154, 59, 36, 0.75);
+}
+
+.btn-sparkle:hover {
+  color: var(--accent-ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 246, 234, 0.45),
+    0 14px 28px -14px rgba(154, 59, 36, 0.85);
+}
+
+/* The sheen: a narrow highlight that sweeps across, then waits. */
+.btn-sparkle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 246, 234, 0.55) 50%,
+    transparent 65%
+  );
+  background-size: 260% 100%;
+  background-repeat: no-repeat;
+  animation: btn-sparkle-sheen 3.6s ease-in-out infinite;
+}
+
+/* The glints: three small stars that twinkle together, out of phase with the sheen. */
+.btn-sparkle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle, rgba(255, 246, 234, 0.95) 0 38%, transparent 42%),
+    radial-gradient(circle, rgba(255, 246, 234, 0.85) 0 38%, transparent 42%),
+    radial-gradient(circle, rgba(255, 246, 234, 0.9) 0 38%, transparent 42%);
+  background-size: 3px 3px, 2px 2px, 2px 2px;
+  background-position: 18% 32%, 62% 68%, 83% 26%;
+  background-repeat: no-repeat;
+  animation: btn-sparkle-glint 2.4s ease-in-out infinite;
+}
+
+@keyframes btn-sparkle-sheen {
+  0% {
+    background-position: 160% 0;
+  }
+  45%,
+  100% {
+    background-position: -60% 0;
+  }
+}
+
+@keyframes btn-sparkle-glint {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.5;
+  }
+}
+
+/* Honour a reduced-motion preference: keep the brass and the glints, drop
+   every moving part. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-sparkle::before {
+    animation: none;
+    background-position: -60% 0;
+  }
+
+  .btn-sparkle::after {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
 .btn-hero {
   width: 100%;
   max-width: 22rem;

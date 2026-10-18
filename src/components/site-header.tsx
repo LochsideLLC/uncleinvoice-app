@@ -38,7 +38,7 @@ export function SiteHeader({
             </Link>
             <Link
               href="/app/plans"
-              className={navLink}
+              className="btn btn-sm btn-sparkle whitespace-nowrap"
             >
               {asPlan(user.plan) === "bookkeeper" ? "Your plan" : "Plans"}
             </Link>
