@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { listSponsors } from "@/lib/sponsors";
 import { SponsorBoard } from "@/components/sponsor-board";
+import { AccountCta } from "@/components/account-cta";
 
 const CHECKLIST = [
   "No account required",
@@ -26,9 +27,15 @@ export default async function HomePage() {
               Professional invoices in minutes. No account required to get
               started.
             </p>
-            <Link href="/create" className="btn btn-primary btn-hero mt-6">
-              Create Invoice — Free
-            </Link>
+            <div className="mt-6 flex flex-col gap-3">
+              <Link
+                href="/create"
+                className="btn btn-primary btn-hero btn-block w-full"
+              >
+                Create Invoice — Free
+              </Link>
+              <AccountCta />
+            </div>
             <ul className="mt-6 space-y-2">
               {CHECKLIST.map((item) => (
                 <li key={item} className="flex items-start gap-3 text-ink">

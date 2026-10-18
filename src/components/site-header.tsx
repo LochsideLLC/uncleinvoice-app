@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AccountCta } from "@/components/account-cta";
 import { AccountMenu } from "@/components/account-menu";
 import { UncleStamp } from "@/components/brand-mark";
 import { asPlan } from "@/lib/plan";
@@ -67,12 +68,7 @@ export function SiteHeader({
             <Link href="/how-it-works" className={`${navLink} hidden sm:inline-flex`}>
               How it works
             </Link>
-            <Link href="/login" className={navLink}>
-              Sign in
-            </Link>
-            <Link href="/signup" className="btn btn-primary btn-sm whitespace-nowrap">
-              Create account
-            </Link>
+            <AccountCta buttonClassName="btn btn-primary btn-sm whitespace-nowrap" />
           </nav>
         )}
       </div>

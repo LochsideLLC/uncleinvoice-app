@@ -348,6 +348,12 @@ button:disabled {
   box-shadow: 0 16px 36px -18px rgba(154, 59, 36, 0.7);
 }
 
+/* Full-width opt-out for .btn-hero. Lives after .btn-hero so it wins at
+   equal specificity. */
+.btn-block {
+  max-width: none;
+}
+
 .field {
   display: flex;
   flex-direction: column;
