@@ -9,7 +9,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const kind = asWorkspaceKind(user.workspaceKind);
 
   return (
-    <div data-workspace={kind} className="mx-auto w-full max-w-6xl px-6 pb-16">
+    <div id="app-workspace-scope" data-workspace={kind} className="mx-auto w-full max-w-6xl px-6 pb-16">
       <WorkspaceTheme kind={kind} />
       {children}
     </div>
