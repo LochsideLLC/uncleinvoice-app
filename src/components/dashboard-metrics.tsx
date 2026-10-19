@@ -2,7 +2,52 @@
 
 import { useState, useMemo } from "react";
 import { formatMoney } from "@/lib/money";
+import { DocumentIcon } from "@/components/workspace-icons";
 import type { InvoiceRow, DashboardStats } from "@/lib/dashboard";
+
+function CoinsIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden>
+      <ellipse cx="10" cy="5.5" rx="5.5" ry="2.5" />
+      <path d="M4.5 5.5v9c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-9" />
+      <path d="M4.5 10c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5" />
+    </svg>
+  );
+}
+
+function ClockIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden>
+      <circle cx="10" cy="10" r="7.5" />
+      <path d="M10 6v4.5l3 1.8" />
+    </svg>
+  );
+}
+
+function LedgerIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 2.5h12v15H4v-15Z" />
+      <path d="M4 6h12" />
+      <path d="M7 9.5h6M7 12.5h6" />
+    </svg>
+  );
+}
+
+function MetricTile({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      aria-hidden
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+      style={{
+        background: "color-mix(in srgb, var(--accent) 10%, var(--paper))",
+        color: "var(--accent)",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
 
 type Period = "month" | "lastMonth" | "quarter" | "year" | "all";
 const PERIODS: { key: Period; label: string }[] = [
@@ -86,21 +131,25 @@ export function DashboardMetrics({ stats }: { stats: DashboardStats }) {
     kpis.draftCount > 0 && `${kpis.draftCount} draft${kpis.draftCount !== 1 ? "s" : ""}`,
   ].filter(Boolean);
 
+  const cards: { label: string; value: string; Icon: (props: { className?: string }) => React.ReactNode; valueColor?: string }[] = [
+    { label: "Invoiced", value: formatMoney(kpis.totalCents), Icon: DocumentIcon },
+    { label: "Collected", value: formatMoney(kpis.collectedCents), Icon: CoinsIcon, valueColor: "var(--olive)" },
+    { label: "Outstanding", value: formatMoney(kpis.outstandingCents), Icon: ClockIcon },
+  ];
+
   return (
-    <section className="space-y-3">
-      {/* Header + period tabs */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm uppercase tracking-widest text-muted">Overview</p>
-          <h2 className="mt-1 text-3xl">Your invoices</h2>
-        </div>
-        <div className="flex flex-wrap gap-1">
+    <section className="space-y-4">
+      {/* Header + period pills */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm uppercase tracking-widest text-muted">Overview</p>
+        <div className="flex flex-wrap gap-1.5">
           {PERIODS.map(({ key, label }) => (
             <button
               key={key}
               type="button"
               onClick={() => setPeriod(key)}
-              className="rounded-full px-3 py-1 text-xs font-semibold transition-colors"
+              aria-pressed={period === key}
+              className="rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors"
               style={
                 period === key
                   ? { background: "var(--ink)", color: "var(--paper)" }
@@ -113,35 +162,38 @@ export function DashboardMetrics({ stats }: { stats: DashboardStats }) {
         </div>
       </div>
 
-      {/* KPI strip — 3 numbers in one panel */}
-      <div className="paper rounded-3xl">
-        <div className="grid grid-cols-3">
-          {[
-            { label: "Invoiced", value: formatMoney(kpis.totalCents) },
-            { label: "Collected", value: formatMoney(kpis.collectedCents), accent: "var(--olive)" },
-            { label: "Outstanding", value: formatMoney(kpis.outstandingCents) },
-          ].map((item, i) => (
-            <div
-              key={item.label}
-              className="px-5 py-4"
-              style={i > 0 ? { borderLeft: "1px solid var(--line)" } : undefined}
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{item.label}</p>
-              <p className="display mt-1 text-2xl leading-none" style={item.accent ? { color: item.accent } : undefined}>
-                {item.value}
+      {/* KPI cards — one panel each */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {cards.map(({ label, value, Icon, valueColor }) => (
+          <div key={label} className="paper flex items-center gap-4 rounded-3xl p-5">
+            <MetricTile>
+              <Icon className="h-6 w-6" />
+            </MetricTile>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{label}</p>
+              <p
+                className="display mt-1 truncate text-3xl leading-none tabular-nums"
+                style={valueColor ? { color: valueColor } : undefined}
+              >
+                {value}
               </p>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
 
       {/* AR Aging */}
       <div className="paper rounded-3xl px-5 py-4">
-        <div className="flex items-baseline justify-between">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Receivables aging</p>
-          {period !== "all" && (
-            <p className="text-xs text-muted">All unpaid invoices</p>
-          )}
+        <div className="flex items-center gap-4">
+          <MetricTile>
+            <LedgerIcon />
+          </MetricTile>
+          <div className="flex flex-1 flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Receivables aging</p>
+            {period !== "all" && (
+              <p className="text-xs text-muted">All unpaid invoices</p>
+            )}
+          </div>
         </div>
 
         {hasAging ? (

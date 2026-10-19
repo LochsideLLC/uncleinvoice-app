@@ -3,8 +3,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import { DashboardStats } from "@/components/dashboard-stats";
+import { DocumentIcon } from "@/components/workspace-icons";
 import type { DashboardStats as DashboardStatsType } from "@/lib/dashboard";
 import type { listWorkspaces } from "@/lib/workspace";
+
+function UsersIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="7" cy="6.5" r="2.5" />
+      <path d="M2.5 16c.6-2.6 2.5-4 4.5-4s3.9 1.4 4.5 4" />
+      <circle cx="13.5" cy="7.5" r="2" />
+      <path d="M13 12.2c2 .2 3.6 1.5 4.1 3.8" />
+    </svg>
+  );
+}
 
 
 type Membership = Awaited<ReturnType<typeof listWorkspaces>>[number];
@@ -18,37 +30,40 @@ export function DashboardTabs({
 }) {
   const [tab, setTab] = useState<"invoices" | "clients">("invoices");
 
+  const tabs = [
+    { key: "invoices", label: "Invoices", Icon: DocumentIcon },
+    { key: "clients", label: "Customers & clients", Icon: UsersIcon },
+  ] as const;
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-center">
-        <div
-          className="flex rounded-2xl p-1"
-          style={{
-            background: "var(--paper-2)",
-            boxShadow: "inset 0 1px 4px rgba(42,31,22,0.18), inset 0 0 0 1px rgba(42,31,22,0.08)",
-          }}
-        >
-          {(["invoices", "clients"] as const).map((t) => (
+      <div role="tablist" aria-label="Dashboard sections" className="flex gap-1 border-b border-line">
+        {tabs.map(({ key, label, Icon }) => {
+          const selected = tab === key;
+          return (
             <button
-              key={t}
+              key={key}
               type="button"
-              onClick={() => setTab(t)}
-              className="rounded-xl px-6 py-2 text-sm font-semibold capitalize transition-all"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setTab(key)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors"
               style={
-                tab === t
+                selected
                   ? {
                       background: "var(--paper)",
                       color: "var(--ink)",
-                      boxShadow:
-                        "0 1px 3px rgba(42,31,22,0.18), 0 0 0 1px rgba(42,31,22,0.07)",
+                      borderRadius: "0.75rem 0.75rem 0 0",
+                      boxShadow: "inset 0 -2px 0 var(--accent)",
                     }
                   : { color: "var(--muted)" }
               }
             >
-              {t === "invoices" ? "Invoices" : "Customers & clients"}
+              <Icon />
+              {label}
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
       {tab === "invoices" ? (
