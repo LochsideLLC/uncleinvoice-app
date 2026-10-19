@@ -517,7 +517,7 @@ button:disabled {
 
   header,
   nav,
-  .print\\:hidden,
+  .print\:hidden,
   .btn,
   .btn-hero {
     display: none !important;

@@ -1,5 +1,15 @@
 # HANDOFF — Uncle Invoice
 
+## Current state — 2026-10-19 (test-mode Connect foundation)
+
+Isolated worktree `/home/tom/projects/uncleinvoice-payments`, branch `feat/stripe-connect-foundation` from `origin/main` at `b9937a9`. The original checkout's homepage work stays separate. Added the test-mode Connect, hosted invoice, payment tracking, dashboard, activity, in-app notification, push, optional email, and cost-limit foundation described in `docs/stripe-connect-plan.md`. Migration: `prisma/migrations/20261019011500_stripe_connect_foundation/migration.sql`. **No migration was applied; no live payment, paid service, or deployment was enabled.** This branch is for review, not merge until the production gates below are met.
+
+Checks: `npx prisma validate` passed; `npm run test:payments` 11/11 passed; `npm run test:upgrades` 22/22 passed; `npm run test:migration` applied all 21 migrations in PGlite and checked 22 RLS tables plus legacy invoice defaults; `npm run lint` passed with 2 existing `<img>` warnings in `src/app/partners/page.tsx`; `npm run build` passed on Next 16.3.8 (middleware deprecation warning); `git diff --check` passed. `npm audit --omit=dev` has 3 high Prisma-related findings, 0 critical. Full Postgres/Prisma and end-to-end Stripe testing are pending because Docker socket access was denied and no local Postgres server binary is installed. Desktop/mobile browser QA was not possible on an allowed remote browser.
+
+Stripe test verification: old Express test account reported platform fee/loss responsibility and is excluded. Created Accounts v2 test account `acct_1US5ZTEGiVSKs5iV` with full dashboard, Stripe fee collector, Stripe loss collector, and Stripe requirements collector (all read back). Card payments are restricted until onboarding. A v1 status read and v2 account-onboarding link creation passed. No test payment was made.
+
+Production gates: do not deploy or merge this branch until an isolated migration run, Connect webhook test, Stripe fee/loss/contract confirmation, Supabase hard-cap verification, and review of the `OUTBOUND_EMAIL_ENABLED` change. Existing email sending is now explicitly off when a Resend key is present unless `OUTBOUND_EMAIL_ENABLED=true`; that must be set only after the real account's cap is checked. The local `.env` is a symlink to the original checkout and must not be printed or committed. See `docs/stripe-connect-plan.md` for the environment variable names and webhook event list.
+
 ## Current state — 2026-10-18 (homepage hero, uncommitted on branch)
 
 Tom supplied a mock and the hero asset (`public/images/contractor-paid-hero.png`,

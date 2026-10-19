@@ -10,9 +10,10 @@ import { UpgradeOffer } from "@/components/upgrade-offer";
 const FILTERS = [
   { key: "all", label: "All" },
   { key: "draft", label: "Draft" },
-  { key: "awaiting_review", label: "Waiting" },
-  { key: "confirmed", label: "Confirmed" },
   { key: "sent", label: "Sent" },
+  { key: "viewed", label: "Viewed" },
+  { key: "awaiting_payment", label: "Awaiting payment" },
+  { key: "overdue", label: "Overdue" },
   { key: "paid", label: "Paid" },
 ] as const;
 
@@ -24,11 +25,15 @@ const shortDate = new Intl.DateTimeFormat("en-US", {
   year: "2-digit",
 });
 
-// One workflow word is never the whole story: a confirmed invoice may never
-// have been sent, and a sent one went out on a specific day. Viewed tracking
-// does not exist yet, so the row says what is known.
+// Delivery, opening, and payment remain separate facts in the data.
 function rowStatus(invoice: InvoiceRow): string {
+  if (invoice.stripePaymentState === "disputed") return "Disputed";
+  if (invoice.stripePaymentState === "partially_refunded") return "Partly refunded";
+  if (invoice.stripePaymentState === "fully_refunded") return "Refunded";
   if (invoice.isPaid) return "Paid";
+  if (invoice.isPartiallyPaid) return "Partly paid";
+  if (invoice.isOverdue) return "Overdue";
+  if (invoice.firstViewedAt) return `Viewed ${shortDate.format(new Date(invoice.firstViewedAt))}`;
   if (invoice.status === "sent") {
     return invoice.sentAt ? `Sent ${shortDate.format(new Date(invoice.sentAt))}` : "Sent";
   }
@@ -45,7 +50,12 @@ export function InvoiceList({ invoices, canDownloadBulk }: { invoices: InvoiceRo
     return invoices.filter((inv) => {
       const matchesFilter =
         filter === "all" ||
-        (filter === "paid" ? inv.isPaid : inv.status === filter && !inv.isPaid);
+        (filter === "paid" && inv.isPaid) ||
+        (filter === "draft" && inv.status === "draft" && !inv.isPaid) ||
+        (filter === "sent" && inv.status === "sent" && !inv.isPaid) ||
+        (filter === "viewed" && Boolean(inv.firstViewedAt) && !inv.isPaid) ||
+        (filter === "awaiting_payment" && inv.dueCents > 0 && ["confirmed", "sent"].includes(inv.status)) ||
+        (filter === "overdue" && inv.isOverdue);
       const q = query.toLowerCase();
       const matchesQuery =
         !q ||
@@ -172,19 +182,17 @@ export function InvoiceList({ invoices, canDownloadBulk }: { invoices: InvoiceRo
                       <span className="w-[4.75rem] shrink-0 font-medium tabular-nums">
                         {invoice.number}
                       </span>
-                      <span className="w-[5.5rem] shrink-0 text-muted tabular-nums">
-                        {shortDate.format(new Date(invoice.issueDate))}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-muted">{invoice.clientName}</span>
+                        <span className="block text-xs text-muted">
+                          Due {invoice.dueDate ? shortDate.format(new Date(invoice.dueDate)) : "on receipt"}
+                          {invoice.sentAt ? ` · Sent ${shortDate.format(new Date(invoice.sentAt))}` : ""}
+                          {invoice.firstViewedAt ? ` · Opened ${shortDate.format(new Date(invoice.firstViewedAt))}` : ""}
+                        </span>
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-muted">
-                        {invoice.clientName}
-                      </span>
-                      <span className="w-36 shrink-0 text-right text-muted">
-                        {rowStatus(invoice)}
-                      </span>
-                      <span className="w-24 shrink-0 text-right font-semibold tabular-nums">
-                        {invoice.isPaid || invoice.dueCents === 0
-                          ? formatMoney(invoice.totalCents)
-                          : `${formatMoney(invoice.dueCents)} due`}
+                      <span className="w-28 shrink-0 text-right">
+                        <span className="block font-semibold tabular-nums">{formatMoney(invoice.totalCents)}</span>
+                        <span className="block text-xs text-muted">{rowStatus(invoice)} · {formatMoney(invoice.dueCents)} due</span>
                       </span>
                     </Link>
                   </li>

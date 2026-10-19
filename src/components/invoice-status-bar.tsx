@@ -34,6 +34,7 @@ export function InvoiceStatusBar({
   dueDate,
   totalCents,
   amountPaid,
+  onlinePaymentEnabled,
   clientEmail,
   mailFrom,
 }: {
@@ -44,6 +45,7 @@ export function InvoiceStatusBar({
   dueDate: Date | null;
   totalCents: number;
   amountPaid: number;
+  onlinePaymentEnabled: boolean;
   clientEmail: string;
   mailFrom: string;
 }) {
@@ -151,9 +153,11 @@ export function InvoiceStatusBar({
             <button type="button" className="btn btn-ghost" style={{ padding: "0.4rem 0.85rem", fontSize: "0.875rem" }} onClick={copyLink}>
               <IconLink /> {copied ? "Copied!" : "Share link"}
             </button>
-            <button type="button" className="btn btn-ghost" style={{ padding: "0.4rem 0.85rem", fontSize: "0.875rem" }} onClick={() => setShowPayForm(true)}>
-              Mark as paid
-            </button>
+            {!onlinePaymentEnabled ? (
+              <button type="button" className="btn btn-ghost" style={{ padding: "0.4rem 0.85rem", fontSize: "0.875rem" }} onClick={() => setShowPayForm(true)}>
+                Mark as paid
+              </button>
+            ) : null}
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -21,6 +22,7 @@ import { invoiceGrandTotal, parseAmountPaid } from "@/lib/money";
 import type { ActionState } from "@/actions/auth";
 import type { InvoiceStatus } from "@/lib/status";
 import { canUseContractorLinks, upgradeMessage } from "@/lib/plan";
+import { cappedInteger, consumeDailyLimit } from "@/lib/usage-limits";
 
 export async function createInvoiceAction(
   _prev: ActionState,
@@ -42,6 +44,20 @@ export async function createInvoiceAction(
     where: { id: contractorId, workspaceId },
   });
   if (!contractor) return { error: "That contractor is not on this client." };
+
+  const globalAllowed = await consumeDailyLimit({
+    operation: "invoice_create",
+    scope: "global",
+    scopeKey: "all",
+    limit: cappedInteger(process.env.INVOICE_GLOBAL_DAILY_LIMIT, 500, 500),
+  });
+  const userAllowed = globalAllowed && await consumeDailyLimit({
+    operation: "invoice_create",
+    scope: "user",
+    scopeKey: user.id,
+    limit: cappedInteger(process.env.INVOICE_PER_USER_DAILY_LIMIT, 50, 50),
+  });
+  if (!userAllowed) return { error: "Invoice limit reached. Try again tomorrow." };
 
   const number = await nextInvoiceNumber(workspaceId);
   const amountPaid = parseAmountPaid(formData, invoiceGrandTotal(items, business.taxRateBps));
@@ -101,6 +117,9 @@ export async function updateInvoiceAction(
   if (!invoice) return { error: "Invoice not found." };
   if (invoice.status === "sent") {
     return { error: "This invoice has already been sent. Create a new one if you need a correction." };
+  }
+  if (invoice.onlinePaymentEnabled || await db.invoicePayment.count({ where: { invoiceId } })) {
+    return { error: "This invoice has payment activity. Create a correction instead." };
   }
 
   const issueDate = parseDate(formData.get("issueDate"));
@@ -350,24 +369,63 @@ export async function markAsPaidAction(formData: FormData) {
   const invoiceId = String(formData.get("invoiceId") ?? "");
   const { user } = await requireWorkspace(workspaceId);
 
-  const amountDollars = parseFloat(String(formData.get("amount") ?? ""));
-  if (isNaN(amountDollars) || amountDollars <= 0) return;
-  const amountCents = Math.round(amountDollars * 100);
-
   const paidDate = parseDate(formData.get("paidDate")) ?? new Date();
   const method = String(formData.get("method") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim();
-
-  await db.invoice.update({
-    where: { id: invoiceId },
-    data: { amountPaid: amountCents },
+  const nonce = String(formData.get("paymentNonce") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(nonce)) return;
+  const invoice = await db.invoice.findFirst({
+    where: { id: invoiceId, workspaceId },
+    include: { lineItems: true },
   });
-
-  const parts: string[] = [`Payment of $${amountDollars.toFixed(2)} received`];
+  if (!invoice) return;
+  if (invoice.onlinePaymentEnabled) return;
+  const total = invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps);
+  const balance = Math.max(0, total - invoice.amountPaid);
+  if (!balance) return;
+  const entered = parseFloat(String(formData.get("amount") ?? ""));
+  const amountCents = Number.isFinite(entered) && entered > 0
+    ? Math.min(balance, Math.round(entered * 100))
+    : balance;
+  const externalReference = `manual:${invoiceId}:${nonce}`;
+  const amountDollars = amountCents / 100;
+  const parts: string[] = [`Manual payment of $${amountDollars.toFixed(2)} recorded`];
   if (method) parts.push(`via ${method}`);
   parts.push(`on ${paidDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`);
   if (note) parts.push(`(${note})`);
-  await recordEvent(invoiceId, "paid", parts.join(" ") + ".", user);
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.invoicePayment.create({
+        data: {
+          invoiceId,
+          source: "manual",
+          status: "succeeded",
+          amount: amountCents,
+          currency: invoice.currency,
+          paymentMethodCategory: method || "manual",
+          externalReference,
+          succeededAt: paidDate,
+        },
+      });
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: { amountPaid: { increment: amountCents } },
+      });
+      await tx.invoiceEvent.create({
+        data: {
+          invoiceId,
+          type: "payment_manually_recorded",
+          source: "manual",
+          dedupeKey: externalReference,
+          message: parts.join(" ") + ".",
+          actorEmail: user.email,
+          actorName: user.name,
+        },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
+  }
 
   revalidatePath(`/app/w/${workspaceId}/invoices/${invoiceId}`);
   revalidatePath(`/invoices/view/${invoiceId}`);

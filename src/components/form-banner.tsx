@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 export function FormBanner({
@@ -10,40 +10,28 @@ export function FormBanner({
 }) {
   const failed = Boolean(state?.error);
   const successText = !failed && state?.message ? state.message : null;
-  const [visible, setVisible] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-  const [text, setText] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!successText) {
-      setVisible((open) => {
-        if (open) setLeaving(true);
-        return open;
-      });
-      return;
-    }
-
-    setText(successText);
-    setLeaving(false);
-    setVisible(true);
-    if (successText.includes("http")) return;
-
-    const hide = window.setTimeout(() => setLeaving(true), 4500);
-    return () => window.clearTimeout(hide);
-  }, [successText]);
-
   if (failed) {
     return (
       <p className="rounded-xl bg-[#f3dcc0] px-3 py-2 text-sm text-[#7a3a22]">{state?.error}</p>
     );
   }
 
-  if (!mounted || !visible || !text) return null;
+  return successText ? <SuccessBanner key={successText} text={successText} /> : null;
+}
+
+function SuccessBanner({ text }: { text: string }) {
+  const [leaving, setLeaving] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
+
+  useEffect(() => {
+    if (text.includes("http")) return;
+
+    const hide = window.setTimeout(() => setLeaving(true), 4500);
+    return () => window.clearTimeout(hide);
+  }, [text]);
+
+  if (!mounted || hidden) return null;
 
   return createPortal(
     <div
@@ -53,8 +41,7 @@ export function FormBanner({
       }`}
       onAnimationEnd={() => {
         if (!leaving) return;
-        setVisible(false);
-        setLeaving(false);
+        setHidden(true);
       }}
     >
       {text}

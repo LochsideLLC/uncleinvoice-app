@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { hashToken } from "@/lib/crypto";
 import { buildInvoicePdf } from "@/lib/pdf";
+import { cappedInteger, consumeDailyLimit } from "@/lib/usage-limits";
 
 export async function GET(
   request: Request,
@@ -33,6 +34,19 @@ export async function GET(
   if (!allowed) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  const globalAllowed = await consumeDailyLimit({
+    operation: "pdf_generate",
+    scope: "global",
+    scopeKey: "all",
+    limit: cappedInteger(process.env.PDF_GLOBAL_DAILY_LIMIT, 2000, 2000),
+  });
+  const invoiceAllowed = globalAllowed && await consumeDailyLimit({
+    operation: "pdf_generate",
+    scope: "invoice",
+    scopeKey: invoiceId,
+    limit: cappedInteger(process.env.PDF_PER_INVOICE_DAILY_LIMIT, 50, 50),
+  });
+  if (!invoiceAllowed) return NextResponse.json({ error: "PDF limit reached. Try again tomorrow." }, { status: 429 });
 
   const pdf = await buildInvoicePdf(invoice);
   const download = url.searchParams.get("download") === "1";

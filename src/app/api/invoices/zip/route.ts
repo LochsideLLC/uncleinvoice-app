@@ -5,6 +5,7 @@ import { getSessionUser } from "@/lib/auth";
 import { canBulkDownload } from "@/lib/plan";
 import { buildInvoicePdf } from "@/lib/pdf";
 import { invoicesManifestCsv, invoicePdfName, safeName } from "@/lib/invoice-files";
+import { cappedInteger, consumeDailyLimit } from "@/lib/usage-limits";
 
 /**
  * Bundles the selected invoices into a single zip.
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
   if (!ids.length) {
     return NextResponse.json({ error: "Nothing selected" }, { status: 400 });
   }
+  if (ids.length > 50) return NextResponse.json({ error: "Select up to 50 invoices." }, { status: 400 });
 
   const memberships = await db.workspaceMember.findMany({
     where: { userId: user.id },
@@ -54,6 +56,21 @@ export async function POST(request: Request) {
     orderBy: [{ issueDate: "asc" }, { number: "asc" }],
   });
   if (!invoices.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const globalAllowed = await consumeDailyLimit({
+    operation: "pdf_generate",
+    scope: "global",
+    scopeKey: "all",
+    limit: cappedInteger(process.env.PDF_GLOBAL_DAILY_LIMIT, 2000, 2000),
+    increment: invoices.length,
+  });
+  const userAllowed = globalAllowed && await consumeDailyLimit({
+    operation: "pdf_generate",
+    scope: "user",
+    scopeKey: user.id,
+    limit: cappedInteger(process.env.PDF_PER_USER_DAILY_LIMIT, 200, 200),
+    increment: invoices.length,
+  });
+  if (!userAllowed) return NextResponse.json({ error: "PDF limit reached. Try again tomorrow." }, { status: 429 });
 
   // One invoice is just that invoice. Asking someone to extract a zip to get
   // at a single PDF is a step for nothing, and on a phone it is a real wall.

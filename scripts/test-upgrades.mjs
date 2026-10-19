@@ -14,7 +14,11 @@ try {
       const replacements = { "@/lib/db": "upgrade-data.ts", "@/lib/auth": "upgrade-auth.ts", "next/navigation": "upgrade-navigation.ts" };
       build.onResolve({ filter: /^(?:@\/lib\/(?:db|auth)|next\/navigation)$/ }, ({ path }) => ({ path: resolve("tests/fixtures", replacements[path]) }));
       build.onResolve({ filter: /^next\/link$/ }, () => ({ path: "link", namespace: "test" }));
-      build.onLoad({ filter: /.*/, namespace: "test" }, () => ({ contents: 'import { createElement } from "react"; export default function Link(props) { return createElement("a", props); }', resolveDir: process.cwd() }));
+      build.onResolve({ filter: /^server-only$/ }, () => ({ path: "server-only", namespace: "test" }));
+      build.onLoad({ filter: /.*/, namespace: "test" }, ({ path }) => ({
+        contents: path === "server-only" ? "" : 'import { createElement } from "react"; export default function Link(props) { return createElement("a", props); }',
+        resolveDir: process.cwd(),
+      }));
     },
   }] });
   const result = spawnSync(process.execPath, ["--test", outfile], { stdio: "inherit" });
