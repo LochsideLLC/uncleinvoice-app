@@ -1,7 +1,7 @@
 import { setWorkspaceKindAction } from "@/actions/account";
 import { WORKSPACE_LABEL, type WorkspaceKind } from "@/lib/workspace-kind";
 
-export function DocumentIcon({ className = "h-5 w-5" }: { className?: string }) {
+export function DocumentIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" className={className} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M5 2.5h6l4 4v11H5v-15Z" />
@@ -11,7 +11,7 @@ export function DocumentIcon({ className = "h-5 w-5" }: { className?: string }) 
   );
 }
 
-export function CalculatorIcon({ className = "h-5 w-5" }: { className?: string }) {
+export function CalculatorIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" className={className} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <rect x="4.5" y="2.5" width="11" height="15" rx="2" />
@@ -37,7 +37,7 @@ export function WorkspaceSwitcher({ active }: { active: WorkspaceKind }) {
   return (
     <div className="flex justify-center print:hidden">
       <div
-        className="flex w-full max-w-xl gap-1 rounded-2xl p-1.5"
+        className="flex w-full max-w-md gap-1 rounded-xl p-1"
         role="group"
         aria-label="Workspace"
         style={{
@@ -54,7 +54,7 @@ export function WorkspaceSwitcher({ active }: { active: WorkspaceKind }) {
               <button
                 type="submit"
                 aria-pressed={isActive}
-                className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold transition-all sm:px-8"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-all"
                 style={
                   isActive
                     ? {

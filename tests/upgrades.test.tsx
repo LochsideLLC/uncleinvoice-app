@@ -15,7 +15,6 @@ import PlansPage from "@/app/app/plans/page";
 import ImportPage from "@/app/app/w/[workspaceId]/import/page";
 import OnboardingPage from "@/app/app/onboarding/page";
 import { PlanMatrix } from "@/components/plan-matrix";
-import { WorkspaceIdentity } from "@/components/workspace-identity";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { BookkeeperHome } from "@/components/bookkeeper-home";
 import { QuickInvoiceForm } from "@/components/quick-invoice-form";
@@ -146,15 +145,6 @@ test("workspace switcher marks the active side and offers both", () => {
     assert.match(markup, /Bookkeeper/);
     assert.ok(markup.includes('aria-pressed="true"'), "active side is marked");
   }
-});
-
-test("workspace identity names the mode and its job in one short block", () => {
-  const contractor = renderToStaticMarkup(<WorkspaceIdentity active="contractor" />);
-  assert.match(contractor, /Contractor Workspace/);
-  assert.match(contractor, /Create invoices, manage customers, and track payments/);
-  const bookkeeper = renderToStaticMarkup(<WorkspaceIdentity active="bookkeeper" />);
-  assert.match(bookkeeper, /Bookkeeper Workspace/);
-  assert.match(bookkeeper, /Manage client records, contractor verification, and missing invoices/);
 });
 
 test("workspace matrix shows both free sides with the current badge", () => {

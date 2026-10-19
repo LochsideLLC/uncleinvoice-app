@@ -52,9 +52,9 @@ export function BookkeeperHome({
           </Link>
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-3 pt-2">
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           {firstWorkspaceId && memberships.length === 1 ? (
-            <Link href={`/app/w/${firstWorkspaceId}/import`} className="btn btn-primary btn-hero">
+            <Link href={`/app/w/${firstWorkspaceId}/import`} className="btn btn-primary">
               Import Payments
             </Link>
           ) : (

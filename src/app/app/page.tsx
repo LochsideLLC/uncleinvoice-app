@@ -8,7 +8,6 @@ import { db } from "@/lib/db";
 import { DashboardTabs } from "@/components/dashboard-tabs";
 import { BookkeeperHome } from "@/components/bookkeeper-home";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
-import { WorkspaceIdentity } from "@/components/workspace-identity";
 import { ConfirmMyInvoices } from "@/components/confirm-my-invoices";
 import { SendToClient } from "@/components/send-to-client";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
@@ -118,8 +117,9 @@ export default async function AppHomePage({
   return (
     <div className="space-y-8">
       <WorkspaceSwitcher active={kind} />
-      <WorkspaceIdentity active={kind} />
 
+      {/* Keyed by workspace so the entrance animation replays on switch. */}
+      <div key={kind} className="workspace-enter space-y-8">
       {kind === "bookkeeper" ? (
         <BookkeeperHome
           memberships={memberships}
@@ -167,6 +167,7 @@ export default async function AppHomePage({
           <DashboardTabs stats={stats} memberships={memberships} />
         </>
       )}
+      </div>
     </div>
   );
 }
