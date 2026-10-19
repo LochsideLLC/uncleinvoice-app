@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { listSponsors } from "@/lib/sponsors";
 import { SponsorBoard } from "@/components/sponsor-board";
+import { HomeSections } from "@/components/home-sections";
 
 const CHECKLIST = [
   "No account required",
@@ -76,6 +77,7 @@ export default async function HomePage() {
           </div>
         </section>
         <SponsorBoard featured={featured} rest={rest} />
+        <HomeSections />
       </main>
     </div>
   );

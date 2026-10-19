@@ -1,6 +1,60 @@
 # HANDOFF — Uncle Invoice
 
-## Current state — 2026-10-18 (homepage hero, uncommitted on branch)
+## Current state — 2026-10-18 (homepage sections, local review branch)
+
+Tom supplied a full-page mockup and asked for the content below the existing
+hero and sponsor board. Work is local and uncommitted on
+`feat/homepage-sections`, based on `origin/main` after `git fetch origin`.
+There was no push, PR, merge, deploy, or production change.
+
+The existing hero and sponsor components were not edited. `src/app/page.tsx`
+only imports and renders a new `HomeSections` component after `SponsorBoard`.
+`src/components/home-sections.tsx` adds:
+
+- contractor and bookkeeper audience cards;
+- a three-step Create / Download / Get paid section with code-rendered invoice
+  and dashboard examples;
+- professional-invoice and free-account benefit cards;
+- six native `<details>` FAQ rows with copy checked against the current product;
+- the closing “Create your first invoice — free” call to action.
+
+Two new project-local photos are in `public/images/home-sections/contractor.webp`
+(1200×800, 104,762 bytes) and `bookkeeper.webp` (1200×800, 111,198 bytes).
+They were generated with the built-in image tool as warm, natural editorial
+photos for these two cards, with no text, logos, or watermarks, then converted
+to WebP. The user mockup was used only as a layout and tone reference.
+
+Checks and evidence:
+
+- `git diff --check` — passed.
+- `npx eslint src/app/page.tsx src/components/home-sections.tsx` — passed with
+  0 errors and 0 warnings.
+- `npx tsc --noEmit` — passed with 0 errors.
+- `npm run test:upgrades` — 22 passed, 0 failed, 0 skipped.
+- `npm run build` — passed. It still prints the existing Prisma config
+  deprecation, Next middleware deprecation, and malformed
+  `.print\\:hidden` CSS selector warning.
+- `npm run lint` — exit 1 on the unchanged project baseline: 7 errors and 2
+  warnings in `src/actions/public-invoice.ts`, `src/app/partners/page.tsx`,
+  `src/components/dashboard-metrics.tsx`, and `src/components/form-banner.tsx`.
+  The two changed TypeScript files pass their targeted lint check.
+- Rendered from the production build in headless Chrome on `steelbreeze` at
+  1440×5000 and 390×7000. Both renders were inspected: no overlap or horizontal
+  overflow; cards stack cleanly; both photos crop correctly; the small invoice
+  and dashboard examples remain readable. Links were not clicked and FAQ rows
+  were not opened in this visual pass.
+
+`HANDOFF.md` already had an uncommitted update when this turn began. That prior
+work is preserved below this section. No command is staged in `/home/tom/ummon`.
+
+## Current state — 2026-10-18 (homepage shipped as #46, tree clean)
+
+PR #46 squash-merged (`d7aeae0`), production ready on it, live HTML verified
+(hero srcset, new names, whole-card links, no covers). Topic branch deleted
+locally and on origin; main fast-forwarded, `git status` clean. The 8× "Learn
+more" in live HTML is 4 rendered + 4 React flight payload, not double render.
+
+## Earlier — 2026-10-18 (homepage hero, uncommitted on branch)
 
 Tom supplied a mock and the hero asset (`public/images/contractor-paid-hero.png`,
 untracked, 2 MB). `src/app/page.tsx` rebuilt on branch `feat/homepage-hero`:
@@ -966,3 +1020,31 @@ client provides the email address and Tom records it on the QuickBooks vendor
 profile. Put on the docket as "Engagement agreements: say who provides vendor
 email addresses". It no longer blocks AAA: the contractor types their own
 address at the moment they confirm.
+
+## 2026-10-18 — PR #47 hero/header auth popup (merged, live)
+- `feat/hero-cta` -> squash-merge `42d348b` -> main; remote+local branches pruned.
+- Hero: full-width "Create Invoice — Free" + full-width "Sign in / Sign up" (`AccountCta`, native `<dialog>`).
+- Header: removed Sign in link; auth is now one `AccountCta` pill ("Sign in / Sign up").
+- Verified: tsc, eslint, build, upgrades 22/22, CDP (widths 462/462, Close/backdrop, /signup + /login), live HTML has 2× "Sign in / Sign up".
+- Worktree note: this HANDOFF.md left uncommitted on main per policy.
+
+## 2026-10-18 — PR #48 label swap + PR #49 white hero button (merged, live)
+- #48 `866099a`: auth label "Sign in / Sign up" -> "Sign up / Sign in" (default prop, hero + header).
+- #49 `85d4964`: new `.btn-white` variant in globals.css, applied to hero AccountCta only; header pill unchanged.
+- Verified live: 2× "Sign up / Sign in" in HTML, screenshot shows white hero button + header pill.
+- Branches pruned; main clean except this HANDOFF.md (uncommitted per policy).
+
+## 2026-10-18 — PR #50 sponsor 15px + hero auth button removed (merged, live)
+- #50 `b9937a9`: `.sponsor-desc` 12px -> 15px (0.9375rem, scoped; global theme scale untouched).
+- Hero `AccountCta` removed from `src/app/page.tsx` (import too); header pill keeps it.
+- Verified live (screenshot + HTML): hero shows only "Create Invoice — Free"; "Sign up / Sign in" appears 1× (header).
+- tsc clean, eslint clean (one warning was my own CSS arg, file is ignored by config).
+- Branches pruned; main clean except this HANDOFF.md (uncommitted per policy).
+
+## State for next agent
+- Branch: `main` @ `b9937a9`. `git status`: only `M HANDOFF.md`. Last PRs: #46 hero/sponsors, #47 auth popup, #48 label swap, #49 white hero button, #50 this.
+- Dev server: detached `npm run dev -p 3000 -H 0.0.0.0`, log `/tmp/nextdev3000.log`. Kill by port only (`fuser -k 3000/tcp`) — NEVER broad pkill (see MEMORY.md; it kills Tom's servers).
+- Tom browses from a second machine: use `http://ripley:3000/`, not localhost.
+- Key files: `src/app/page.tsx` (hero), `src/components/account-cta.tsx` (popup, label "Sign up / Sign in"), `src/components/site-header.tsx` (pill), `src/components/sponsor-board.tsx` + `.sponsor-desc` in `src/app/globals.css`.
+- CSS cascade traps: `.btn-block` must stay AFTER `.btn-hero`; theme maps --text-xs/sm/base all to 1.125rem (use scoped classes for small print).
+- Open follow-ups: global text-scale cleanup; `CARD_NAMES` "Southwest Digital Marketing" vs DB "Southwest Digital"; duplicate-active-subscription prevention; e2e checkout test owed by Tom.
