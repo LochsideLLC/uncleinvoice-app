@@ -46,7 +46,7 @@ export function InvoiceStatusBar({
   totalCents: number;
   amountPaid: number;
   onlinePaymentEnabled: boolean;
-  clientEmail: string;
+  clientEmail: string | null;
   mailFrom: string;
 }) {
   const [showPayForm, setShowPayForm] = useState(false);
@@ -184,7 +184,7 @@ export function InvoiceStatusBar({
                   name="to"
                   type="email"
                   required
-                  defaultValue={clientEmail}
+                  defaultValue={clientEmail ?? ""}
                   placeholder="client@company.com"
                 />
               </div>

@@ -50,6 +50,8 @@ export default async function PublicInvoicePage({
   const isOwner = access.isMember || access.isContractorOwner;
   const showBrand = await invoiceShowsBrand(invoice);
   const viewer = access.isMember ? await getSessionUser() : null;
+  // Guests have no account at all: nudge them to sign up before printing.
+  const hasAccount = Boolean(viewer ?? (await getSessionUser()) ?? (await getRealSessionUser()));
 
   return (
     <div className="mx-auto min-h-full w-full max-w-6xl px-5 pb-8">
@@ -64,7 +66,7 @@ export default async function PublicInvoicePage({
         ) : (
           <span />
         )}
-        <InvoiceActions pdfHref={pdfHref} />
+        <InvoiceActions pdfHref={pdfHref} showSignupNudge={!hasAccount} />
       </div>
 
       {access.isMember && (

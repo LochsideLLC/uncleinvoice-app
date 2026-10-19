@@ -103,7 +103,7 @@ export async function POST(
         mode: "payment",
         allowed_payment_method_types: ["card"],
         client_reference_id: hosted.invoice.id,
-        customer_email: hosted.invoice.workspace.email,
+        customer_email: hosted.invoice.workspace.email ?? undefined,
         expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
         line_items: [
           {

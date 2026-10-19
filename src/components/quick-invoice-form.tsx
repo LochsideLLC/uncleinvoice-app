@@ -6,7 +6,8 @@ import { createWorkspaceInlineAction } from "@/actions/workspaces";
 import { FormBanner } from "@/components/form-banner";
 import { UncleInvoiceCredit } from "@/components/invoice-document";
 import { PAYMENT_TERMS } from "@/lib/invoice-fields";
-import { formatUsPhone } from "@/lib/us-address";
+import { displayPhoneNumber, parsePhoneNumber, phoneSubmitError } from "@/lib/phone";
+import { PhoneInput } from "@/components/phone-input";
 import {
   amountDue,
   dollarsToCents,
@@ -28,6 +29,12 @@ type LineDraft = {
 
 function payByIsBeforeInvoice(issue: string, due: string): boolean {
   return Boolean(issue && due && due < issue);
+}
+
+function initialPhoneE164(display: string): string | null {
+  if (!display.trim()) return null;
+  const parsed = parsePhoneNumber(display);
+  return parsed.ok ? parsed.e164 : null;
 }
 
 function dueFromTerms(issueDate: string, terms: string): string {
@@ -89,7 +96,7 @@ export function QuickInvoiceForm({
   billToClients?: {
     id: string;
     name: string;
-    email: string;
+    email: string | null;
     phone: string | null;
     addressLine: string | null;
     city: string | null;
@@ -104,7 +111,7 @@ export function QuickInvoiceForm({
   const [fromName, setFromName] = useState(defaultFromCompany);
   const [fromContactName, setFromContactName] = useState(defaultFromName);
   const [fromEmail, setFromEmail] = useState(defaultFromEmail);
-  const [fromPhone, setFromPhone] = useState(formatUsPhone(defaultFromPhone));
+  const [fromPhone, setFromPhone] = useState(displayPhoneNumber(defaultFromPhone));
   const [fromAddressLine, setFromAddressLine] = useState(defaultFromAddressLine);
   const [fromCity, setFromCity] = useState(defaultFromCity);
   const [fromRegion, setFromRegion] = useState(defaultFromRegion);
@@ -112,7 +119,7 @@ export function QuickInvoiceForm({
   const [billToName, setBillToName] = useState(defaults?.billToName ?? "");
   const [billToContactName, setBillToContactName] = useState(defaults?.billToContactName ?? "");
   const [billToEmail, setBillToEmail] = useState(defaults?.billToEmail ?? "");
-  const [billToPhone, setBillToPhone] = useState(formatUsPhone(defaults?.billToPhone ?? ""));
+  const [billToPhone, setBillToPhone] = useState(displayPhoneNumber(defaults?.billToPhone ?? ""));
   const [billToAddressLine, setBillToAddressLine] = useState(defaults?.billToAddressLine ?? "");
   const [billToCity, setBillToCity] = useState(defaults?.billToCity ?? "");
   const [billToRegion, setBillToRegion] = useState(defaults?.billToRegion ?? "");
@@ -144,6 +151,14 @@ export function QuickInvoiceForm({
   );
   const [dateWarn, setDateWarn] = useState(false);
   const [taxRateWarn, setTaxRateWarn] = useState(false);
+  const [billToPhoneError, setBillToPhoneError] = useState<string | null>(null);
+  const [fromPhoneError, setFromPhoneError] = useState<string | null>(null);
+  const [billToPhoneE164, setBillToPhoneE164] = useState<string | null>(() =>
+    initialPhoneE164(displayPhoneNumber(defaults?.billToPhone ?? "")),
+  );
+  const [fromPhoneE164, setFromPhoneE164] = useState<string | null>(() =>
+    initialPhoneE164(displayPhoneNumber(defaultFromPhone)),
+  );
 
   const pricedLines = useMemo(
     () =>
@@ -174,7 +189,7 @@ export function QuickInvoiceForm({
 
   function fillBillTo(client: {
     name: string;
-    email: string;
+    email: string | null;
     phone: string | null;
     addressLine: string | null;
     city: string | null;
@@ -182,8 +197,9 @@ export function QuickInvoiceForm({
     postalCode: string | null;
   }) {
     setBillToName(client.name);
-    setBillToEmail(client.email);
-    setBillToPhone(formatUsPhone(client.phone ?? ""));
+    setBillToEmail(client.email ?? "");
+    setBillToPhone(displayPhoneNumber(client.phone ?? ""));
+    setBillToPhoneE164(initialPhoneE164(displayPhoneNumber(client.phone ?? "")));
     setBillToAddressLine(client.addressLine ?? "");
     setBillToCity(client.city ?? "");
     setBillToRegion(client.region ?? "");
@@ -207,6 +223,8 @@ export function QuickInvoiceForm({
       setBillToName("");
       setBillToEmail("");
       setBillToPhone("");
+      setBillToPhoneE164(null);
+      setBillToPhoneError(null);
       setBillToAddressLine("");
       setBillToCity("");
       setBillToRegion("");
@@ -221,7 +239,7 @@ export function QuickInvoiceForm({
     const q = query.trim().toLowerCase();
     const scored = clientOptions.map((client) => {
       const name = client.name.toLowerCase();
-      const email = client.email.toLowerCase();
+      const email = (client.email ?? "").toLowerCase();
       if (!q) return { client, score: 0 };
       if (name.startsWith(q)) return { client, score: 0 };
       if (name.includes(q)) return { client, score: 1 };
@@ -266,6 +284,15 @@ export function QuickInvoiceForm({
   const taxNeeded = lines.some((row) => row.taxable) && !(Number.parseFloat(taxRate) > 0);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
+    const billToError = phoneSubmitError(billToPhone, billToPhoneE164);
+    const fromError = phoneSubmitError(fromPhone, fromPhoneE164);
+    setBillToPhoneError(billToError);
+    setFromPhoneError(fromError);
+    if (billToError || fromError) {
+      event.preventDefault();
+      document.getElementById(billToError ? "billToPhone" : "fromPhone")?.focus();
+      return;
+    }
     if (!taxNeeded) return;
     event.preventDefault();
     setTaxRateWarn(true);
@@ -624,23 +651,23 @@ export function QuickInvoiceForm({
               id="billToEmail"
               name="billToEmail"
               type="email"
-              required
-              aria-label="Client email"
+              aria-label="Client email (optional unless you email this invoice)"
               className="invoice-input"
               value={billToEmail}
               onChange={(event) => setBillToEmail(event.target.value)}
-              placeholder="ap@client.com"
+              placeholder="ap@client.com (optional)"
             />
-            <input
+            <PhoneInput
               id="billToPhone"
               name="billToPhone"
-              aria-label="Client phone"
-              className="invoice-input"
-              type="tel"
-              inputMode="tel"
+              ariaLabel="Client phone"
               value={billToPhone}
-              onChange={(event) => setBillToPhone(formatUsPhone(event.target.value))}
-              placeholder="(555) 555-5555"
+              onChange={(next, e164) => {
+                setBillToPhone(next);
+                setBillToPhoneE164(e164);
+                setBillToPhoneError(null);
+              }}
+              externalError={billToPhoneError}
             />
           </div>
 
@@ -712,16 +739,17 @@ export function QuickInvoiceForm({
               onChange={(event) => setFromEmail(event.target.value)}
               placeholder="you@company.com"
             />
-            <input
+            <PhoneInput
               id="fromPhone"
               name="fromPhone"
-              aria-label="Your phone"
-              className="invoice-input"
-              type="tel"
-              inputMode="tel"
+              ariaLabel="Your phone"
               value={fromPhone}
-              onChange={(event) => setFromPhone(formatUsPhone(event.target.value))}
-              placeholder="(555) 555-5555"
+              onChange={(next, e164) => {
+                setFromPhone(next);
+                setFromPhoneE164(e164);
+                setFromPhoneError(null);
+              }}
+              externalError={fromPhoneError}
             />
           </div>
         </div>

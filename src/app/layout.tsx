@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
   return (
     <html lang="en" className={`${fraunces.variable} ${sourceSans.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className="flex min-h-full flex-col bg-background text-foreground">
+      <body className="flex min-h-full flex-col bg-background text-foreground" suppressHydrationWarning>
         <ViewAsBanner />
         <div id="site-chrome" className="print:hidden">
           <SiteHeader user={user} unreadNotifications={unreadNotifications} />

@@ -1,5 +1,6 @@
 import { parseDate } from "@/lib/dates";
 import { percentToBps } from "@/lib/money";
+import { parsePhoneNumber } from "@/lib/phone";
 
 export const PAYMENT_TERMS = [
   "Due on receipt",
@@ -62,12 +63,26 @@ export type BusinessInvoiceFields = {
   billToPostalCode: string | null;
 };
 
+export function parsePhoneField(
+  value: FormDataEntryValue | null,
+): { ok: true; e164: string | null } | { ok: false; error: string } {
+  const raw = String(value ?? "").trim();
+  if (!raw) return { ok: true, e164: null };
+  const parsed = parsePhoneNumber(raw);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+  return { ok: true, e164: parsed.e164 };
+}
+
 export function parseBusinessInvoiceFields(
   formData: FormData,
   issueDate: Date,
 ): BusinessInvoiceFields | { error: string } {
   const tax = parseTaxRateBps(formData.get("taxRate"));
   if (!tax.ok) return { error: tax.error };
+  const fromPhone = parsePhoneField(formData.get("fromPhone"));
+  if (!fromPhone.ok) return { error: `Your phone: ${fromPhone.error}` };
+  const billToPhone = parsePhoneField(formData.get("billToPhone"));
+  if (!billToPhone.ok) return { error: `Client phone: ${billToPhone.error}` };
   const paymentTerms = optionalText(formData.get("paymentTerms"));
   return {
     dueDate: parseDate(formData.get("dueDate")) ?? dueDateFromTerms(issueDate, paymentTerms),
@@ -83,8 +98,8 @@ export function parseBusinessInvoiceFields(
     fromCity: optionalText(formData.get("fromCity")),
     fromRegion: optionalText(formData.get("fromRegion")),
     fromPostalCode: optionalText(formData.get("fromPostalCode")),
-    fromPhone: optionalText(formData.get("fromPhone")),
-    billToPhone: optionalText(formData.get("billToPhone")),
+    fromPhone: fromPhone.e164,
+    billToPhone: billToPhone.e164,
     billToAddressLine: optionalText(formData.get("billToAddressLine")),
     billToCity: optionalText(formData.get("billToCity")),
     billToRegion: optionalText(formData.get("billToRegion")),

@@ -37,7 +37,7 @@ type PdfInvoice = {
   confirmedByEmail: string | null;
   workspace: {
     name: string;
-    email: string;
+    email: string | null;
     phone: string | null;
     addressLine: string | null;
     city: string | null;

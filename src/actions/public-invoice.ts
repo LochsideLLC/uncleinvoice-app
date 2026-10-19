@@ -22,7 +22,7 @@ const fields = z
     fromEmail: z.union([z.literal(""), z.string().email()]),
     billToName: z.string().trim().min(1, "Add the company this is billed to."),
     billToContactName: z.string().trim(),
-    billToEmail: z.string().email("The client needs an email"),
+    billToEmail: z.union([z.literal(""), z.string().email("That client email does not look right")]),
   })
   .refine((value) => value.fromName || value.fromContactName, {
     message: "Add your name or company.",
@@ -47,7 +47,9 @@ export async function createPublicInvoiceAction(
   const issueDate = parseDate(formData.get("issueDate"));
   const items = parseLineItems(formData);
   if (!issueDate) return { error: "Invoice date is required." };
-  if (!items.length) return { error: "Add at least one line." };
+  if (!items.length) {
+    return { error: "Describe at least one billed item below — what you did, how many, and the rate." };
+  }
   const business = parseBusinessInvoiceFields(formData, issueDate);
   if ("error" in business) return { error: business.error };
   if (items.some((item) => item.taxable) && !business.taxRateBps) {
@@ -115,12 +117,13 @@ export async function createPublicInvoiceAction(
     }
   }
 
+  const billToEmail = parsed.data.billToEmail || null;
   let workspace = existingInvoice
     ? await db.workspace.findUniqueOrThrow({ where: { id: existingInvoice.workspaceId } })
-    : user
+    : user && billToEmail
       ? await db.workspace.findFirst({
           where: {
-            email: parsed.data.billToEmail,
+            email: billToEmail,
             members: { some: { userId: user.id } },
           },
         })
@@ -130,7 +133,7 @@ export async function createPublicInvoiceAction(
     workspace = await db.workspace.create({
       data: {
         name: parsed.data.billToName || parsed.data.billToContactName,
-        email: parsed.data.billToEmail,
+        email: billToEmail,
         phone: business.billToPhone,
         addressLine: business.billToAddressLine,
         city: business.billToCity,
@@ -146,7 +149,7 @@ export async function createPublicInvoiceAction(
       where: { id: workspace.id },
       data: {
         name: parsed.data.billToName || parsed.data.billToContactName,
-        email: parsed.data.billToEmail,
+        ...(billToEmail ? { email: billToEmail } : {}),
         phone: business.billToPhone ?? workspace.phone,
         addressLine: business.billToAddressLine ?? workspace.addressLine,
         city: business.billToCity ?? workspace.city,
@@ -287,7 +290,7 @@ export async function createPublicInvoiceAction(
     data: {
       tokenHash: hashToken(token),
       purpose: "invoice_view",
-      email: parsed.data.billToEmail,
+      email: billToEmail ?? "",
       invoiceId: invoice.id,
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
     },

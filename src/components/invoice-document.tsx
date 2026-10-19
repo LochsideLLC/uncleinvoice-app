@@ -105,7 +105,7 @@ export function invoiceToDocument(invoice: {
   };
   workspace: {
     name: string;
-    email: string;
+    email: string | null;
     phone?: string | null;
     addressLine?: string | null;
     city?: string | null;

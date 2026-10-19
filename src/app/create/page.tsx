@@ -117,7 +117,7 @@ async function loadInvoiceDraft(invoiceId: string, token: string | undefined, us
       amountPaid: paid === "partial" ? centsToDollars(invoice.amountPaid) : "",
       billToName: invoice.workspace.name,
       billToContactName: invoice.billToContactName ?? "",
-      billToEmail: invoice.workspace.email,
+      billToEmail: invoice.workspace.email ?? "",
       billToPhone: invoice.workspace.phone ?? "",
       billToAddressLine: invoice.workspace.addressLine ?? "",
       billToCity: invoice.workspace.city ?? "",

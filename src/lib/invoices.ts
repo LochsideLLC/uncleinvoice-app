@@ -204,7 +204,10 @@ export async function sendInvoiceToClient(
     throw new Error("The contractor needs to confirm this invoice before it can be sent to the client.");
   }
 
-  const to = options?.to?.trim() || invoice.workspace.email;
+  const to = options?.to?.trim() || invoice.workspace.email || null;
+  if (!to) {
+    throw new Error("Add the client's email address before sending — open the send form and type it in To.");
+  }
   const sender = await db.user.findUnique({
     where: { email: actor.email },
     select: { emailSignature: true },
@@ -218,7 +221,7 @@ export async function sendInvoiceToClient(
       data: {
         tokenHash: hashToken(viewToken),
         purpose: "invoice_view",
-        email: invoice.workspace.email,
+        email: invoice.workspace.email ?? "",
         invoiceId: invoice.id,
         expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       },

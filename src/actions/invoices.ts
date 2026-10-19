@@ -36,7 +36,9 @@ export async function createInvoiceAction(
 
   if (!contractorId) return { error: "Pick a contractor." };
   if (!issueDate) return { error: "Invoice date is required." };
-  if (!items.length) return { error: "Add at least one line item." };
+  if (!items.length) {
+    return { error: "Describe at least one billed item below — what you did, how many, and the rate." };
+  }
   const business = parseBusinessInvoiceFields(formData, issueDate);
   if ("error" in business) return { error: business.error };
 
@@ -125,7 +127,9 @@ export async function updateInvoiceAction(
   const issueDate = parseDate(formData.get("issueDate"));
   const items = parseLineItems(formData);
   if (!issueDate) return { error: "Invoice date is required." };
-  if (!items.length) return { error: "Add at least one line item." };
+  if (!items.length) {
+    return { error: "Describe at least one billed item below — what you did, how many, and the rate." };
+  }
   const business = parseBusinessInvoiceFields(formData, issueDate);
   if ("error" in business) return { error: business.error };
 
@@ -175,6 +179,7 @@ export async function copyReviewLinkAction(
   });
   if (!invoice) return { error: "Invoice not found." };
   const email = invoice.contractor.email ?? workspace.email;
+  if (!email) return { error: "Add an email on the contractor record to send automatically." };
   const link = await createReviewLink(invoice.id, email);
   if (invoice.status === "draft") {
     await db.invoice.update({
@@ -255,7 +260,9 @@ export async function contractorUpdateInvoiceAction(
   }
 
   const items = parseLineItems(formData);
-  if (!items.length) return { error: "Leave at least one line on the invoice." };
+  if (!items.length) {
+    return { error: "Keep at least one billed item on the invoice — what you did, how many, and the rate." };
+  }
 
   await db.$transaction([
     db.invoiceLineItem.deleteMany({ where: { invoiceId: link.invoice.id } }),

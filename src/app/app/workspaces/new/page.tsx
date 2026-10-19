@@ -25,7 +25,12 @@ export default function NewWorkspacePage() {
         </div>
         <div className="field">
           <label htmlFor="email">Office email</label>
-          <input id="email" name="email" type="email" required />
+          <input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="Only needed to email invoices"
+          />
         </div>
         <div className="field">
           <label htmlFor="phone">Phone</label>

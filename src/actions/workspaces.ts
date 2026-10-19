@@ -9,7 +9,7 @@ import type { ActionState } from "@/actions/auth";
 
 const workspaceSchema = z.object({
   name: z.string().trim().min(1, "Client name is required"),
-  email: z.string().email("Client needs an email so finished invoices have somewhere to go"),
+  email: z.union([z.literal(""), z.string().email("That office email does not look right")]),
   phone: z.string().optional(),
   addressLine: z.string().optional(),
   city: z.string().optional(),
@@ -37,6 +37,7 @@ export async function createWorkspaceAction(
   const workspace = await db.workspace.create({
     data: {
       ...parsed.data,
+      email: parsed.data.email || null,
       createdById: user.id,
       members: {
         create: { userId: user.id, role: "owner" },
@@ -52,7 +53,7 @@ export type InlineWorkspaceResult =
       workspace: {
         id: string;
         name: string;
-        email: string;
+        email: string | null;
         phone: string | null;
         addressLine: string | null;
         city: string | null;
@@ -131,7 +132,10 @@ export async function updateWorkspaceAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form." };
   }
-  await db.workspace.update({ where: { id: workspaceId }, data: parsed.data });
+  await db.workspace.update({
+    where: { id: workspaceId },
+    data: { ...parsed.data, email: parsed.data.email || null },
+  });
   return { ok: true, message: "Client details saved." };
 }
 

@@ -1,5 +1,25 @@
 # HANDOFF — Uncle Invoice
 
+## Current state — 2026-10-19 (invoice form UX batch merged to main)
+
+Tom ordered commit/push/merge/prune for `feat/international-phone-input`.
+Merged to `main`, pushed, branch pruned locally and on origin. Migrations
+`20261019011500` reached live via the earlier misdirected deploy (Tom said
+"leave it"); `20261019150738` was applied to live on Tom's explicit "apply";
+live `Workspace.email` is nullable (verified by read-back). Pre-existing history drift (old `MagicLink_contractorId_idx`
+present in DB, absent from schema) was left untouched.
+
+Contents: international phone inputs with country picker on both invoice phone
+fields (blank ok, E.164 storage, server re-validates; `libphonenumber-js`
+added; `tests/phone.test.ts` 11/11 via `npm run test:phone`); client email
+optional at creation, required at send (workspace/add-client/settings forms
+match; one-click send errors plainly without an address); clearer
+no-line-items errors; `suppressHydrationWarning` on `<body>` for an
+extension-injected attribute; guest signup-nudge modal on Print/Download with
+Just Print/Just Download bypass (verified by scripted Chromium: modal copy,
+bypass labels, real PDF download, 3–9ms open). The invoice "save customer"
+popup still takes free-text phone (follow-up).
+
 ## Current state — 2026-10-19 (homepage sections + Stripe foundation merged to main)
 
 Tom ordered commit/push/merge/prune. `feat/homepage-sections` merged to `main`
