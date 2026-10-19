@@ -34,7 +34,7 @@ export default function BookkeeperUpgradePage() {
       </section>
       <p className="text-sm text-muted">This works from files you export and import. It is not a direct QuickBooks connection. Contractors review invoices through a private link; the current flow does not create a contractor sign-in account.</p>
       <div className="flex flex-wrap items-center gap-4">
-        <Link href="/signup?accountType=bookkeeper" className="btn btn-primary">Create a bookkeeper account</Link>
+        <Link href="/signup" className="btn btn-primary">Create a free account</Link>
         <Link href="/app/plans" className="text-sm underline">Already signed in? View plans</Link>
       </div>
     </div>

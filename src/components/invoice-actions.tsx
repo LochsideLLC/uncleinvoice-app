@@ -14,9 +14,11 @@ const NUDGE_POINTS = [
 export function InvoiceActions({
   pdfHref,
   showSignupNudge = false,
+  signupHref = "/signup",
 }: {
   pdfHref: string;
   showSignupNudge?: boolean;
+  signupHref?: string;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -86,12 +88,11 @@ export function InvoiceActions({
                 </li>
               ))}
             </ul>
-            <p className="mt-4 font-semibold">
-              And the best part? It&rsquo;s completely free! No subscription or credit
-              card required.
+            <p className="mt-4 font-semibold text-olive">
+              100% free. No subscription. No credit card required.
             </p>
             <div className="mt-5 flex flex-col gap-3">
-              <Link href="/signup" className="btn btn-primary w-full">
+              <Link href={signupHref} className="btn btn-primary w-full">
                 Create My Free Account →
               </Link>
               <button type="button" className="btn btn-secondary w-full" onClick={handleBypass}>

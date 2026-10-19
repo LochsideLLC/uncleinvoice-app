@@ -8,7 +8,7 @@ import {
   googleConfigured,
   safeAuthReturnPath,
 } from "@/lib/google-oauth";
-import { asAccountType } from "@/lib/account-type";
+import { isClaimTokenShape } from "@/lib/invoice-claim";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -19,12 +19,17 @@ export async function GET(request: Request) {
 
   const { verifier, challenge, state } = createGoogleOAuthChallenge();
   const redirectUri = googleCallbackUri();
+  const rawClaim = url.searchParams.get("claim");
   const payload = encodeGoogleOAuthState({
     state,
     verifier,
     next: url.searchParams.get("next") ?? "",
     from,
-    accountType: from === "/signup" ? asAccountType(url.searchParams.get("accountType")) : "other",
+    // Signup no longer asks who you are: every new Google account starts as
+    // "other". The role question moved to post-signup onboarding, and
+    // bookkeeper is an opt-in upgrade under /app/plans.
+    accountType: "other",
+    claim: isClaimTokenShape(rawClaim) ? rawClaim : "",
     redirectUri,
   });
 

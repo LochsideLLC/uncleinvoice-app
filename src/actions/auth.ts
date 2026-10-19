@@ -12,7 +12,7 @@ import {
 } from "@/lib/auth";
 import { createToken, hashToken } from "@/lib/crypto";
 import { sendEmail } from "@/lib/mail";
-import { ACCOUNT_TYPES } from "@/lib/account-type";
+import { consumeInvoiceClaim, isClaimTokenShape } from "@/lib/invoice-claim";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
@@ -21,7 +21,11 @@ const signupSchema = z.object({
   email: z.string().email("Enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
   intent: z.enum(["password", "magic"]).default("password"),
-  accountType: z.enum(ACCOUNT_TYPES).default("other"),
+  // The form no longer sends this — every new account starts as "other"
+  // and the role question lives in post-signup onboarding. Accepted here
+  // only so a stale tab posting the old field does not fail validation.
+  accountType: z.string().optional(),
+  claim: z.string().optional(),
 });
 
 export type ActionState = { error?: string; ok?: boolean; message?: string } | null;
@@ -47,13 +51,15 @@ export async function signupAction(
     email: formData.get("email"),
     password: formData.get("password") || undefined,
     intent: formData.get("intent") || "password",
-    accountType: formData.get("accountType") || "other",
+    accountType: formData.get("accountType") || undefined,
+    claim: formData.get("claim") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
   }
 
   const email = parsed.data.email.toLowerCase();
+  const claim = isClaimTokenShape(parsed.data.claim) ? parsed.data.claim : null;
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) {
     // Same answer for an archived account as a live one. Signing up is not a
@@ -63,9 +69,9 @@ export async function signupAction(
 
   if (parsed.data.intent === "magic") {
     const user = await db.user.create({
-      data: { email, name: parsed.data.name, accountType: parsed.data.accountType },
+      data: { email, name: parsed.data.name, accountType: "other" },
     });
-    const link = await sendLoginLink(user.email, user.id);
+    const link = await sendLoginLink(user.email, user.id, claim);
     return {
       ok: true,
       message: process.env.RESEND_API_KEY
@@ -82,12 +88,16 @@ export async function signupAction(
     data: {
       email,
       name: parsed.data.name,
-      accountType: parsed.data.accountType,
+      accountType: "other",
       passwordHash: await hashPassword(parsed.data.password),
     },
   });
   await createSession(user.id);
-  redirect(parsed.data.accountType === "bookkeeper" ? "/app/plans?welcome=bookkeeper" : "/app");
+  if (claim) {
+    const claimed = await consumeInvoiceClaim(claim, user.id);
+    if (claimed) redirect(claimed.to);
+  }
+  redirect("/app");
 }
 
 export async function loginAction(
@@ -104,9 +114,14 @@ export async function loginAction(
 
   const user = await db.user.findUnique({ where: { email } });
 
+  // The form carries ?claim= as a hidden field, so a guest-claim link
+  // survives the passwordless route too: the claim travels beside the
+  // sign-in token and is consumed after the session is created.
+  const magicClaimRaw = formData.get("claim");
+  const magicClaim = isClaimTokenShape(magicClaimRaw) ? magicClaimRaw : null;
   if (intent === "magic") {
     if (user && !isArchived(user)) {
-      const link = await sendLoginLink(user.email, user.id);
+      const link = await sendLoginLink(user.email, user.id, magicClaim);
       if (!process.env.RESEND_API_KEY) {
         return { ok: true, message: `No email provider is configured, so here is your sign-in link: ${link}` };
       }
@@ -125,6 +140,11 @@ export async function loginAction(
     return { error: "That email and password do not match." };
   }
   await createSession(user.id);
+  const claimRaw = formData.get("claim");
+  if (isClaimTokenShape(claimRaw)) {
+    const claimed = await consumeInvoiceClaim(claimRaw, user.id);
+    if (claimed) redirect(claimed.to);
+  }
   redirect(safeNext(String(formData.get("next") ?? "")));
 }
 
@@ -137,7 +157,7 @@ export async function requestMagicLinkAction(email: string, userId?: string) {
   await sendLoginLink(email, userId);
 }
 
-async function sendLoginLink(email: string, userId?: string) {
+async function sendLoginLink(email: string, userId?: string, claim?: string | null) {
   const token = createToken();
   await db.magicLink.create({
     data: {
@@ -148,7 +168,10 @@ async function sendLoginLink(email: string, userId?: string) {
       expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
     },
   });
-  const link = `${APP_URL}/auth/verify/${token}`;
+  // The claim travels beside the sign-in token, not inside the login row:
+  // the verify route hands it to consumeInvoiceClaim after the session is
+  // created, and the absolute redirect it builds carries no query string.
+  const link = claim ? `${APP_URL}/auth/verify/${token}?claim=${claim}` : `${APP_URL}/auth/verify/${token}`;
   await sendEmail({
     to: email,
     subject: "Your Uncle Invoice sign-in link",
@@ -158,7 +181,7 @@ async function sendLoginLink(email: string, userId?: string) {
   return link;
 }
 
-export async function consumeLoginToken(token: string) {
+export async function consumeLoginToken(token: string, claim?: string | null) {
   const record = await db.magicLink.findUnique({
     where: { tokenHash: hashToken(token) },
   });
@@ -187,6 +210,10 @@ export async function consumeLoginToken(token: string) {
     data: { usedAt: new Date() },
   });
   await createSession(user.id);
+  if (isClaimTokenShape(claim)) {
+    const claimed = await consumeInvoiceClaim(claim, user.id);
+    if (claimed) return { to: claimed.to };
+  }
   // Returns the destination rather than redirecting. The caller is the
   // /auth/verify route handler, which builds its own clean redirect: a
   // relative redirect from here would keep the request's query string, and

@@ -20,6 +20,25 @@ Just Print/Just Download bypass (verified by scripted Chromium: modal copy,
 bypass labels, real PDF download, 3–9ms open). The invoice "save customer"
 popup still takes free-text phone (follow-up).
 
+Merged to `main` 2026-10-19 on Tom's order (commit, push, merge, prune same
+turn); branch pruned locally and on origin. This merge also carries the
+post-workflow signup polish: modal green free line, signup subtitle copy,
+compact 440px signup card, short "Your invoice is ready!" banner.
+
+Claim-banner fix + journey verification 2026-10-19: scripted-Chromium pass over
+the workflow's `feat/frictionless-signup` (uncommitted) found the spec-required
+"Your invoice is ready!" banner missing on `/signup?claim=` — added to
+`signup-form.tsx`. Then green: guest create mints `claim`, nudge modal links
+`/signup?claim=`, password signup lands on the invoice attached with owner
+controls, bare signup lands `/app`, password login with claim attaches,
+magic-link request shows the emailed link (dev fallback) carrying the claim
+and clicking it attaches, forged claim rejected (safe `/login` landing),
+Google button leaves for Google with claim in state (OAuth completion needs
+real creds), mobile banner verified by screenshot. One cosmetic note: after
+the magic-link attach the owner-controls check read false though the DB row
+proves attach — likely render timing, unconfirmed. Throwaway DB reset clean
+afterward; live DB untouched throughout.
+
 ## Current state — 2026-10-19 (homepage sections + Stripe foundation merged to main)
 
 Tom ordered commit/push/merge/prune. `feat/homepage-sections` merged to `main`

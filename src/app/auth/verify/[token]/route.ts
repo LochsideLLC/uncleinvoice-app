@@ -45,7 +45,7 @@ export async function GET(
 
   if (!token) return fail("link_missing");
 
-  const result = await consumeLoginToken(token);
+  const result = await consumeLoginToken(token, request.nextUrl.searchParams.get("claim"));
   if (result?.to) {
     return NextResponse.redirect(new URL(result.to, origin));
   }

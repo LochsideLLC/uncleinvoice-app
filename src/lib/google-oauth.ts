@@ -10,6 +10,7 @@ export type GoogleOAuthState = {
   next: string;
   from: string;
   accountType: AccountType;
+  claim: string;
   redirectUri: string;
 };
 
@@ -78,6 +79,7 @@ export function decodeGoogleOAuthState(raw: string | undefined): GoogleOAuthStat
       next: typeof parsed.next === "string" ? parsed.next : "",
       from: safeAuthReturnPath(typeof parsed.from === "string" ? parsed.from : null),
       accountType: asAccountType(parsed.accountType),
+      claim: typeof parsed.claim === "string" ? parsed.claim : "",
       redirectUri: parsed.redirectUri,
     };
   } catch {

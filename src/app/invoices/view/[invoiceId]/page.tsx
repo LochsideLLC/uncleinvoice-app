@@ -13,6 +13,7 @@ import { UpgradeOffer } from "@/components/upgrade-offer";
 import { BrandingPreview } from "@/components/branding-preview";
 import { asPlan } from "@/lib/plan";
 import { getRealSessionUser } from "@/lib/auth";
+import { isClaimTokenShape } from "@/lib/invoice-claim";
 import { HostedInvoiceControls } from "@/components/hosted-invoice-controls";
 import { isSafeConnectConfiguration } from "@/lib/stripe-connect";
 import { formatDateTime } from "@/lib/dates";
@@ -22,10 +23,10 @@ export default async function PublicInvoicePage({
   searchParams,
 }: {
   params: Promise<{ invoiceId: string }>;
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; claim?: string }>;
 }) {
   const { invoiceId } = await params;
-  const { token } = await searchParams;
+  const { token, claim } = await searchParams;
   const invoice = await db.invoice.findUnique({
     where: { id: invoiceId },
     include: {
@@ -66,7 +67,15 @@ export default async function PublicInvoicePage({
         ) : (
           <span />
         )}
-        <InvoiceActions pdfHref={pdfHref} showSignupNudge={!hasAccount} />
+        <InvoiceActions
+          pdfHref={pdfHref}
+          showSignupNudge={!hasAccount}
+          signupHref={
+            !hasAccount && isClaimTokenShape(claim)
+              ? `/signup?claim=${encodeURIComponent(claim)}`
+              : "/signup"
+          }
+        />
       </div>
 
       {access.isMember && (

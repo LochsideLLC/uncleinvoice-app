@@ -10,10 +10,12 @@ export function LoginForm({
   next,
   error,
   googleEnabled,
+  claim,
 }: {
   next: string;
   error?: string;
   googleEnabled: boolean;
+  claim?: string;
 }) {
   const [state, action, pending] = useActionState(loginAction, null);
   // Held here only so "Forgot your password?" can carry the address across
@@ -29,7 +31,7 @@ export function LoginForm({
       <div className="paper mt-8 rounded-3xl p-6">
         {googleEnabled ? (
           <>
-            <ContinueWithGoogle next={next} from="/login" />
+            <ContinueWithGoogle next={next} from="/login" claim={claim} />
             <div className="relative my-6 text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted">
               <span className="relative z-10 bg-paper px-2">or</span>
               <span className="absolute inset-x-0 top-1/2 border-t border-line" />
@@ -38,6 +40,7 @@ export function LoginForm({
         ) : null}
         <form action={action} className="space-y-4">
           {next ? <input type="hidden" name="next" value={next} /> : null}
+          {claim ? <input type="hidden" name="claim" value={claim} /> : null}
           <FormBanner state={state ?? (error ? { error } : null)} />
           <div className="field">
             <label className="text-center" htmlFor="email">
@@ -94,7 +97,7 @@ export function LoginForm({
       </div>
       <p className="mt-6 text-center text-sm text-muted">
         New here?{" "}
-        <Link href="/signup" className="text-ink underline">
+        <Link href={claim ? `/signup?claim=${encodeURIComponent(claim)}` : "/signup"} className="text-ink underline">
           Create an account
         </Link>
       </p>

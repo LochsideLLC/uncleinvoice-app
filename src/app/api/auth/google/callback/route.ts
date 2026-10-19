@@ -9,6 +9,7 @@ import {
   findOrCreateGoogleUser,
   sameOAuthValue,
 } from "@/lib/google-oauth";
+import { consumeInvoiceClaim } from "@/lib/invoice-claim";
 
 /**
  * Where to send the visitor, as an absolute URL.
@@ -90,6 +91,15 @@ export async function GET(request: Request) {
     fail(origin, from, "archived");
   }
   await createSession(user.id);
+  // A guest-claim signup lands on its invoice, never on /app. An invalid,
+  // spent, or foreign claim is ignored and the visitor gets the normal
+  // destination below.
+  if (stored.claim) {
+    const claimed = await consumeInvoiceClaim(stored.claim, user.id);
+    if (claimed) {
+      redirect(absolute(origin, claimed.to));
+    }
+  }
   if (created && stored.from === "/login") {
     redirect(absolute(origin, "/app/onboarding"));
   }

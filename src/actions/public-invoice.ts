@@ -8,6 +8,7 @@ import { createToken, hashToken } from "@/lib/crypto";
 import { parseDate } from "@/lib/dates";
 import { advanceCounterPast, nextInvoiceNumber, parseLineItems, recordEvent } from "@/lib/invoices";
 import { invoiceBusinessData, parseBusinessInvoiceFields } from "@/lib/invoice-fields";
+import { createInvoiceClaimToken } from "@/lib/invoice-claim";
 import { invoiceGrandTotal, parseAmountPaid } from "@/lib/money";
 import type { ActionState } from "@/actions/auth";
 import type { InvoiceStatus } from "@/lib/status";
@@ -295,5 +296,13 @@ export async function createPublicInvoiceAction(
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
     },
   });
+  // Guests get a single-use claim token beside the view token. The invoice
+  // page turns it into a /signup?claim= link; signing up with it attaches
+  // the new account to this invoice and lands back here instead of /app.
+  // Signed-in visitors already own their invoices, so they get none.
+  if (!user) {
+    const claim = await createInvoiceClaimToken(invoice.id, fromEmail ?? billToEmail ?? "");
+    redirect(`/invoices/view/${invoice.id}?token=${token}&claim=${claim}`);
+  }
   redirect(`/invoices/view/${invoice.id}?token=${token}`);
 }

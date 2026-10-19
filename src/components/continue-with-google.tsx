@@ -1,21 +1,15 @@
 export function ContinueWithGoogle({
   next,
   from,
-  accountType,
-  disabled,
+  claim,
 }: {
   next?: string;
   from: "/login" | "/signup";
-  accountType?: string;
-  disabled?: boolean;
+  claim?: string;
 }) {
   const params = new URLSearchParams({ from });
   if (next) params.set("next", next);
-  if (from === "/signup" && accountType) params.set("accountType", accountType);
-
-  if (disabled) {
-    return <span aria-disabled="true" className="btn btn-ghost w-full cursor-not-allowed opacity-50"><GoogleMark />Choose who you are first</span>;
-  }
+  if (claim) params.set("claim", claim);
 
   return (
     <a href={`/api/auth/google?${params.toString()}`} className="btn btn-ghost w-full">
