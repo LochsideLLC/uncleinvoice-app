@@ -17,6 +17,7 @@ export function AuthCard({
   googleEnabled,
   claim,
   embedded = false,
+  workspace,
 }: {
   initialMode?: AuthMode;
   next?: string;
@@ -24,6 +25,7 @@ export function AuthCard({
   googleEnabled: boolean;
   claim?: string;
   embedded?: boolean;
+  workspace?: "bookkeeper";
 }) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const switchMode = () => setMode((current) => (current === "signup" ? "signin" : "signup"));
@@ -36,6 +38,7 @@ export function AuthCard({
         googleEnabled={googleEnabled}
         claim={claim}
         embedded={embedded}
+        workspace={workspace}
         onSwitchMode={switchMode}
       />
     );
@@ -46,6 +49,7 @@ export function AuthCard({
       googleEnabled={googleEnabled}
       claim={claim}
       embedded={embedded}
+      workspace={workspace}
       onSwitchMode={switchMode}
     />
   );

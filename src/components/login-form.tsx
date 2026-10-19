@@ -12,6 +12,7 @@ export function LoginForm({
   googleEnabled,
   claim,
   embedded = false,
+  workspace,
   onSwitchMode,
 }: {
   next: string;
@@ -19,6 +20,7 @@ export function LoginForm({
   googleEnabled: boolean;
   claim?: string;
   embedded?: boolean;
+  workspace?: "bookkeeper";
   onSwitchMode?: () => void;
 }) {
   const [state, action, pending] = useActionState(loginAction, null);
@@ -31,7 +33,7 @@ export function LoginForm({
       Create an account
     </button>
   ) : (
-    <Link href={claim ? `/signup?claim=${encodeURIComponent(claim)}` : "/signup"} className="text-ink underline">
+    <Link href={`/signup?${new URLSearchParams({ ...(claim ? { claim } : {}), ...(workspace ? { workspace } : {}) }).toString()}`} className="text-ink underline">
       Create an account
     </Link>
   );
@@ -50,7 +52,7 @@ export function LoginForm({
       <div className={embedded ? "mt-4" : ""}>
         {googleEnabled ? (
           <>
-            <ContinueWithGoogle next={next} from="/login" claim={claim} />
+            <ContinueWithGoogle next={next} from="/login" claim={claim} workspace={workspace} />
             <div className="relative my-6 text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted">
               <span className={`relative z-10 px-2 ${embedded ? "bg-background" : "bg-paper"}`}>or</span>
               <span className="absolute inset-x-0 top-1/2 border-t border-line" />
@@ -60,6 +62,7 @@ export function LoginForm({
         <form action={action} className="space-y-4">
           {next ? <input type="hidden" name="next" value={next} /> : null}
           {claim ? <input type="hidden" name="claim" value={claim} /> : null}
+          {workspace ? <input type="hidden" name="workspace" value={workspace} /> : null}
           <FormBanner state={state ?? (error ? { error } : null)} />
           <div className="field">
             <label className="text-center" htmlFor="email">

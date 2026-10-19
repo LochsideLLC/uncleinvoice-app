@@ -3,7 +3,7 @@ import { AuthDialog } from "@/components/auth-dialog";
 import { AccountMenu } from "@/components/account-menu";
 import { googleConfigured } from "@/lib/google-oauth";
 import { UncleStamp } from "@/components/brand-mark";
-import { asPlan } from "@/lib/plan";
+
 
 const navLink =
   "nav-link whitespace-nowrap rounded-lg px-2.5 py-2 text-detail font-medium";
@@ -14,7 +14,7 @@ export function SiteHeader({
 }: {
   user?: {
     admin?: boolean;
-    plan?: string | null;
+    workspaceKind?: string | null;
     name?: string;
     businessLogoUrl?: string | null;
     businessWordmarkUrl?: string | null;
@@ -33,17 +33,11 @@ export function SiteHeader({
 
         {user ? (
           <nav className="flex items-center gap-1">
-            <Link href="/how-it-works" className={`${navLink} hidden sm:inline-flex`}>
-              How it works
-            </Link>
             <Link href="/app" className={navLink}>
               Dashboard
             </Link>
-            <Link
-              href="/app/plans"
-              className="btn btn-sm btn-sparkle whitespace-nowrap"
-            >
-              {asPlan(user.plan) === "bookkeeper" ? "Your plan" : "Unlock features"}
+            <Link href="/how-it-works" className={`${navLink} hidden sm:inline-flex`}>
+              How it works
             </Link>
             <Link href="/app/whats-new" className={`${navLink} hidden lg:inline-flex`}>
               What&rsquo;s new

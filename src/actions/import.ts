@@ -7,9 +7,10 @@ import { csvRowToCents, csvRowToPaidCents, parsePaymentCsv } from "@/lib/csv";
 import { centsToDollars } from "@/lib/money";
 import { nextInvoiceNumber, recordEvent } from "@/lib/invoices";
 import { parseDate } from "@/lib/dates";
+import { cappedInteger, consumeDailyLimit } from "@/lib/usage-limits";
 import type { ActionState } from "@/actions/auth";
 import type { InvoiceStatus } from "@/lib/status";
-import { canImportInvoices, upgradeMessage } from "@/lib/plan";
+
 
 export async function importPaymentsAction(
   _prev: ActionState,
@@ -17,9 +18,6 @@ export async function importPaymentsAction(
 ): Promise<ActionState> {
   const workspaceId = String(formData.get("workspaceId") ?? "");
   const { user } = await requireWorkspace(workspaceId);
-  if (!canImportInvoices(user.plan)) {
-    return { error: upgradeMessage("Importing invoices from a spreadsheet") };
-  }
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Choose a CSV file first." };
@@ -35,6 +33,26 @@ export async function importPaymentsAction(
   if (!rows.length) {
     return { error: "No invoice rows found. Need contractor_name and amount." };
   }
+  // Abuse guard: one import stays small, and imports per day stay bounded
+  // per account and globally. Fail safe instead of creating thousands of
+  // drafts from a runaway file or script.
+  const maxRows = cappedInteger(process.env.IMPORT_MAX_ROWS, 500, 2000);
+  if (rows.length > maxRows) {
+    return { error: `That file has too many rows. Keep imports under ${maxRows} rows.` };
+  }
+  const globalAllowed = await consumeDailyLimit({
+    operation: "import_run",
+    scope: "global",
+    scopeKey: "all",
+    limit: cappedInteger(process.env.IMPORT_GLOBAL_DAILY_LIMIT, 200, 200),
+  });
+  const userAllowed = globalAllowed && await consumeDailyLimit({
+    operation: "import_run",
+    scope: "user",
+    scopeKey: user.id,
+    limit: cappedInteger(process.env.IMPORT_PER_USER_DAILY_LIMIT, 10, 10),
+  });
+  if (!userAllowed) return { error: "Import limit reached. Try again tomorrow." };
 
   // Rows with a blank amount_paid follow this default: backfilling payments
   // that already went out marks them paid, while bringing in invoices that

@@ -11,12 +11,14 @@ export function SignupForm({
   googleEnabled,
   claim,
   embedded = false,
+  workspace,
   onSwitchMode,
 }: {
   error?: string;
   googleEnabled: boolean;
   claim?: string;
   embedded?: boolean;
+  workspace?: "bookkeeper";
   onSwitchMode?: () => void;
 }) {
   const [state, action, pending] = useActionState(signupAction, null);
@@ -35,7 +37,7 @@ export function SignupForm({
       Sign in
     </button>
   ) : (
-    <Link href={claim ? `/login?claim=${encodeURIComponent(claim)}` : "/login"} className="text-ink underline">
+    <Link href={`/login?${new URLSearchParams({ ...(claim ? { claim } : {}), ...(workspace ? { workspace } : {}) }).toString()}`} className="text-ink underline">
       Sign in
     </Link>
   );
@@ -49,7 +51,7 @@ export function SignupForm({
         </p>
         {googleEnabled ? (
           <div className="mt-5">
-            <ContinueWithGoogle from="/signup" claim={claim} />
+            <ContinueWithGoogle from="/signup" claim={claim} workspace={workspace} />
             <div className="relative my-2 text-center text-sm text-muted">
               <span className={`relative z-10 px-2 ${embedded ? "bg-background" : "bg-paper"}`}>or continue with email</span>
               <span className="absolute inset-x-0 top-1/2 border-t border-line" />
@@ -59,6 +61,7 @@ export function SignupForm({
         <form action={action} className="mt-5 space-y-3">
           <FormBanner state={state ?? (error ? { error } : null)} />
           {claim ? <input type="hidden" name="claim" value={claim} /> : null}
+          {workspace ? <input type="hidden" name="workspace" value={workspace} /> : null}
           <div className="field">
             <label htmlFor="name">Your name</label>
             <input id="name" name="name" required autoComplete="name" placeholder="Jane Smith" />

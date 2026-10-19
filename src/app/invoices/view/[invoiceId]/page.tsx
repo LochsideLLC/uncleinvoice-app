@@ -9,9 +9,7 @@ import { InvoiceActions } from "@/components/invoice-actions";
 import { InvoiceStatusBar } from "@/components/invoice-status-bar";
 import { mailFromAddress } from "@/lib/mail";
 import { invoiceShowsBrand } from "@/lib/invoice-branding";
-import { UpgradeOffer } from "@/components/upgrade-offer";
-import { BrandingPreview } from "@/components/branding-preview";
-import { asPlan } from "@/lib/plan";
+
 import { getRealSessionUser } from "@/lib/auth";
 import { isClaimTokenShape } from "@/lib/invoice-claim";
 import { HostedInvoiceControls } from "@/components/hosted-invoice-controls";
@@ -147,7 +145,7 @@ export default async function PublicInvoicePage({
           ) : <p className="mt-2 text-sm text-muted">No activity yet.</p>}
         </section>
       ) : null}
-      {viewer && asPlan(viewer.plan) === "free" && invoice.seededByUserId === viewer.id && showBrand && <div className="mt-6 print:hidden"><UpgradeOffer feature="branding" preview={<BrandingPreview invoice={invoiceToDocument(invoice)} />} className="text-sm text-muted underline underline-offset-4">Preview this invoice without our credit</UpgradeOffer></div>}
+
     </div>
   );
 }

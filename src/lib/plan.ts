@@ -1,6 +1,7 @@
 /**
- * The two paid tiers, and what each one unlocks. `invoice` is the stable
- * internal billing key; customers see the plan as Contractor.
+ * Both workspaces are free since the free-dual-workspaces change: no
+ * subscription is required for anything. `invoice` is the stable internal
+ * key for the Contractor workspace; customers see it as Contractor.
  *
  * The tier lives on the **person** (User.plan), not on the client workspace.
  * A bookkeeper upgrades once and it covers every client whose books they
@@ -20,8 +21,8 @@ export type PaidPlan = (typeof PAID_PLANS)[number];
 
 export const PLAN_PRICE_CENTS: Record<Plan, number> = {
   free: 0,
-  invoice: 500,
-  bookkeeper: 2900,
+  invoice: 0,
+  bookkeeper: 0,
 };
 
 export function asPlan(value?: string | null): Plan {
@@ -48,35 +49,33 @@ export const PLAN_TAGLINE: Record<Plan, string> = {
   bookkeeper: "Turn payment records into invoices contractors can confirm.",
 };
 
-/** Paid tiers drop the Uncle Invoice line off the finished invoice. */
-export function isPaidPlan(plan?: string | null) {
-  return asPlan(plan) !== "free";
-}
-
-export function showsUncleInvoiceMark(plan?: string | null) {
-  return !isPaidPlan(plan);
-}
-
 /**
- * The bookkeeper tier is the one that prepares work inside somebody else's
- * books, so everything that only makes sense on someone else's behalf sits
- * behind it: the spreadsheet importer, the contractor
- * confirm-and-send links, bulk download and supporting documents.
+ * Both workspaces are free: every feature check passes for every account.
+ * The `plan` argument stays so call sites and server actions keep their
+ * shape, and the legacy User.plan column stays for history.
  */
-export function canImportInvoices(plan?: string | null) {
-  return asPlan(plan) === "bookkeeper";
+export function isPaidPlan(_plan?: string | null) {
+  return true;
 }
 
-export function canUseContractorLinks(plan?: string | null) {
-  return asPlan(plan) === "bookkeeper";
+export function showsUncleInvoiceMark(_plan?: string | null) {
+  return false;
 }
 
-export function canBulkDownload(plan?: string | null) {
-  return asPlan(plan) === "bookkeeper";
+export function canImportInvoices(_plan?: string | null) {
+  return true;
 }
 
-export function canAttachDocuments(plan?: string | null) {
-  return asPlan(plan) === "bookkeeper";
+export function canUseContractorLinks(_plan?: string | null) {
+  return true;
+}
+
+export function canBulkDownload(_plan?: string | null) {
+  return true;
+}
+
+export function canAttachDocuments(_plan?: string | null) {
+  return true;
 }
 
 /** The sentence an action returns when a tier is not enough. */

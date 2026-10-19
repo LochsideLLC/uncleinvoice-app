@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/workspace";
+import { cappedInteger, consumeDailyLimit } from "@/lib/usage-limits";
 import type { ActionState } from "@/actions/auth";
 
 const contractorSchema = z.object({
@@ -18,7 +19,23 @@ export async function createContractorAction(
   formData: FormData,
 ): Promise<ActionState> {
   const workspaceId = String(formData.get("workspaceId") ?? "");
-  await requireWorkspace(workspaceId);
+  const { user } = await requireWorkspace(workspaceId);
+  // Abuse guard: contractor records are cheap, but a script adding thousands
+  // is not bookkeeping. Fail safe at a generous daily ceiling.
+  const contractorsAllowed = await consumeDailyLimit({
+    operation: "contractor_create",
+    scope: "global",
+    scopeKey: "all",
+    limit: cappedInteger(process.env.CONTRACTOR_GLOBAL_DAILY_LIMIT, 1000, 1000),
+  }) && await consumeDailyLimit({
+    operation: "contractor_create",
+    scope: "user",
+    scopeKey: user.id,
+    limit: cappedInteger(process.env.CONTRACTOR_PER_USER_DAILY_LIMIT, 100, 100),
+  });
+  if (!contractorsAllowed) {
+    return { error: "Contractor limit reached. Try again tomorrow." };
+  }
   const parsed = contractorSchema.safeParse({
     name: formData.get("name"),
     email: String(formData.get("email") ?? "").trim().toLowerCase(),

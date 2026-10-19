@@ -31,7 +31,12 @@ const FAQS = [
   {
     question: "How does the Bookkeeper feature work?",
     answer:
-      "Bookkeepers import payment records, prepare invoice drafts, and send each contractor a private link to check, correct, and confirm the invoices before sending.",
+      "Bookkeepers import payment records, prepare invoice drafts, and send each contractor a private link to check, correct, and confirm the invoices before sending. The Bookkeeper workspace is free, and one account can use both workspaces.",
+  },
+  {
+    question: "Are both workspaces really free?",
+    answer:
+      "Yes. The Contractor workspace and the Bookkeeper workspace are both free, with no subscription. Your account can use either or both.",
   },
 ];
 
@@ -220,18 +225,18 @@ export function HomeSections() {
             <AudienceCard
               image="/images/home-sections/contractor.webp"
               alt="Independent contractor standing beside his service van"
-              title="For Contractors & Small Businesses"
-              copy="Create professional invoices, send them to customers, and keep track of what’s been paid. No accounting experience required."
+              title="For Contractors & Small Businesses — Free"
+              copy="Create professional invoices, send them to customers, accept payments, and track what’s been paid. No accounting experience required."
               href="/create"
-              cta="Create an invoice"
+              cta="Create an Invoice — Free"
             />
             <AudienceCard
               image="/images/home-sections/bookkeeper.webp"
               alt="Bookkeeper working at her laptop in a warm office"
-              title="For Bookkeepers"
-              copy="Turn client payment records into invoice drafts that contractors can verify and send. Get the supporting documentation your clients’ books are missing."
-              href="/upgrades/bookkeeper"
-              cta="Explore Bookkeeper tools"
+              title="For Bookkeepers — Free"
+              copy="Turn client payment records into draft invoices that contractors can verify and send, helping resolve missing documentation."
+              href="/signup?workspace=bookkeeper"
+              cta="Explore Bookkeeper Tools — Free"
             />
           </div>
         </div>

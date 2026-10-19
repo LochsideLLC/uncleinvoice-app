@@ -9,7 +9,7 @@ import { sendForReviewAction, sendToClientAction } from "@/actions/invoices";
 import { StatusBadge } from "@/components/status-badge";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { InvoiceStatusPanel } from "@/components/invoice-status-panel";
-import { canAttachDocuments } from "@/lib/plan";
+
 
 export default async function InvoiceDetailPage({
   params,
@@ -154,7 +154,6 @@ export default async function InvoiceDetailPage({
             workspaceId={workspaceId}
             invoiceId={invoice.id}
             attachments={invoice.attachments}
-            canAttach={canAttachDocuments(user.plan)}
           />
 
           <div className="paper rounded-3xl p-6">

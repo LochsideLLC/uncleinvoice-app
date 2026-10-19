@@ -38,6 +38,12 @@ model User {
   plan                String    @default("free")
   accountType         String    @default("other")
   planSetAt           DateTime?
+  // Free dual workspaces: the active mode ("contractor" or "bookkeeper")
+  // plus independent access flags, so one account can use both. The legacy
+  // `plan`/`accountType` columns stay for history and no longer gate features.
+  workspaceKind         String    @default("contractor")
+  contractorOnboardedAt DateTime?
+  bookkeeperOnboardedAt DateTime?
   // Set when an admin archives the account. Archived accounts keep every row
   // they own and cannot sign in by any route; clearing it restores them.
   archivedAt          DateTime?

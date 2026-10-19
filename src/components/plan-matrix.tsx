@@ -1,15 +1,15 @@
-import { PLAN_LABEL, PLANS, asPlan, monthlyPrice, type Plan } from "@/lib/plan";
-import { canRequestPlan } from "@/lib/upgrade";
+import type { WorkspaceKind } from "@/lib/workspace-kind";
+import { WORKSPACE_LABEL } from "@/lib/workspace-kind";
 
-const ROWS: { label: string; plans: Plan[] }[] = [
-  { label: "Save as many billing customers as you need", plans: ["free", "invoice", "bookkeeper"] },
-  { label: "Write and send invoices", plans: ["free", "invoice", "bookkeeper"] },
-  { label: "Track what is paid and what is still owed", plans: ["free", "invoice", "bookkeeper"] },
-  { label: "Finished invoices without the Uncle Invoice credit", plans: ["invoice", "bookkeeper"] },
-  { label: "Import a spreadsheet of payments into drafts", plans: ["bookkeeper"] },
-  { label: "Contractor review-and-confirm links", plans: ["bookkeeper"] },
-  { label: "Attach supporting documents", plans: ["bookkeeper"] },
-  { label: "Download invoices in bulk", plans: ["bookkeeper"] },
+const ROWS: { label: string; contractor: boolean; bookkeeper: boolean }[] = [
+  { label: "Save as many billing customers as you need", contractor: true, bookkeeper: true },
+  { label: "Write and send invoices", contractor: true, bookkeeper: true },
+  { label: "Track what is paid and what is still owed", contractor: true, bookkeeper: true },
+  { label: "Finished invoices without the Uncle Invoice credit", contractor: true, bookkeeper: true },
+  { label: "Import a spreadsheet of payments into drafts", contractor: true, bookkeeper: true },
+  { label: "Contractor review-and-confirm links", contractor: true, bookkeeper: true },
+  { label: "Attach supporting documents", contractor: true, bookkeeper: true },
+  { label: "Download invoices in bulk", contractor: true, bookkeeper: true },
 ];
 
 function Cell({ included }: { included: boolean }) {
@@ -20,26 +20,26 @@ function Cell({ included }: { included: boolean }) {
   );
 }
 
-/** Every tier against every feature, with a server-validated Stripe checkout. */
-export function PlanMatrix({ current }: { current?: string | null }) {
-  const active = asPlan(current);
+/** Both workspaces, both free: every feature is included on both sides. */
+export function PlanMatrix({ current }: { current?: WorkspaceKind | null }) {
+  const kinds: WorkspaceKind[] = ["contractor", "bookkeeper"];
   return (
     <table className="w-full border-collapse text-sm sm:text-base">
       <thead>
         <tr className="border-b-2 border-ink text-left align-bottom">
-          <th scope="col" className="py-3 pr-4 font-medium text-muted">Compare the plans</th>
-          {PLANS.map((plan) => (
-            <th key={plan} scope="col" className="px-3 py-3 text-center">
+          <th scope="col" className="py-3 pr-4 font-medium text-muted">Compare the workspaces</th>
+          {kinds.map((kind) => (
+            <th key={kind} scope="col" className="px-3 py-3 text-center">
               <span className="flex min-h-5 items-center justify-center">
-                {plan === active ? (
-                  <span title="Your plan" className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
-                    <span className="sr-only">Your plan: </span>
+                {kind === current ? (
+                  <span title="Your workspace" className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
+                    <span className="sr-only">Your workspace: </span>
                     <span aria-hidden="true">Current</span>
                   </span>
                 ) : null}
               </span>
-              <span className="mt-1 block whitespace-nowrap">{PLAN_LABEL[plan]}</span>
-              <span className="mt-1 block text-sm font-normal text-muted">{monthlyPrice(plan)}</span>
+              <span className="mt-1 block whitespace-nowrap">{WORKSPACE_LABEL[kind]}</span>
+              <span className="mt-1 block text-sm font-normal text-muted">$0/mo · Free</span>
             </th>
           ))}
         </tr>
@@ -48,28 +48,22 @@ export function PlanMatrix({ current }: { current?: string | null }) {
         {ROWS.map((row) => (
           <tr key={row.label} className="border-b border-line">
             <th scope="row" className="py-3 pr-4 text-left font-normal">{row.label}</th>
-            {PLANS.map((plan) => (
-              <td key={plan} className="px-3 py-3 text-center">
-                <Cell included={row.plans.includes(plan)} />
-              </td>
-            ))}
+            <td className="px-3 py-3 text-center">
+              <Cell included={row.contractor} />
+            </td>
+            <td className="px-3 py-3 text-center">
+              <Cell included={row.bookkeeper} />
+            </td>
           </tr>
         ))}
         <tr>
           <th scope="row" className="py-4 pr-4 text-left font-normal text-muted align-middle">Get started</th>
-          {PLANS.map((plan) => (
-            <td key={plan} className="px-3 py-4 text-center align-middle">
-              {plan === active ? (
-                <p className="text-sm text-muted">You are on this plan.</p>
-              ) : plan === "free" || !canRequestPlan(active, plan) ? (
-                <p className="text-sm text-muted">Included in your plan.</p>
+          {kinds.map((kind) => (
+            <td key={kind} className="px-3 py-4 text-center align-middle">
+              {kind === current ? (
+                <p className="text-sm text-muted">You are on this workspace.</p>
               ) : (
-                <form action="/api/stripe/checkout" method="post">
-                  <input type="hidden" name="plan" value={plan} />
-                  <button type="submit" className="btn btn-primary w-full">
-                    Choose {PLAN_LABEL[plan]}
-                  </button>
-                </form>
+                <p className="text-sm text-muted">Free — open it anytime.</p>
               )}
             </td>
           ))}
