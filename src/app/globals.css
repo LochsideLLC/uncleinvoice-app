@@ -249,7 +249,7 @@ button:disabled {
    renders at 18px and can never produce small print. Scoped here so the
    global scale stays untouched. */
 .sponsor-desc {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   line-height: 1.625;
 }
 
