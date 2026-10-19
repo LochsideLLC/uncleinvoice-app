@@ -140,7 +140,9 @@ test("finished invoices never carry the Uncle Invoice credit on any account", as
 
 test("workspace switcher marks the active side and offers both", () => {
   for (const active of ["contractor", "bookkeeper"] as const) {
-    const markup = renderToStaticMarkup(<WorkspaceSwitcher active={active} />);
+    const markup = renderToStaticMarkup(
+      <WorkspaceSwitcher active={active} pending={false} onSelect={() => {}} />,
+    );
     assert.match(markup, /Contractor/);
     assert.match(markup, /Bookkeeper/);
     assert.ok(markup.includes('aria-pressed="true"'), "active side is marked");

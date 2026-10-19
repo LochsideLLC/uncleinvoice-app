@@ -7,7 +7,7 @@ import { asWorkspaceKind } from "@/lib/workspace-kind";
 import { db } from "@/lib/db";
 import { DashboardTabs } from "@/components/dashboard-tabs";
 import { BookkeeperHome } from "@/components/bookkeeper-home";
-import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { WorkspaceDashboard } from "@/components/workspace-dashboard";
 import { DocumentIcon } from "@/components/workspace-icons";
 import { ConfirmMyInvoices } from "@/components/confirm-my-invoices";
 import { SendToClient } from "@/components/send-to-client";
@@ -23,10 +23,11 @@ export default async function AppHomePage({
   // Nothing else happens until it is replaced.
   if (user.mustSetPassword) redirect("/app/set-password");
 
-  // ?workspace= switches modes and remembers the choice. The switcher posts
-  // a form; plain links (onboarding, emails) use this query string. Either
-  // way the same account keeps both modes: entering one never closes the
-  // other, and re-entering never duplicates anything.
+  // ?workspace= switches modes and remembers the choice. Plain links
+  // (onboarding, emails) use this query string; the dashboard toggle flips
+  // client-side instead. Either way the same account keeps both modes:
+  // entering one never closes the other, and re-entering never duplicates
+  // anything.
   //
   // The header renders from the user row before this page runs, so persisting
   // here would leave it showing the old mode for one request. Redirecting to
@@ -45,19 +46,21 @@ export default async function AppHomePage({
   }
   const kind = asWorkspaceKind(user.workspaceKind);
 
-  const [memberships, stats] = await Promise.all([
+  // Both modes' data loads in one parallel pass, so the toggle swaps theme
+  // and content together with no server wait. Wall time is roughly the
+  // slowest query, not the sum.
+  const [memberships, stats, mine] = await Promise.all([
     listWorkspaces(user.id),
     getDashboardStats(user.id),
+    // Invoices this person issued, as opposed to a client's books they keep.
+    db.contractor.findMany({
+      where: { userId: user.id },
+      include: {
+        workspace: { select: { name: true } },
+        invoices: { where: { confirmedAt: null }, include: { lineItems: true } },
+      },
+    }),
   ]);
-
-  // Invoices this person issued, as opposed to a client's books they help keep.
-  const mine = await db.contractor.findMany({
-    where: { userId: user.id },
-    include: {
-      workspace: { select: { name: true } },
-      invoices: { where: { confirmedAt: null }, include: { lineItems: true } },
-    },
-  });
   const waiting = mine.flatMap((c) => c.invoices);
   const confirmed = mine.length
     ? await db.invoice.findMany({
@@ -77,10 +80,10 @@ export default async function AppHomePage({
   const first = mine[0];
 
   // Bookkeeper documentation metrics, derived from real records in the
-  // businesses this account belongs to. Skipped entirely for contractor mode.
+  // businesses this account belongs to.
   const wsIds = memberships.map((m) => m.workspace.id);
   const [awaitingByWorkspace, verifiedByWorkspace, paidAwaiting, recentImports] =
-    kind === "bookkeeper" && wsIds.length > 0
+    wsIds.length > 0
       ? await Promise.all([
           db.invoice.groupBy({
             by: ["workspaceId"],
@@ -115,78 +118,73 @@ export default async function AppHomePage({
         ])
       : [[], [], 0, []];
 
-  return (
-    <div className="space-y-8">
-      <WorkspaceSwitcher active={kind} />
-
-      {/* Keyed by workspace so the entrance animation replays on switch. */}
-      <div key={kind} className="workspace-enter space-y-8">
-      {kind === "bookkeeper" ? (
-        <BookkeeperHome
-          memberships={memberships}
-          awaitingByWorkspace={Object.fromEntries(
-            awaitingByWorkspace.map((row) => [row.workspaceId, row._count]),
-          )}
-          verifiedByWorkspace={Object.fromEntries(
-            verifiedByWorkspace.map((row) => [row.workspaceId, row._count]),
-          )}
-          paidAwaiting={paidAwaiting}
-          recentImports={recentImports}
-        />
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <span
-                aria-hidden
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
-                style={{
-                  background: "color-mix(in srgb, var(--accent) 12%, var(--paper))",
-                  color: "var(--accent)",
-                }}
-              >
-                <DocumentIcon className="h-7 w-7" />
-              </span>
-              <div>
-                <p className="text-sm uppercase tracking-[0.14em] text-muted">Contractor workspace</p>
-                <h1 className="display text-4xl leading-tight">Your invoices</h1>
-                <p className="mt-1 text-muted">Create invoices, manage customers, and track payments.</p>
-              </div>
-            </div>
-            <Link href="/create" className="btn btn-primary shrink-0">
-              <span aria-hidden className="text-xl leading-none">+</span> Create Invoice
-            </Link>
+  const contractor = (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <span
+            aria-hidden
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
+            style={{
+              background: "color-mix(in srgb, var(--accent) 12%, var(--paper))",
+              color: "var(--accent)",
+            }}
+          >
+            <DocumentIcon className="h-7 w-7" />
+          </span>
+          <div>
+            <p className="text-sm uppercase tracking-[0.14em] text-muted">Contractor workspace</p>
+            <h1 className="display text-4xl leading-tight">Your invoices</h1>
+            <p className="mt-1 text-muted">Create invoices, manage customers, and track payments.</p>
           </div>
-
-          {waiting.length > 0 && first ? (
-            <ConfirmMyInvoices
-              count={waiting.length}
-              total={formatMoney(waitingTotal)}
-              clientNames={[...new Set(mine.map((c) => c.workspace.name))]}
-              contact={{
-                email: first.email?.endsWith(".test") ? "" : (first.email ?? ""),
-                phone: first.phone ?? "",
-                addressLine: first.addressLine ?? "",
-                city: first.city ?? "",
-                region: first.region ?? "",
-                postalCode: first.postalCode ?? "",
-              }}
-            />
-          ) : null}
-
-          {confirmed.length > 0 && first ? (
-            <SendToClient
-              clientName={first.workspace.name}
-              count={confirmed.length}
-              total={formatMoney(confirmedTotal)}
-              alreadySent={alreadySent}
-            />
-          ) : null}
-
-          <DashboardTabs stats={stats} memberships={memberships} />
-        </>
-      )}
+        </div>
+        <Link href="/create" className="btn btn-primary shrink-0">
+          <span aria-hidden className="text-xl leading-none">+</span> Create Invoice
+        </Link>
       </div>
-    </div>
+
+      {waiting.length > 0 && first ? (
+        <ConfirmMyInvoices
+          count={waiting.length}
+          total={formatMoney(waitingTotal)}
+          clientNames={[...new Set(mine.map((c) => c.workspace.name))]}
+          contact={{
+            email: first.email?.endsWith(".test") ? "" : (first.email ?? ""),
+            phone: first.phone ?? "",
+            addressLine: first.addressLine ?? "",
+            city: first.city ?? "",
+            region: first.region ?? "",
+            postalCode: first.postalCode ?? "",
+          }}
+        />
+      ) : null}
+
+      {confirmed.length > 0 && first ? (
+        <SendToClient
+          clientName={first.workspace.name}
+          count={confirmed.length}
+          total={formatMoney(confirmedTotal)}
+          alreadySent={alreadySent}
+        />
+      ) : null}
+
+      <DashboardTabs stats={stats} memberships={memberships} />
+    </>
   );
+
+  const bookkeeper = (
+    <BookkeeperHome
+      memberships={memberships}
+      awaitingByWorkspace={Object.fromEntries(
+        awaitingByWorkspace.map((row) => [row.workspaceId, row._count]),
+      )}
+      verifiedByWorkspace={Object.fromEntries(
+        verifiedByWorkspace.map((row) => [row.workspaceId, row._count]),
+      )}
+      paidAwaiting={paidAwaiting}
+      recentImports={recentImports}
+    />
+  );
+
+  return <WorkspaceDashboard kind={kind} contractor={contractor} bookkeeper={bookkeeper} />;
 }
