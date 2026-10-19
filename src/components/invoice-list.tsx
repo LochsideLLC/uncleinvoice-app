@@ -96,17 +96,22 @@ export function InvoiceList({ invoices }: { invoices: InvoiceRow[] }) {
         <h2 className="mt-1 text-3xl">Browse &amp; filter</h2>
       </div>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-2">
         {FILTERS.map(({ key, label }) => (
           <button
             key={key}
             type="button"
             onClick={() => setFilter(key)}
-            className="text-sm transition-colors"
+            aria-pressed={filter === key}
+            className="rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors"
             style={
               filter === key
-                ? { color: "var(--ink)", fontWeight: 700, textDecoration: "underline", textUnderlineOffset: "3px" }
-                : { color: "var(--muted)", textDecoration: "underline", textUnderlineOffset: "3px" }
+                ? { background: "var(--ink)", color: "var(--paper)" }
+                : {
+                    background: "var(--paper)",
+                    color: "var(--muted)",
+                    boxShadow: "inset 0 0 0 1px var(--line)",
+                  }
             }
           >
             {label}
@@ -114,13 +119,20 @@ export function InvoiceList({ invoices }: { invoices: InvoiceRow[] }) {
         ))}
       </div>
 
-      <input
-        type="search"
-        placeholder="Search by number or client…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-      />
+      <div className="relative">
+        <svg viewBox="0 0 20 20" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden style={{ color: "var(--muted)" }}>
+          <circle cx="9" cy="9" r="5.5" />
+          <path d="M13.5 13.5 17 17" />
+        </svg>
+        <input
+          type="search"
+          placeholder="Search by number or client..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search invoices by number or client"
+          className="w-full rounded-xl border border-line bg-paper py-2.5 pl-10 pr-3 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
+        />
+      </div>
 
       {visible.length === 0 ? (
         <p className="text-sm text-muted">No invoices match.</p>
@@ -177,9 +189,9 @@ export function InvoiceList({ invoices }: { invoices: InvoiceRow[] }) {
                     />
                     <Link
                       href={`/invoices/view/${invoice.id}`}
-                      className="flex min-w-0 flex-1 items-center gap-3 py-2 text-sm hover:text-ink"
+                      className="flex min-w-0 flex-1 items-center gap-3 py-3 text-sm hover:text-ink"
                     >
-                      <span className="w-[4.75rem] shrink-0 font-medium tabular-nums">
+                      <span className="w-[4.75rem] shrink-0 font-semibold tabular-nums">
                         {invoice.number}
                       </span>
                       <span className="min-w-0 flex-1">

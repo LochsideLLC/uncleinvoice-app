@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { DashboardTabs } from "@/components/dashboard-tabs";
 import { BookkeeperHome } from "@/components/bookkeeper-home";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { DocumentIcon } from "@/components/workspace-icons";
 import { ConfirmMyInvoices } from "@/components/confirm-my-invoices";
 import { SendToClient } from "@/components/send-to-client";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
@@ -134,6 +135,29 @@ export default async function AppHomePage({
         />
       ) : (
         <>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <span
+                aria-hidden
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
+                style={{
+                  background: "color-mix(in srgb, var(--accent) 12%, var(--paper))",
+                  color: "var(--accent)",
+                }}
+              >
+                <DocumentIcon className="h-7 w-7" />
+              </span>
+              <div>
+                <p className="text-sm uppercase tracking-[0.14em] text-muted">Contractor workspace</p>
+                <h1 className="display text-4xl leading-tight">Your invoices</h1>
+                <p className="mt-1 text-muted">Create invoices, manage customers, and track payments.</p>
+              </div>
+            </div>
+            <Link href="/create" className="btn btn-primary shrink-0">
+              <span aria-hidden className="text-xl leading-none">+</span> Create Invoice
+            </Link>
+          </div>
+
           {waiting.length > 0 && first ? (
             <ConfirmMyInvoices
               count={waiting.length}
@@ -159,11 +183,6 @@ export default async function AppHomePage({
             />
           ) : null}
 
-          <div className="flex flex-col items-center pt-2">
-            <Link href="/create" className="btn btn-primary btn-hero">
-              Create Invoice
-            </Link>
-          </div>
           <DashboardTabs stats={stats} memberships={memberships} />
         </>
       )}

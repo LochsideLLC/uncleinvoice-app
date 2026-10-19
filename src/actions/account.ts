@@ -29,6 +29,18 @@ export async function updateAccountTypeAction(formData: FormData): Promise<void>
   redirect("/app");
 }
 
+/** Dashboard toggle: persist without navigating, so the client can flip first. */
+export async function updateWorkspaceKindAction(kind: string): Promise<void> {
+  const user = await requireUser();
+  if (kind !== "contractor" && kind !== "bookkeeper") return;
+  const flag = kind === "bookkeeper" ? "bookkeeperOnboardedAt" : "contractorOnboardedAt";
+  await db.user.update({
+    where: { id: user.id },
+    data: { workspaceKind: kind, [flag]: new Date() },
+  });
+  revalidatePath("/app");
+}
+
 /** Workspace switcher + onboarding choice: remember the mode, stamp access. */
 export async function setWorkspaceKindAction(formData: FormData): Promise<void> {
   const user = await requireUser();
