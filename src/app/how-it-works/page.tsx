@@ -31,13 +31,13 @@ export default function HowItWorksPage() {
         <h2 className="display text-2xl">Choose the tools you need</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Link href="/upgrades/contractor" className="paper rounded-2xl p-6 transition hover:-translate-y-0.5">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Contractor plan</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Contractor workspace · Free</p>
             <h3 className="display mt-2 text-2xl">Your invoice, your brand</h3>
-            <p className="mt-2 text-sm text-muted">Remove the Uncle Invoice credit from your finished invoices.</p>
+            <p className="mt-2 text-sm text-muted">Finished invoices carry only your business — free, no subscription.</p>
             <span className="mt-4 inline-block text-sm underline">Explore Contractor</span>
           </Link>
           <Link href="/upgrades/bookkeeper" className="paper rounded-2xl p-6 transition hover:-translate-y-0.5">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Bookkeeper upgrade</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Bookkeeper workspace · Free</p>
             <h3 className="display mt-2 text-2xl">Payments become invoices</h3>
             <p className="mt-2 text-sm text-muted">Import payment spreadsheets, prepare drafts, and let contractors confirm and send.</p>
             <span className="mt-4 inline-block text-sm underline">Explore Bookkeeper</span>

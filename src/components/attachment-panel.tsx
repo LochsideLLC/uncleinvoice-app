@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { uploadAttachmentAction, deleteAttachmentAction } from "@/actions/attachments";
 import { FormBanner } from "@/components/form-banner";
-import { UpgradeOffer } from "@/components/upgrade-offer";
+
 
 export type AttachmentRow = {
   id: string;
@@ -23,12 +23,10 @@ export function AttachmentPanel({
   workspaceId,
   invoiceId,
   attachments,
-  canAttach,
 }: {
   workspaceId: string;
   invoiceId: string;
   attachments: AttachmentRow[];
-  canAttach: boolean;
 }) {
   const [upState, upAction, upPending] = useActionState(uploadAttachmentAction, null);
   const [delState, delAction] = useActionState(deleteAttachmentAction, null);
@@ -70,7 +68,7 @@ export function AttachmentPanel({
         </ul>
       )}
 
-      {canAttach ? <form action={upAction} encType="multipart/form-data" className="space-y-3">
+      <form action={upAction} encType="multipart/form-data" className="space-y-3">
         <input type="hidden" name="workspaceId" value={workspaceId} />
         <input type="hidden" name="invoiceId" value={invoiceId} />
         <div>
@@ -84,7 +82,7 @@ export function AttachmentPanel({
         <button className="btn btn-primary" type="submit" disabled={upPending}>
           {upPending ? "Attaching…" : "Attach document"}
         </button>
-      </form> : <UpgradeOffer feature="attachments">Attach documents · Bookkeeper</UpgradeOffer>}
+      </form>
     </section>
   );
 }

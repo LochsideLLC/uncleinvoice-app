@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/workspace";
 import { recordEvent } from "@/lib/invoices";
 import type { ActionState } from "@/actions/auth";
-import { canAttachDocuments, upgradeMessage } from "@/lib/plan";
+
 import { consumeDailyLimit } from "@/lib/usage-limits";
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -23,9 +23,6 @@ export async function uploadAttachmentAction(
   const workspaceId = String(formData.get("workspaceId") ?? "");
   const invoiceId = String(formData.get("invoiceId") ?? "");
   const { user } = await requireWorkspace(workspaceId);
-  if (!canAttachDocuments(user.plan)) {
-    return { error: upgradeMessage("Attaching supporting documents") };
-  }
 
   const invoice = await db.invoice.findFirst({ where: { id: invoiceId, workspaceId } });
   if (!invoice) return { error: "Invoice not found." };

@@ -1,5 +1,59 @@
 # HANDOFF — Uncle Invoice
 
+## Current state — 2026-10-19 (free dual workspaces, on feature branch)
+
+Phase 1 done per plan: uncommitted work committed as `3d1348a`, pushed to
+`main` (in sync with origin, no other branches existed so nothing to prune),
+new branch `feature/free-dual-workspaces` cut from latest `main`. All work
+below is UNMERGED on that branch for review — do not merge without approval.
+
+Model: one account, two free modes. New `User.workspaceKind`
+("contractor"|"bookkeeper", default contractor) remembers the active mode;
+`contractorOnboardedAt`/`bookkeeperOnboardedAt` are independent access flags
+(migration `20261019191216_free_dual_workspaces`, applied to throwaway only —
+live DB untouched). Legacy `plan`/`accountType` columns kept, no longer gate
+anything. `Workspace` rows are still client businesses; the mode is not a row.
+
+Gates open: all `plan.ts` checks return true, prices $0, no invoice credit
+for anyone (`invoice-branding` always false). Subscription checkout route
+returns 410; Connect (direct charges, Stripe-owned fees/losses, no app fees)
+untouched. Deleted `upgrade-offer`, `upgrade-hint`, `checkout-success-modal`;
+matrix rewritten to two free columns; `/app/plans` is a workspace chooser.
+
+Switcher in header pill, account menu, and `/app` top; `?workspace=` links
+persist server-side. Onboarding: claim→invoice+contractor (inside claim tx),
+`?workspace=bookkeeper`→bookkeeper home (email, Google state, magic link all
+plumbed), new users otherwise→`/app/onboarding` choice screen with "both
+later". Public site: free CTAs, bookkeeper CTA→`/signup?workspace=bookkeeper`,
+FAQ entry, upgrade pages rewritten, sponsors untouched.
+
+Abuse: import cap 500 rows/file + 10/user/day + 200 global/day; contractor
+records 100/user/day + 1000 global/day; invoices/email/attachments/push caps
+pre-existing. Connect verified against current Stripe guidance (direct
+charges + stripe-owned fees/losses = the safe pattern). No auto-upgrade code
+paths; email monthly cap 2400; storage caps 50MB/user, 400MB global.
+Remaining exposure: Supabase/Netlify/Resend tier limits (no user caps found
+in code to raise), and any REAL Stripe subscriptions need a dashboard check
+before cancellation — webhook left as-is, approval required.
+
+Green: tsc 0, eslint 0 errors, build ok, test:upgrades 26/26,
+test:phone 11/11, test:payments 11/11. Live journey on :3100 (throwaway):
+contractor/bookkeeper homes, plans, onboarding render; magic-link claim lands
+on guest invoice with contractor stamped; bookkeeper link lands bookkeeper
+home; unrelated user gets 404 on another's invoice; single-use tokens
+confirmed. Mobile 390px screenshots verified: switcher, both homes, plans all
+stack cleanly; header pill matched the active mode after a redirect-after-
+persist fix for ?workspace= links (header reads the user row before the page
+writes it). Google entry verified to 307 to accounts.google.com with PKCE.
+COMMITTED as 2fa602f on `feature/free-dual-workspaces` (55 files), NOT merged
+— needs review + the three blockers below. Test server and Chromium stopped;
+:3000 untouched. Remaining blockers needing Tom: (1) Google full round-trip
+needs his consent click in a browser; (2) emailed-link delivery needs
+RESEND_API_KEY (empty in .env — click path itself was verified via direct
+token); (3) live-subscription check needs the Stripe dashboard (only a test
+key is in this env) — list active subscriptions there before canceling
+anything; webhook left as-is pending approval.
+
 ## Current state — 2026-10-19 (invoice form UX batch merged to main)
 
 Tom ordered commit/push/merge/prune for `feat/international-phone-input`.

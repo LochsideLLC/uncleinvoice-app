@@ -5,19 +5,16 @@ import Link from "next/link";
 import { DashboardStats } from "@/components/dashboard-stats";
 import type { DashboardStats as DashboardStatsType } from "@/lib/dashboard";
 import type { listWorkspaces } from "@/lib/workspace";
-import { canBulkDownload, asPlan } from "@/lib/plan";
-import { UpgradeOffer } from "@/components/upgrade-offer";
+
 
 type Membership = Awaited<ReturnType<typeof listWorkspaces>>[number];
 
 export function DashboardTabs({
   stats,
   memberships,
-  plan,
 }: {
   stats: DashboardStatsType;
   memberships: Membership[];
-  plan: string;
 }) {
   const [tab, setTab] = useState<"invoices" | "clients">("invoices");
 
@@ -55,19 +52,21 @@ export function DashboardTabs({
       </div>
 
       {tab === "invoices" ? (
-        <DashboardStats stats={stats} canDownloadBulk={canBulkDownload(plan)} />
+        <DashboardStats stats={stats} />
       ) : (
         <div className="space-y-4">
           <div>
             <p className="text-sm uppercase tracking-widest text-muted">Customers &amp; clients</p>
             <h2 className="mt-1 text-3xl">The businesses you work with</h2>
-            <p className="mt-2 text-sm text-muted">Save the customers you bill on any plan. Bookkeeper adds tools for preparing invoices from your clients&rsquo; books.</p>
+            <p className="mt-2 text-sm text-muted">The customers you bill, and the clients whose books you keep — free, as many as you need.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Link href="/app/workspaces/new" className="btn btn-secondary w-full">
               Add a customer or client
             </Link>
-            {asPlan(plan) === "bookkeeper" ? <Link href="/app/workspaces/new" className="btn btn-secondary w-full">Set up a client&rsquo;s books</Link> : <UpgradeOffer feature="clients">Explore Bookkeeper</UpgradeOffer>}
+            <Link href="/app?workspace=bookkeeper" className="btn btn-secondary w-full">
+              Open Bookkeeper workspace
+            </Link>
           </div>
           {memberships.length === 0 ? (
             <div className="paper rounded-3xl p-8">

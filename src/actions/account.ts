@@ -26,7 +26,20 @@ export async function updateAccountTypeAction(formData: FormData): Promise<void>
   if (!(ACCOUNT_TYPES as readonly string[]).includes(raw)) return;
   await db.user.update({ where: { id: user.id }, data: { accountType: raw } });
   revalidatePath("/app");
-  if (raw === "bookkeeper") redirect("/app/plans?welcome=bookkeeper");
+  redirect("/app");
+}
+
+/** Workspace switcher + onboarding choice: remember the mode, stamp access. */
+export async function setWorkspaceKindAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const kind = String(formData.get("workspace") ?? "");
+  if (kind !== "contractor" && kind !== "bookkeeper") return;
+  const flag = kind === "bookkeeper" ? "bookkeeperOnboardedAt" : "contractorOnboardedAt";
+  await db.user.update({
+    where: { id: user.id },
+    data: { workspaceKind: kind, [flag]: new Date() },
+  });
+  revalidatePath("/app");
   redirect("/app");
 }
 

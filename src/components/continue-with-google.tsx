@@ -2,14 +2,17 @@ export function ContinueWithGoogle({
   next,
   from,
   claim,
+  workspace,
 }: {
   next?: string;
   from: "/login" | "/signup";
   claim?: string;
+  workspace?: "bookkeeper";
 }) {
   const params = new URLSearchParams({ from });
   if (next) params.set("next", next);
   if (claim) params.set("claim", claim);
+  if (workspace) params.set("workspace", workspace);
 
   return (
     <a href={`/api/auth/google?${params.toString()}`} className="btn btn-ghost w-full">

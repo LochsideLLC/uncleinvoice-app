@@ -15,8 +15,9 @@ try {
       build.onResolve({ filter: /^(?:@\/lib\/(?:db|auth)|next\/navigation)$/ }, ({ path }) => ({ path: resolve("tests/fixtures", replacements[path]) }));
       build.onResolve({ filter: /^next\/link$/ }, () => ({ path: "link", namespace: "test" }));
       build.onResolve({ filter: /^server-only$/ }, () => ({ path: "server-only", namespace: "test" }));
+      build.onResolve({ filter: /^next\/cache$/ }, () => ({ path: "cache", namespace: "test" }));
       build.onLoad({ filter: /.*/, namespace: "test" }, ({ path }) => ({
-        contents: path === "server-only" ? "" : 'import { createElement } from "react"; export default function Link(props) { return createElement("a", props); }',
+        contents: path === "server-only" ? "" : path === "cache" ? "export function revalidatePath() {}" : 'import { createElement } from "react"; export default function Link(props) { return createElement("a", props); }',
         resolveDir: process.cwd(),
       }));
     },

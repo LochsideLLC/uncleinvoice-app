@@ -13,6 +13,7 @@ import {
 import { createToken, hashToken } from "@/lib/crypto";
 import { sendEmail } from "@/lib/mail";
 import { consumeInvoiceClaim, isClaimTokenShape } from "@/lib/invoice-claim";
+import { enterWorkspace } from "@/lib/workspace-kind";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
@@ -26,6 +27,7 @@ const signupSchema = z.object({
   // only so a stale tab posting the old field does not fail validation.
   accountType: z.string().optional(),
   claim: z.string().optional(),
+  workspace: z.string().optional(),
 });
 
 export type ActionState = { error?: string; ok?: boolean; message?: string } | null;
@@ -53,6 +55,7 @@ export async function signupAction(
     intent: formData.get("intent") || "password",
     accountType: formData.get("accountType") || undefined,
     claim: formData.get("claim") || undefined,
+    workspace: formData.get("workspace") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
@@ -60,6 +63,9 @@ export async function signupAction(
 
   const email = parsed.data.email.toLowerCase();
   const claim = isClaimTokenShape(parsed.data.claim) ? parsed.data.claim : null;
+  // Only the bookkeeper marketing CTA sets this; anything else means the
+  // general choice screen after registration.
+  const bookkeeperEntry = parsed.data.workspace === "bookkeeper";
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) {
     // Same answer for an archived account as a live one. Signing up is not a
@@ -71,7 +77,7 @@ export async function signupAction(
     const user = await db.user.create({
       data: { email, name: parsed.data.name, accountType: "other" },
     });
-    const link = await sendLoginLink(user.email, user.id, claim);
+    const link = await sendLoginLink(user.email, user.id, claim, bookkeeperEntry ? "bookkeeper" : null);
     return {
       ok: true,
       message: process.env.RESEND_API_KEY
@@ -97,7 +103,11 @@ export async function signupAction(
     const claimed = await consumeInvoiceClaim(claim, user.id);
     if (claimed) redirect(claimed.to);
   }
-  redirect("/app");
+  if (bookkeeperEntry) {
+    await enterWorkspace(user.id, "bookkeeper");
+    redirect("/app?workspace=bookkeeper");
+  }
+  redirect("/app/onboarding");
 }
 
 export async function loginAction(
@@ -119,9 +129,10 @@ export async function loginAction(
   // sign-in token and is consumed after the session is created.
   const magicClaimRaw = formData.get("claim");
   const magicClaim = isClaimTokenShape(magicClaimRaw) ? magicClaimRaw : null;
+  const magicWorkspace = String(formData.get("workspace") ?? "") === "bookkeeper" ? "bookkeeper" : null;
   if (intent === "magic") {
     if (user && !isArchived(user)) {
-      const link = await sendLoginLink(user.email, user.id, magicClaim);
+      const link = await sendLoginLink(user.email, user.id, magicClaim, magicWorkspace);
       if (!process.env.RESEND_API_KEY) {
         return { ok: true, message: `No email provider is configured, so here is your sign-in link: ${link}` };
       }
@@ -145,6 +156,10 @@ export async function loginAction(
     const claimed = await consumeInvoiceClaim(claimRaw, user.id);
     if (claimed) redirect(claimed.to);
   }
+  if (magicWorkspace) {
+    await enterWorkspace(user.id, magicWorkspace);
+    redirect("/app?workspace=bookkeeper");
+  }
   redirect(safeNext(String(formData.get("next") ?? "")));
 }
 
@@ -157,7 +172,7 @@ export async function requestMagicLinkAction(email: string, userId?: string) {
   await sendLoginLink(email, userId);
 }
 
-async function sendLoginLink(email: string, userId?: string, claim?: string | null) {
+async function sendLoginLink(email: string, userId?: string, claim?: string | null, workspace?: string | null) {
   const token = createToken();
   await db.magicLink.create({
     data: {
@@ -171,7 +186,13 @@ async function sendLoginLink(email: string, userId?: string, claim?: string | nu
   // The claim travels beside the sign-in token, not inside the login row:
   // the verify route hands it to consumeInvoiceClaim after the session is
   // created, and the absolute redirect it builds carries no query string.
-  const link = claim ? `${APP_URL}/auth/verify/${token}?claim=${claim}` : `${APP_URL}/auth/verify/${token}`;
+  // The workspace context rides along the same way.
+  const params = new URLSearchParams({
+    ...(claim ? { claim } : {}),
+    ...(workspace === "bookkeeper" ? { workspace } : {}),
+  });
+  const query = params.toString();
+  const link = query ? `${APP_URL}/auth/verify/${token}?${query}` : `${APP_URL}/auth/verify/${token}`;
   await sendEmail({
     to: email,
     subject: "Your Uncle Invoice sign-in link",
@@ -181,7 +202,7 @@ async function sendLoginLink(email: string, userId?: string, claim?: string | nu
   return link;
 }
 
-export async function consumeLoginToken(token: string, claim?: string | null) {
+export async function consumeLoginToken(token: string, claim?: string | null, workspace?: string | null) {
   const record = await db.magicLink.findUnique({
     where: { tokenHash: hashToken(token) },
   });
@@ -199,6 +220,7 @@ export async function consumeLoginToken(token: string, claim?: string | null) {
     return { error: "This sign-in link is invalid or has expired." };
   }
 
+  const isNew = !user;
   if (!user) {
     user = await db.user.create({
       data: { email: record.email, name: record.email.split("@")[0] ?? "User" },
@@ -214,6 +236,11 @@ export async function consumeLoginToken(token: string, claim?: string | null) {
     const claimed = await consumeInvoiceClaim(claim, user.id);
     if (claimed) return { to: claimed.to };
   }
+  if (workspace === "bookkeeper") {
+    await enterWorkspace(user.id, "bookkeeper");
+    return { to: "/app?workspace=bookkeeper" };
+  }
+  if (isNew) return { to: "/app/onboarding" };
   // Returns the destination rather than redirecting. The caller is the
   // /auth/verify route handler, which builds its own clean redirect: a
   // relative redirect from here would keep the request's query string, and

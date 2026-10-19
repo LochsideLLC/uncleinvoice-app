@@ -27,9 +27,10 @@ export async function GET(request: Request) {
     from,
     // Signup no longer asks who you are: every new Google account starts as
     // "other". The role question moved to post-signup onboarding, and
-    // bookkeeper is an opt-in upgrade under /app/plans.
+    // bookkeeper is a free workspace under /app/plans.
     accountType: "other",
     claim: isClaimTokenShape(rawClaim) ? rawClaim : "",
+    workspace: url.searchParams.get("workspace") === "bookkeeper" ? "bookkeeper" : "",
     redirectUri,
   });
 

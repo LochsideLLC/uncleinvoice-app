@@ -1,15 +1,12 @@
-import { db } from "@/lib/db";
-
-/** Entitlement follows the issuer/preparer, never whoever happens to view a link. */
-export async function invoiceShowsBrand(invoice: {
+/**
+ * Both workspaces are free, so finished invoices never carry the Uncle
+ * Invoice credit for anyone. The lookup stays in the signature (callers and
+ * the PDF builder keep their shape), but no account needs a paid tier to
+ * get a clean invoice.
+ */
+export async function invoiceShowsBrand(_invoice: {
   seededByUserId?: string | null;
   contractor: { userId?: string | null };
 }) {
-  const ids = [invoice.seededByUserId, invoice.contractor.userId].filter((id): id is string => Boolean(id));
-  if (!ids.length) return true;
-  const paidOwner = await db.user.findFirst({
-    where: { id: { in: ids }, plan: { in: ["invoice", "bookkeeper"] }, archivedAt: null },
-    select: { id: true },
-  });
-  return !paidOwner;
+  return false;
 }

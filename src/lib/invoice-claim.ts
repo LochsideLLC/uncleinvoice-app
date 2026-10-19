@@ -92,6 +92,13 @@ export async function consumeInvoiceClaim(
       where: { id: record.id },
       data: { usedAt: new Date(), userId },
     }),
+    // Scenario A: a guest-claim signup opens the Contractor workspace with
+    // no selection question. This also stamps contractor access, so both
+    // modes stay available to the account afterwards.
+    db.user.update({
+      where: { id: userId },
+      data: { workspaceKind: "contractor", contractorOnboardedAt: new Date() },
+    }),
   ]);
 
   return { invoiceId: invoice.id, to: claimDestination(invoice.id) };

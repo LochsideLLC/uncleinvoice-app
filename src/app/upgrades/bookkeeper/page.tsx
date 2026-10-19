@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Bookkeeper upgrade — Uncle Invoice",
-  description: "Prepare invoices from payment records, then let contractors review and send them to your clients.",
+  title: "Bookkeeper workspace — Uncle Invoice",
+  description: "Prepare invoices from payment records, then let contractors review and send them to your clients. Free.",
 };
 
 export default function BookkeeperUpgradePage() {
@@ -10,7 +10,7 @@ export default function BookkeeperUpgradePage() {
     <div className="mx-auto max-w-3xl space-y-8 px-6 pb-16">
       <Link href="/how-it-works" className="text-sm text-muted underline">← How it works</Link>
       <header className="space-y-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Bookkeeper upgrade · $29/month</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Bookkeeper workspace · Free</p>
         <h1 className="display text-4xl">Turn recorded payments into invoices contractors can stand behind.</h1>
         <p className="text-lg text-muted">Prepare invoices for contractors who worked with your bookkeeping clients. They check the details, confirm the invoices, and send them to the client.</p>
       </header>
@@ -27,15 +27,15 @@ export default function BookkeeperUpgradePage() {
         <h2 className="display text-2xl">Included tools</h2>
         <ul className="list-disc space-y-2 pl-5 text-muted">
           <li>Spreadsheet payment import and invoice drafts.</li>
-          <li>Contractor review and confirmation links; contractors do not need a paid plan.</li>
+          <li>Contractor review and confirmation links; contractors do not need an account.</li>
           <li>Supporting documents and bulk invoice downloads.</li>
           <li>Unlimited bookkeeping clients.</li>
         </ul>
       </section>
       <p className="text-sm text-muted">This works from files you export and import. It is not a direct QuickBooks connection. Contractors review invoices through a private link; the current flow does not create a contractor sign-in account.</p>
       <div className="flex flex-wrap items-center gap-4">
-        <Link href="/signup" className="btn btn-primary">Create a free account</Link>
-        <Link href="/app/plans" className="text-sm underline">Already signed in? View plans</Link>
+        <Link href="/signup?workspace=bookkeeper" className="btn btn-primary">Explore Bookkeeper Tools — Free</Link>
+        <Link href="/app/plans" className="text-sm underline">Already signed in? Compare workspaces</Link>
       </div>
     </div>
   );

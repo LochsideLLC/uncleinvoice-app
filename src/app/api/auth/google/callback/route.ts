@@ -10,6 +10,7 @@ import {
   sameOAuthValue,
 } from "@/lib/google-oauth";
 import { consumeInvoiceClaim } from "@/lib/invoice-claim";
+import { enterWorkspace } from "@/lib/workspace-kind";
 
 /**
  * Where to send the visitor, as an absolute URL.
@@ -100,11 +101,16 @@ export async function GET(request: Request) {
       redirect(absolute(origin, claimed.to));
     }
   }
-  if (created && stored.from === "/login") {
-    redirect(absolute(origin, "/app/onboarding"));
+  // Scenario B: a bookkeeper-CTA registration opens that workspace with
+  // no selection question — new account or existing sign-in alike.
+  if (stored.workspace === "bookkeeper") {
+    await enterWorkspace(user.id, "bookkeeper");
+    redirect(absolute(origin, "/app?workspace=bookkeeper"));
   }
-  if (created && user.accountType === "bookkeeper") {
-    redirect(absolute(origin, "/app/plans?welcome=bookkeeper"));
+  // Scenario C: general registration picks a starting side. Existing users
+  // signing in go wherever they were headed.
+  if (created) {
+    redirect(absolute(origin, "/app/onboarding"));
   }
   redirect(absolute(origin, safeNext(stored.next)));
 }

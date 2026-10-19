@@ -3,7 +3,7 @@ import { AuthDialog } from "@/components/auth-dialog";
 import { AccountMenu } from "@/components/account-menu";
 import { googleConfigured } from "@/lib/google-oauth";
 import { UncleStamp } from "@/components/brand-mark";
-import { asPlan } from "@/lib/plan";
+import { WORKSPACE_LABEL, asWorkspaceKind } from "@/lib/workspace-kind";
 
 const navLink =
   "nav-link whitespace-nowrap rounded-lg px-2.5 py-2 text-detail font-medium";
@@ -14,7 +14,7 @@ export function SiteHeader({
 }: {
   user?: {
     admin?: boolean;
-    plan?: string | null;
+    workspaceKind?: string | null;
     name?: string;
     businessLogoUrl?: string | null;
     businessWordmarkUrl?: string | null;
@@ -43,7 +43,7 @@ export function SiteHeader({
               href="/app/plans"
               className="btn btn-sm btn-sparkle whitespace-nowrap"
             >
-              {asPlan(user.plan) === "bookkeeper" ? "Your plan" : "Unlock features"}
+              {WORKSPACE_LABEL[asWorkspaceKind(user.workspaceKind)]} workspace
             </Link>
             <Link href="/app/whats-new" className={`${navLink} hidden lg:inline-flex`}>
               What&rsquo;s new
@@ -71,6 +71,7 @@ export function SiteHeader({
             <AccountMenu
               name={user.name ?? "Account"}
               logoUrl={user.businessLogoUrl || user.businessWordmarkUrl}
+              workspaceKind={user.workspaceKind}
             />
           </nav>
         ) : (
