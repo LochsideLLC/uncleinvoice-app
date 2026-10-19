@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { formatDate } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { markAsSentAction, markAsPaidAction } from "@/actions/invoices";
@@ -23,6 +24,7 @@ export function InvoiceStatusPanel({
   const isPaid = totalCents > 0 && amountPaid >= totalCents;
   const dueCents = Math.max(0, totalCents - amountPaid);
   const todayIso = new Date().toISOString().slice(0, 10);
+  const paymentNonce = randomUUID();
 
   const steps: { label: string; done: boolean; detail?: string }[] = [
     { label: "Created", done: true, detail: formatDate(createdAt) },
@@ -95,6 +97,8 @@ export function InvoiceStatusPanel({
           <form action={markAsPaidAction} className="mt-3 space-y-3">
             <input type="hidden" name="workspaceId" value={workspaceId} />
             <input type="hidden" name="invoiceId" value={invoiceId} />
+            <input type="hidden" name="paymentNonce" value={paymentNonce} />
+            <input type="hidden" name="paidDate" value={todayIso} />
             <div className="field">
               <label htmlFor="paidNote">Note (optional)</label>
               <input

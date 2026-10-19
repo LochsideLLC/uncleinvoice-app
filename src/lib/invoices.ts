@@ -4,6 +4,7 @@ import { sendEmail } from "@/lib/mail";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import type { InvoiceStatus } from "@/lib/status";
+import { createHostedDeliveryLink } from "@/lib/hosted-invoices";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
@@ -211,17 +212,23 @@ export async function sendInvoiceToClient(
   const signature = sender?.emailSignature?.trim() || "";
   const message = options?.message?.trim() || "";
 
-  const viewToken = createToken();
-  await db.magicLink.create({
-    data: {
-      tokenHash: hashToken(viewToken),
-      purpose: "invoice_view",
-      email: invoice.workspace.email,
-      invoiceId: invoice.id,
-      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-    },
-  });
-  const viewLink = `${APP_URL}/invoices/view/${invoice.id}?token=${viewToken}`;
+  const viewToken = invoice.contractor.userId ? null : createToken();
+  if (viewToken) {
+    await db.magicLink.create({
+      data: {
+        tokenHash: hashToken(viewToken),
+        purpose: "invoice_view",
+        email: invoice.workspace.email,
+        invoiceId: invoice.id,
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      },
+    });
+  }
+  const hostedPath = invoice.contractor.userId
+    ? await createHostedDeliveryLink(invoice.id, invoice.contractor.userId)
+    : null;
+  const viewLink = hostedPath ? `${APP_URL}${hostedPath}` : `${APP_URL}/invoices/view/${invoice.id}?token=${viewToken}`;
+  const pdfLink = hostedPath ? `${APP_URL}/api${hostedPath}/pdf` : `${APP_URL}/api/invoices/${invoice.id}/pdf?token=${viewToken}`;
   const total = formatMoney(invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps));
 
   await sendEmail({
@@ -245,7 +252,8 @@ export async function sendInvoiceToClient(
         )
         .join("\n"),
       "",
-      `View / download: ${APP_URL}/api/invoices/${invoice.id}/pdf?token=${viewToken}`,
+      `View / download: ${viewLink}`,
+      `PDF: ${pdfLink}`,
       "",
       `Confirmed by ${invoice.confirmedByEmail ?? invoice.contractor.email ?? invoice.contractor.name} on ${formatDate(invoice.confirmedAt)}.`,
       ...(signature ? ["", signature] : []),

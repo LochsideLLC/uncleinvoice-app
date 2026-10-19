@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { getRealSessionUser } from "@/lib/auth";
 import { createToken, hashToken } from "@/lib/crypto";
 import { parseDate } from "@/lib/dates";
 import { advanceCounterPast, nextInvoiceNumber, parseLineItems, recordEvent } from "@/lib/invoices";
@@ -11,6 +11,7 @@ import { invoiceBusinessData, parseBusinessInvoiceFields } from "@/lib/invoice-f
 import { invoiceGrandTotal, parseAmountPaid } from "@/lib/money";
 import type { ActionState } from "@/actions/auth";
 import type { InvoiceStatus } from "@/lib/status";
+import { cappedInteger, consumeDailyLimit } from "@/lib/usage-limits";
 
 const GUEST_EMAIL = "guest@uncleinvoice.com";
 
@@ -53,8 +54,23 @@ export async function createPublicInvoiceAction(
     return { error: "You marked a line for tax. Enter the tax rate." };
   }
 
-  const user = await getSessionUser();
+  const user = await getRealSessionUser();
   const existingId = String(formData.get("invoiceId") ?? "").trim();
+  if (!existingId) {
+    const globalAllowed = await consumeDailyLimit({
+      operation: "invoice_create",
+      scope: "global",
+      scopeKey: "all",
+      limit: cappedInteger(process.env.INVOICE_GLOBAL_DAILY_LIMIT, 500, 500),
+    });
+    const userAllowed = globalAllowed && (!user || await consumeDailyLimit({
+      operation: "invoice_create",
+      scope: "user",
+      scopeKey: user.id,
+      limit: cappedInteger(process.env.INVOICE_PER_USER_DAILY_LIMIT, 50, 50),
+    }));
+    if (!userAllowed) return { error: "Invoice limit reached. Try again tomorrow." };
+  }
   const viewToken = String(formData.get("viewToken") ?? "").trim();
   const owner =
     user ??
@@ -64,7 +80,7 @@ export async function createPublicInvoiceAction(
       create: { email: GUEST_EMAIL, name: "Uncle Invoice" },
     }));
 
-  let existingInvoice = existingId
+  const existingInvoice = existingId
     ? await db.invoice.findUnique({
         where: { id: existingId },
         include: { tokens: true },
@@ -74,6 +90,9 @@ export async function createPublicInvoiceAction(
     return { error: "That invoice could not be found." };
   }
   if (existingInvoice) {
+    if (existingInvoice.onlinePaymentEnabled || await db.invoicePayment.count({ where: { invoiceId: existingInvoice.id } })) {
+      return { error: "This invoice has payment activity. Create a correction instead." };
+    }
     const userCanEdit = user
       ? Boolean(
           await db.workspaceMember.findUnique({
@@ -141,12 +160,17 @@ export async function createPublicInvoiceAction(
   const fromEmail = parsed.data.fromEmail || null;
   let contractor = fromEmail
     ? await db.contractor.findFirst({
-        where: { workspaceId: workspace.id, email: fromEmail },
+        where: {
+          workspaceId: workspace.id,
+          email: fromEmail,
+          OR: [{ userId: null }, ...(user ? [{ userId: user.id }] : [])],
+        },
       })
     : await db.contractor.findFirst({
         where: {
           workspaceId: workspace.id,
           name: parsed.data.fromName || parsed.data.fromContactName,
+          OR: [{ userId: null }, ...(user ? [{ userId: user.id }] : [])],
         },
       });
 
@@ -159,6 +183,7 @@ export async function createPublicInvoiceAction(
     region: business.fromRegion,
     postalCode: business.fromPostalCode,
     taxId: business.fromTaxId,
+    userId: user?.id ?? contractor?.userId ?? null,
   };
 
   if (!contractor) {

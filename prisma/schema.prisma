@@ -11,46 +11,51 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  backupEmail  String?
-  passwordHash String?
-  logoUrl              String?
-  businessLogoUrl      String?
-  businessWordmarkUrl  String?
-  businessLogoKind     String   @default("mark")
-  businessName         String?
-  businessEmail        String?
-  phone        String?
-  addressLine  String?
-  addressLine2 String?
-  city         String?
-  region       String?
-  postalCode   String?
-  taxId        String?
-  clientTerm   String   @default("clients")
-  emailSignature String?
-  admin        Boolean  @default(false)
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  name                String
+  backupEmail         String?
+  passwordHash        String?
+  logoUrl             String?
+  businessLogoUrl     String?
+  businessWordmarkUrl String?
+  businessLogoKind    String    @default("mark")
+  businessName        String?
+  businessEmail       String?
+  phone               String?
+  addressLine         String?
+  addressLine2        String?
+  city                String?
+  region              String?
+  postalCode          String?
+  taxId               String?
+  clientTerm          String    @default("clients")
+  emailSignature      String?
+  admin               Boolean   @default(false)
   // "free", "invoice", or "bookkeeper". The tier lives on the person, not on
   // the client workspace, so a bookkeeper pays once and it covers every client
   // whose books they keep.
-  plan         String   @default("free")
-  accountType  String   @default("other")
-  planSetAt    DateTime?
+  plan                String    @default("free")
+  accountType         String    @default("other")
+  planSetAt           DateTime?
   // Set when an admin archives the account. Archived accounts keep every row
   // they own and cannot sign in by any route; clearing it restores them.
-  archivedAt   DateTime?
+  archivedAt          DateTime?
   // Set when a bookkeeper creates the login on someone's behalf with a
   // temporary password. The app makes them replace it before anything else.
-  mustSetPassword Boolean @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  mustSetPassword     Boolean   @default(false)
+  timeZone            String    @default("America/Chicago")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  memberships       WorkspaceMember[]
-  sessions          Session[]
-  seededInvoices    Invoice[]         @relation("SeededBy")
-  createdWorkspaces Workspace[]       @relation("CreatedBy")
+  memberships             WorkspaceMember[]
+  sessions                Session[]
+  seededInvoices          Invoice[]                @relation("SeededBy")
+  createdWorkspaces       Workspace[]              @relation("CreatedBy")
+  stripeConnectedAccount  StripeConnectedAccount?
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  pushSubscriptions       PushSubscription[]
 
   @@schema("uncleinvoice")
 }
@@ -104,21 +109,21 @@ model WorkspaceMember {
 }
 
 model Contractor {
-  id           String    @id @default(cuid())
-  workspaceId  String
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  name         String
-  email        String?
-  phone        String?
-  addressLine  String?
-  city         String?
-  region       String?
-  postalCode   String?
-  taxId        String?
-  userId       String?
-  notes        String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  email       String?
+  phone       String?
+  addressLine String?
+  city        String?
+  region      String?
+  postalCode  String?
+  taxId       String?
+  userId      String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   invoices Invoice[]
   tokens   MagicLink[]
@@ -127,45 +132,55 @@ model Contractor {
 }
 
 model Invoice {
-  id               String    @id @default(cuid())
-  workspaceId      String
-  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  contractorId     String
-  contractor       Contractor @relation(fields: [contractorId], references: [id], onDelete: Restrict)
-  number           String
-  status           String
-  issueDate        DateTime
-  dueDate          DateTime?
-  poNumber         String?
-  paymentTerms     String?
-  paymentInstructions String?
-  taxRateBps       Int       @default(0)
-  amountPaid       Int       @default(0)
-  fromTaxId        String?
-  billToTaxId      String?
-  fromContactName  String?
-  billToContactName String?
-  fromAddressLine  String?
-  fromCity         String?
-  fromRegion       String?
-  fromPostalCode   String?
-  serviceStart     DateTime?
-  serviceEnd       DateTime?
-  notes            String?
-  internalNote     String?
-  seededByUserId   String?
-  seededBy         User?     @relation("SeededBy", fields: [seededByUserId], references: [id])
-  confirmedAt      DateTime?
-  confirmedByEmail String?
-  sentAt           DateTime?
-  sentToEmail      String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id                   String     @id @default(cuid())
+  workspaceId          String
+  workspace            Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contractorId         String
+  contractor           Contractor @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  number               String
+  status               String
+  issueDate            DateTime
+  dueDate              DateTime?
+  poNumber             String?
+  paymentTerms         String?
+  paymentInstructions  String?
+  taxRateBps           Int        @default(0)
+  amountPaid           Int        @default(0)
+  currency             String     @default("usd")
+  collectionMode       String     @default("documentation")
+  onlinePaymentEnabled Boolean    @default(false)
+  firstViewedAt        DateTime?
+  lastViewedAt         DateTime?
+  approximateViewCount Int        @default(0)
+  fromTaxId            String?
+  billToTaxId          String?
+  fromContactName      String?
+  billToContactName    String?
+  fromAddressLine      String?
+  fromCity             String?
+  fromRegion           String?
+  fromPostalCode       String?
+  serviceStart         DateTime?
+  serviceEnd           DateTime?
+  notes                String?
+  internalNote         String?
+  seededByUserId       String?
+  seededBy             User?      @relation("SeededBy", fields: [seededByUserId], references: [id])
+  confirmedAt          DateTime?
+  confirmedByEmail     String?
+  sentAt               DateTime?
+  sentToEmail          String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
 
-  lineItems   InvoiceLineItem[]
-  events      InvoiceEvent[]
-  tokens      MagicLink[]
-  attachments InvoiceAttachment[]
+  lineItems        InvoiceLineItem[]
+  events           InvoiceEvent[]
+  tokens           MagicLink[]
+  attachments      InvoiceAttachment[]
+  hostedAccess     HostedInvoiceAccess[]
+  payments         InvoicePayment[]
+  checkoutAttempts CheckoutAttempt[]
+  notifications    Notification[]
 
   @@unique([workspaceId, number])
   @@schema("uncleinvoice")
@@ -212,24 +227,226 @@ model InvoiceEvent {
   actorEmail String?
   actorName  String?
   message    String
+  source     String   @default("app")
+  dedupeKey  String?  @unique
+  metadata   Json?
   createdAt  DateTime @default(now())
+
+  @@index([invoiceId, createdAt])
+  @@schema("uncleinvoice")
+}
+
+model StripeConnectedAccount {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeAccountId       String    @unique
+  apiVersion            String    @default("v2")
+  dashboardType         String
+  feesCollector         String
+  lossesCollector       String
+  requirementsCollector String
+  cardPaymentsStatus    String?
+  chargesEnabled        Boolean   @default(false)
+  payoutsEnabled        Boolean   @default(false)
+  detailsSubmitted      Boolean   @default(false)
+  requirements          Json?
+  disabledReason        String?
+  connectedAt           DateTime  @default(now())
+  disconnectedAt        DateTime?
+  lastSyncedAt          DateTime  @default(now())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  checkoutAttempts CheckoutAttempt[]
+  webhookEvents    StripeConnectEvent[]
 
   @@schema("uncleinvoice")
 }
 
+model HostedInvoiceAccess {
+  id           String    @id @default(cuid())
+  invoiceId    String
+  invoice      Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  lastAccessAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([invoiceId])
+  @@schema("uncleinvoice")
+}
+
+model InvoicePayment {
+  id                    String    @id @default(cuid())
+  invoiceId             String
+  invoice               Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  source                String
+  status                String
+  amount                Int
+  refundedAmount        Int       @default(0)
+  currency              String
+  paymentMethodCategory String?
+  externalReference     String?   @unique
+  stripeAccountId       String?
+  stripePaymentIntentId String?   @unique
+  stripeChargeId        String?   @unique
+  failureCode           String?
+  failureMessage        String?
+  initiatedAt           DateTime?
+  succeededAt           DateTime?
+  failedAt              DateTime?
+  disputedAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([invoiceId, createdAt])
+  @@index([stripeAccountId])
+  @@schema("uncleinvoice")
+}
+
+model CheckoutAttempt {
+  id                      String                 @id @default(cuid())
+  invoiceId               String
+  invoice                 Invoice                @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  connectedAccountId      String
+  connectedAccount        StripeConnectedAccount @relation(fields: [connectedAccountId], references: [id], onDelete: Restrict)
+  idempotencyKey          String                 @unique
+  activeKey               String?                @unique
+  stripeCheckoutSessionId String?                @unique
+  stripePaymentIntentId   String?                @unique
+  status                  String                 @default("creating")
+  amount                  Int
+  currency                String
+  expiresAt               DateTime?
+  completedAt             DateTime?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  @@index([invoiceId, status])
+  @@index([connectedAccountId])
+  @@schema("uncleinvoice")
+}
+
+model StripeConnectEvent {
+  id                  String                  @id @default(cuid())
+  stripeEventId       String                  @unique
+  connectedAccountId  String?
+  connectedAccount    StripeConnectedAccount? @relation(fields: [connectedAccountId], references: [id], onDelete: SetNull)
+  stripeAccountId     String?
+  eventType           String
+  objectId            String?
+  livemode            Boolean
+  eventCreatedAt      DateTime
+  status              String                  @default("received")
+  attemptCount        Int                     @default(1)
+  processingStartedAt DateTime                @default(now())
+  processingError     String?
+  processedAt         DateTime?
+  createdAt           DateTime                @default(now())
+
+  @@index([stripeAccountId, eventCreatedAt])
+  @@schema("uncleinvoice")
+}
+
+model Notification {
+  id           String                 @id @default(cuid())
+  userId       String
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoiceId    String?
+  invoice      Invoice?               @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  eventType    String
+  dedupeKey    String                 @unique
+  title        String
+  body         String
+  inAppVisible Boolean                @default(true)
+  readAt       DateTime?
+  expiresAt    DateTime?
+  createdAt    DateTime               @default(now())
+  deliveries   NotificationDelivery[]
+
+  @@index([userId, readAt, createdAt])
+  @@schema("uncleinvoice")
+}
+
+model NotificationDelivery {
+  id              String       @id @default(cuid())
+  notificationId  String
+  notification    Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel         String
+  destinationHash String
+  status          String       @default("pending")
+  attemptedAt     DateTime?
+  deliveredAt     DateTime?
+  errorCode       String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([notificationId, channel, destinationHash])
+  @@index([status, createdAt])
+  @@schema("uncleinvoice")
+}
+
+model PushSubscription {
+  id                     String    @id @default(cuid())
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpointHash           String    @unique
+  subscriptionCiphertext Bytes
+  encryptionIv           Bytes
+  encryptionTag          Bytes
+  invalidAt              DateTime?
+  lastUsedAt             DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([userId, invalidAt])
+  @@schema("uncleinvoice")
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType String
+  inApp     Boolean  @default(true)
+  push      Boolean  @default(false)
+  email     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, eventType])
+  @@schema("uncleinvoice")
+}
+
+model UsageCounter {
+  id          String   @id @default(cuid())
+  operation   String
+  scope       String
+  scopeKey    String
+  windowStart DateTime
+  count       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([operation, scope, scopeKey, windowStart])
+  @@schema("uncleinvoice")
+}
+
 model MagicLink {
-  id        String    @id @default(cuid())
-  tokenHash String    @unique
-  purpose   String
-  email     String
-  userId    String?
-  invoiceId String?
-  invoice   Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  id           String      @id @default(cuid())
+  tokenHash    String      @unique
+  purpose      String
+  email        String
+  userId       String?
+  invoiceId    String?
+  invoice      Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   contractorId String?
   contractor   Contractor? @relation(fields: [contractorId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime    @default(now())
 
   @@schema("uncleinvoice")
 }

@@ -15,6 +15,12 @@ export type InvoiceRow = {
   issueDate: Date;
   dueDate: Date | null;
   sentAt: Date | null;
+  firstViewedAt: Date | null;
+  lastViewedAt: Date | null;
+  approximateViewCount: number;
+  isOverdue: boolean;
+  paymentStatus: "unpaid" | "partial" | "paid";
+  stripePaymentState: string | null;
 };
 
 export type DashboardStats = {
@@ -51,6 +57,7 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
     include: {
       workspace: { select: { id: true, name: true } },
       lineItems: { select: { quantity: true, unitPrice: true, taxable: true } },
+      payments: { where: { source: "stripe" }, orderBy: { updatedAt: "desc" }, take: 1, select: { status: true } },
     },
     orderBy: { issueDate: "desc" },
   });
@@ -113,6 +120,12 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
       issueDate: invoice.issueDate,
       dueDate: invoice.dueDate ?? null,
       sentAt: invoice.sentAt ?? null,
+      firstViewedAt: invoice.firstViewedAt ?? null,
+      lastViewedAt: invoice.lastViewedAt ?? null,
+      approximateViewCount: invoice.approximateViewCount,
+      isOverdue,
+      paymentStatus: isPaid ? "paid" : isPartiallyPaid ? "partial" : "unpaid",
+      stripePaymentState: invoice.payments[0]?.status ?? null,
     };
 
     allInvoices.push(row);

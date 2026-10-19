@@ -6,6 +6,7 @@ import { requireWorkspace } from "@/lib/workspace";
 import { recordEvent } from "@/lib/invoices";
 import type { ActionState } from "@/actions/auth";
 import { canAttachDocuments, upgradeMessage } from "@/lib/plan";
+import { consumeDailyLimit } from "@/lib/usage-limits";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set([
@@ -40,6 +41,33 @@ export async function uploadAttachmentAction(
   if (!ALLOWED.has(contentType)) {
     return { error: "Attach a PDF, PNG, JPEG, or CSV." };
   }
+  const [invoiceCount, userStored, globalStored] = await Promise.all([
+    db.invoiceAttachment.count({ where: { invoiceId } }),
+    db.invoiceAttachment.aggregate({ where: { uploadedByUserId: user.id }, _sum: { byteSize: true } }),
+    db.invoiceAttachment.aggregate({ _sum: { byteSize: true } }),
+  ]);
+  if (
+    invoiceCount >= 10 ||
+    (userStored._sum.byteSize ?? 0) + file.size > 50 * 1024 * 1024 ||
+    (globalStored._sum.byteSize ?? 0) + file.size > 400 * 1024 * 1024
+  ) {
+    return { error: "Attachment storage limit reached." };
+  }
+  const globalAllowed = await consumeDailyLimit({
+    operation: "attachment_upload_bytes",
+    scope: "global",
+    scopeKey: "all",
+    limit: 50 * 1024 * 1024,
+    increment: file.size,
+  });
+  const userAllowed = globalAllowed && await consumeDailyLimit({
+    operation: "attachment_upload_bytes",
+    scope: "user",
+    scopeKey: user.id,
+    limit: 10 * 1024 * 1024,
+    increment: file.size,
+  });
+  if (!userAllowed) return { error: "Attachment upload limit reached. Try again tomorrow." };
 
   const label = String(formData.get("label") ?? "").trim() || null;
   const kind = String(formData.get("kind") ?? "source_record").trim() || "source_record";

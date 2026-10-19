@@ -22,6 +22,12 @@ export function AccountMenu({
         <Link href="/app/profile" className="account-menu-item nav-link block rounded-lg px-3 py-2 font-medium">
           Profile
         </Link>
+        <Link href="/app/payments" className="account-menu-item nav-link block rounded-lg px-3 py-2 font-medium">
+          Payments
+        </Link>
+        <Link href="/app/notifications/settings" className="account-menu-item nav-link block rounded-lg px-3 py-2 font-medium">
+          Notifications
+        </Link>
         <form action={logoutAction}>
           <button type="submit" className="account-menu-item nav-link block w-full rounded-lg px-3 py-2 text-left font-medium">
             Sign out

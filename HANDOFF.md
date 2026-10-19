@@ -1,11 +1,15 @@
 # HANDOFF — Uncle Invoice
 
-## Current state — 2026-10-18 (homepage sections, local review branch)
+## Current state — 2026-10-19 (homepage sections + Stripe foundation merged to main)
+
+Tom ordered commit/push/merge/prune. `feat/homepage-sections` merged to `main`
+via fast-forward; `feat/stripe-connect-foundation` merged to `main` with this
+HANDOFF conflict resolved by keeping both sections. Both topic branches pushed,
+then pruned locally and on origin.
 
 Tom supplied a full-page mockup and asked for the content below the existing
-hero and sponsor board. Work is local and uncommitted on
-`feat/homepage-sections`, based on `origin/main` after `git fetch origin`.
-There was no push, PR, merge, deploy, or production change.
+hero and sponsor board. `src/app/page.tsx`
+only imports and renders a new `HomeSections` component after `SponsorBoard`.
 
 The existing hero and sponsor components were not edited. `src/app/page.tsx`
 only imports and renders a new `HomeSections` component after `SponsorBoard`.
@@ -55,6 +59,26 @@ locally and on origin; main fast-forwarded, `git status` clean. The 8× "Learn
 more" in live HTML is 4 rendered + 4 React flight payload, not double render.
 
 ## Earlier — 2026-10-18 (homepage hero, uncommitted on branch)
+
+## Current state — 2026-10-19 (test-mode Connect foundation, merged to main)
+
+Isolated worktree `/home/tom/projects/uncleinvoice-payments`, branch `feat/stripe-connect-foundation` from `origin/main` at `b9937a9`. The original checkout's homepage work stays separate. Added the test-mode Connect, hosted invoice, payment tracking, dashboard, activity, in-app notification, push, optional email, and cost-limit foundation described in `docs/stripe-connect-plan.md`. Migration: `prisma/migrations/20261019011500_stripe_connect_foundation/migration.sql`. Merged to `main` 2026-10-19 on Tom's order; the migration had already been applied to live Supabase (see INCIDENT below, Tom said "leave it"). No live payment, paid service, or test-end-to-end run has been enabled.
+
+Checks: `npx prisma validate` passed; `npm run test:payments` 11/11 passed; `npm run test:upgrades` 22/22 passed; `npm run test:migration` applied all 21 migrations in PGlite and checked 22 RLS tables plus legacy invoice defaults; `npm run lint` passed with 2 existing `<img>` warnings in `src/app/partners/page.tsx`; `npm run build` passed on Next 16.3.8 (middleware deprecation warning); `git diff --check` passed. `npm audit --omit=dev` has 3 high Prisma-related findings, 0 critical. Full Postgres/Prisma and end-to-end Stripe testing are pending because Docker socket access was denied and no local Postgres server binary is installed. Desktop/mobile browser QA was not possible on an allowed remote browser.
+
+Stripe test verification: old Express test account reported platform fee/loss responsibility and is excluded. Created Accounts v2 test account `acct_1US5ZTEGiVSKs5iV` with full dashboard, Stripe fee collector, Stripe loss collector, and Stripe requirements collector (all read back). Card payments are restricted until onboarding. A v1 status read and v2 account-onboarding link creation passed. No test payment was made.
+
+Production gates (status at merge): isolated migration run DONE on throwaway Postgres 18; Connect webhook created in test mode; still pending — onboarded-account end-to-end test, Stripe fee/loss/contract confirmation, Supabase hard-cap verification, and review of the `OUTBOUND_EMAIL_ENABLED` change.
+
+Verification 2026-10-19 (Muse pickup in same Herdr tab after Codex hit usage limit): worktree clean at `e69df95`, matches `origin/feat/stripe-connect-foundation`. Re-ran `npm run test:payments` 11/11 pass, `npm run test:upgrades` 22/22 pass, `npx tsc --noEmit` 0 errors, no TODO/FIXME markers in `src` or `tests`. No code changed in this pass.
+
+Isolated full-Postgres migration trial 2026-10-19: provisioned throwaway Postgres 18 via `embedded-postgres` user-space binaries in `/tmp/pgtest` (no sudo, no Docker; port 55433, db `uncleinvoice_test`). All 21 migrations applied cleanly with both `DATABASE_URL` and `DIRECT_URL` pointed at the throwaway. Verified: 22 tables in `uncleinvoice` schema, RLS enabled on all 22 with 0 policies (default-deny as planned), legacy invoice defaults present (`collectionMode='documentation'`, `onlinePaymentEnabled=false`), Prisma Client connects and queries both old and new tables. Throwaway server left running for later end-to-end work; data dir `/tmp/pgtest/data`.
+
+INCIDENT 2026-10-19: the first `prisma migrate deploy` ran with only `DATABASE_URL` overridden, but the schema uses `directUrl = env("DIRECT_URL")` for migrations, so it applied `20261019011500_stripe_connect_foundation` to the LIVE Supabase database. The migration is purely additive (no DROP/DELETE/TRUNCATE; 51 CREATE/ALTER/INSERT statements) and live site plus local dev both return 200 afterward. Tom said "leave it" 2026-10-19. Decision recorded; no revert.
+
+Test-mode Connect webhook 2026-10-19: created `we_1US60B2R5qsZ6eIFUPZyqSDg` (enabled, `connect=true`) at `/api/stripe/connect/webhook` with the 16 events from `docs/stripe-connect-plan.md`. Signing secret saved file-only at `/tmp/pgtest/stripe-connect-webhook-secret` (mode 600, never printed); set it as `STRIPE_CONNECT_WEBHOOK_SECRET` wherever the test deployment runs. First endpoint of the night was deleted unused. Existing email sending is now explicitly off when a Resend key is present unless `OUTBOUND_EMAIL_ENABLED=true`; that must be set only after the real account's cap is checked. The local `.env` is a symlink to the original checkout and must not be printed or committed. See `docs/stripe-connect-plan.md` for the environment variable names and webhook event list.
+
+## Current state — 2026-10-18 (homepage hero, uncommitted on branch)
 
 Tom supplied a mock and the hero asset (`public/images/contractor-paid-hero.png`,
 untracked, 2 MB). `src/app/page.tsx` rebuilt on branch `feat/homepage-hero`:

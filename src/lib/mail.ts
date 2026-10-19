@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { hashToken } from "@/lib/crypto";
+import { cappedInteger, consumeDailyLimit, consumeMonthlyLimit } from "@/lib/usage-limits";
 
 export function mailFromAddress() {
   return process.env.MAIL_FROM ?? "Uncle Invoice <noreply@uncleinvoice.com>";
@@ -30,7 +32,34 @@ export async function sendEmail(input: SendEmailInput) {
   });
 
   const apiKey = process.env.RESEND_API_KEY;
-  if (apiKey) {
+  const outboundEnabled = process.env.OUTBOUND_EMAIL_ENABLED?.toLowerCase() === "true";
+  if (apiKey && !outboundEnabled) throw new Error("Outbound email is paused");
+  if (apiKey && outboundEnabled) {
+    const recipients = [...new Set([input.to, ...(input.cc ?? []), ...(input.bcc ?? [])].map((email) => email.trim().toLowerCase()))];
+    if (recipients.length > 10) throw new Error("Email recipient limit reached");
+    const globalAllowed = await consumeDailyLimit({
+      operation: "email_send",
+      scope: "global",
+      scopeKey: "all",
+      limit: cappedInteger(process.env.EMAIL_GLOBAL_DAILY_LIMIT, 80, 100),
+      increment: recipients.length,
+    });
+    const monthlyAllowed = globalAllowed && await consumeMonthlyLimit({
+      operation: "email_send_monthly",
+      scope: "global",
+      scopeKey: "all",
+      limit: cappedInteger(process.env.EMAIL_GLOBAL_MONTHLY_LIMIT, 2400, 2400),
+      increment: recipients.length,
+    });
+    const recipientAllowed = monthlyAllowed
+      ? (await Promise.all(recipients.map((recipient) => consumeDailyLimit({
+          operation: "email_send",
+          scope: "user",
+          scopeKey: hashToken(recipient),
+          limit: cappedInteger(process.env.EMAIL_RECIPIENT_DAILY_LIMIT, 10, 20),
+        })))).every(Boolean)
+      : false;
+    if (!globalAllowed || !monthlyAllowed || !recipientAllowed) throw new Error("Email sending limit reached");
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {

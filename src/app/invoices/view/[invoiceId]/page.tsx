@@ -12,6 +12,10 @@ import { invoiceShowsBrand } from "@/lib/invoice-branding";
 import { UpgradeOffer } from "@/components/upgrade-offer";
 import { BrandingPreview } from "@/components/branding-preview";
 import { asPlan } from "@/lib/plan";
+import { getRealSessionUser } from "@/lib/auth";
+import { HostedInvoiceControls } from "@/components/hosted-invoice-controls";
+import { isSafeConnectConfiguration } from "@/lib/stripe-connect";
+import { formatDateTime } from "@/lib/dates";
 
 export default async function PublicInvoicePage({
   params,
@@ -28,11 +32,12 @@ export default async function PublicInvoicePage({
       contractor: true,
       workspace: true,
       lineItems: { orderBy: { sortOrder: "asc" } },
+      events: { orderBy: { createdAt: "desc" }, take: 100 },
     },
   });
   if (!invoice) notFound();
 
-  const access = await invoiceAccess(invoice.id, invoice.workspaceId, token);
+  const access = await invoiceAccess(invoice.id, invoice.workspaceId, invoice.contractor.userId, token);
   if (!access.allowed) notFound();
 
   const pdfHref = `/api/invoices/${invoice.id}/pdf${token ? `?token=${token}` : ""}`;
@@ -42,7 +47,7 @@ export default async function PublicInvoicePage({
   // of the workspace. Without this, the owner lands on the customer view of
   // their own fresh invoice (creation redirects carry a token) and loses
   // Send, Share link, Mark as paid, and Edit.
-  const isOwner = !token || access.isMember;
+  const isOwner = access.isMember || access.isContractorOwner;
   const showBrand = await invoiceShowsBrand(invoice);
   const viewer = access.isMember ? await getSessionUser() : null;
 
@@ -62,7 +67,7 @@ export default async function PublicInvoicePage({
         <InvoiceActions pdfHref={pdfHref} />
       </div>
 
-      {isOwner && (
+      {access.isMember && (
         <InvoiceStatusBar
           workspaceId={invoice.workspaceId}
           invoiceId={invoice.id}
@@ -71,6 +76,7 @@ export default async function PublicInvoicePage({
           dueDate={invoice.dueDate}
           totalCents={totalCents}
           amountPaid={invoice.amountPaid}
+          onlinePaymentEnabled={invoice.onlinePaymentEnabled}
           clientEmail={invoice.workspace.email}
           mailFrom={mailFromAddress()}
         />
@@ -78,7 +84,7 @@ export default async function PublicInvoicePage({
 
       <div className="relative mt-4">
         <InvoiceDocument invoice={invoiceToDocument(invoice)} showBrand={showBrand} />
-        {isOwner && invoice.status !== "sent" && (
+        {access.isMember && invoice.status !== "sent" && (
           <Link
             href={editHref}
             aria-label="Edit invoice"
@@ -100,6 +106,36 @@ export default async function PublicInvoicePage({
           </Link>
         )}
       </div>
+      {access.isContractorOwner ? (
+        <HostedInvoiceControls
+          invoiceId={invoice.id}
+          paymentEnabled={invoice.onlinePaymentEnabled}
+          canCollect={Boolean(
+            access.connectedAccount &&
+            isSafeConnectConfiguration(access.connectedAccount) &&
+            access.connectedAccount.chargesEnabled &&
+            access.connectedAccount.cardPaymentsStatus === "active"
+          )}
+        />
+      ) : null}
+      {isOwner ? (
+        <section className="paper mt-6 rounded-3xl p-6 print:hidden">
+          <h2 className="text-2xl">Recent activity</h2>
+          {invoice.events.length ? (
+            <ol className="mt-4 space-y-3 text-sm">
+              {invoice.events.map((event) => (
+                <li key={event.id} className="border-t border-line pt-3 first:border-t-0 first:pt-0">
+                  <p>{event.message}</p>
+                  <p className="text-muted">
+                    {event.source === "stripe" ? "Stripe confirmed" : event.actorName ?? event.actorEmail ?? "Uncle Invoice"}
+                    {" · "}{formatDateTime(event.createdAt, access.ownerTimeZone)}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          ) : <p className="mt-2 text-sm text-muted">No activity yet.</p>}
+        </section>
+      ) : null}
       {viewer && asPlan(viewer.plan) === "free" && invoice.seededByUserId === viewer.id && showBrand && <div className="mt-6 print:hidden"><UpgradeOffer feature="branding" preview={<BrandingPreview invoice={invoiceToDocument(invoice)} />} className="text-sm text-muted underline underline-offset-4">Preview this invoice without our credit</UpgradeOffer></div>}
     </div>
   );
@@ -108,6 +144,7 @@ export default async function PublicInvoicePage({
 async function invoiceAccess(
   invoiceId: string,
   workspaceId: string,
+  contractorUserId: string | null,
   token: string | string[] | undefined,
 ) {
   const raw = Array.isArray(token) ? token[0] : token;
@@ -122,19 +159,36 @@ async function invoiceAccess(
       (record.purpose === "invoice_view" || record.purpose === "invoice_review")
     ) {
       const viewer = await getSessionUser();
+      const realViewer = await getRealSessionUser();
       const membership = viewer
         ? await db.workspaceMember.findUnique({
             where: { workspaceId_userId: { workspaceId, userId: viewer.id } },
           })
         : null;
-      return { allowed: true, isMember: Boolean(membership) };
+      const isContractorOwner = Boolean(realViewer && contractorUserId === realViewer.id);
+      const connectedAccount = isContractorOwner
+        ? await db.stripeConnectedAccount.findUnique({ where: { userId: realViewer!.id } })
+        : null;
+      return { allowed: true, isMember: Boolean(membership), isContractorOwner, connectedAccount, ownerTimeZone: realViewer?.timeZone ?? viewer?.timeZone ?? "America/Chicago" };
     }
   }
 
   const user = await getSessionUser();
-  if (!user) return { allowed: false, isMember: false };
+  const realUser = await getRealSessionUser();
+  if (!user && !realUser) return { allowed: false, isMember: false, isContractorOwner: false, connectedAccount: null, ownerTimeZone: "America/Chicago" };
+  const viewerId = user?.id ?? realUser!.id;
   const membership = await db.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId: user.id } },
+    where: { workspaceId_userId: { workspaceId, userId: viewerId } },
   });
-  return { allowed: Boolean(membership), isMember: Boolean(membership) };
+  const isContractorOwner = Boolean(realUser && contractorUserId === realUser.id);
+  const connectedAccount = isContractorOwner
+    ? await db.stripeConnectedAccount.findUnique({ where: { userId: realUser!.id } })
+    : null;
+  return {
+    allowed: Boolean(membership) || isContractorOwner,
+    isMember: Boolean(membership),
+    isContractorOwner,
+    connectedAccount,
+    ownerTimeZone: realUser?.timeZone ?? user?.timeZone ?? "America/Chicago",
+  };
 }

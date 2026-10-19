@@ -47,10 +47,10 @@ function computeKPIs(invoices: InvoiceRow[]) {
 function computeAging(invoices: InvoiceRow[]) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  let c = { cents: 0, count: 0 };
-  let d30 = { cents: 0, count: 0 };
-  let d90 = { cents: 0, count: 0 };
-  let d90p = { cents: 0, count: 0 };
+  const c = { cents: 0, count: 0 };
+  const d30 = { cents: 0, count: 0 };
+  const d90 = { cents: 0, count: 0 };
+  const d90p = { cents: 0, count: 0 };
 
   for (const inv of invoices) {
     if (inv.isPaid || inv.dueCents <= 0) continue;

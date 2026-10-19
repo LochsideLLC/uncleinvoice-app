@@ -21,3 +21,33 @@ export function formatDate(value: Date | string | null | undefined): string {
     year: "numeric",
   }).format(date);
 }
+
+export function formatDateTime(
+  value: Date | string | null | undefined,
+  timeZone = "America/Chicago",
+): string {
+  if (!value) return "—";
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return "—";
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone,
+      timeZoneName: "short",
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "America/Chicago",
+      timeZoneName: "short",
+    }).format(date);
+  }
+}
