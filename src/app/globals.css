@@ -212,6 +212,15 @@ button:disabled {
   color: var(--ink);
 }
 
+.btn-white {
+  background: #fff;
+  color: var(--ink);
+}
+
+.btn-white:hover {
+  background: var(--paper-2);
+}
+
 .btn-ghost {
   background: var(--paper);
   color: var(--ink);
