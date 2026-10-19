@@ -4,7 +4,7 @@ import { useId, useRef } from "react";
 import Link from "next/link";
 
 export function AccountCta({
-  label = "Sign in / Sign up",
+  label = "Sign up / Sign in",
   buttonClassName = "btn btn-secondary w-full",
 }: {
   label?: string;
