@@ -11,29 +11,48 @@ export function LoginForm({
   error,
   googleEnabled,
   claim,
+  embedded = false,
+  onSwitchMode,
 }: {
   next: string;
   error?: string;
   googleEnabled: boolean;
   claim?: string;
+  embedded?: boolean;
+  onSwitchMode?: () => void;
 }) {
   const [state, action, pending] = useActionState(loginAction, null);
   // Held here only so "Forgot your password?" can carry the address across
   // rather than making someone type it twice.
   const [email, setEmail] = useState("");
 
-  return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-6 pb-16">
+  const switchLink = onSwitchMode ? (
+    <button type="button" className="text-ink underline" onClick={onSwitchMode}>
+      Create an account
+    </button>
+  ) : (
+    <Link href={claim ? `/signup?claim=${encodeURIComponent(claim)}` : "/signup"} className="text-ink underline">
+      Create an account
+    </Link>
+  );
+
+  const heading = (
+    <>
       <h1 className="display text-center text-3xl">Sign in</h1>
       <p className="mt-2 text-center text-muted">
         Use Google, your password, or a link in your email.
       </p>
-      <div className="paper mt-8 rounded-3xl p-6">
+    </>
+  );
+
+  const card = (
+    <>
+      <div className={embedded ? "mt-4" : ""}>
         {googleEnabled ? (
           <>
             <ContinueWithGoogle next={next} from="/login" claim={claim} />
             <div className="relative my-6 text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-              <span className="relative z-10 bg-paper px-2">or</span>
+              <span className={`relative z-10 px-2 ${embedded ? "bg-background" : "bg-paper"}`}>or</span>
               <span className="absolute inset-x-0 top-1/2 border-t border-line" />
             </div>
           </>
@@ -97,10 +116,26 @@ export function LoginForm({
       </div>
       <p className="mt-6 text-center text-sm text-muted">
         New here?{" "}
-        <Link href={claim ? `/signup?claim=${encodeURIComponent(claim)}` : "/signup"} className="text-ink underline">
-          Create an account
-        </Link>
+        {switchLink}
       </p>
+    </>
+  );
+
+  const body = (
+    <>
+      {heading}
+      {embedded ? (
+        <div className="mt-2">{card}</div>
+      ) : (
+        <div className="paper mt-8 rounded-3xl p-6">{card}</div>
+      )}
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-6 pb-16">
+      {body}
     </div>
   );
 }

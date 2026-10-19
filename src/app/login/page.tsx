@@ -1,4 +1,4 @@
-import { LoginForm } from "@/components/login-form";
+import { AuthCard } from "@/components/auth-card";
 import { googleAuthErrorMessage, googleConfigured } from "@/lib/google-oauth";
 import { isClaimTokenShape } from "@/lib/invoice-claim";
 
@@ -9,7 +9,8 @@ export default async function LoginPage({
 }) {
   const { next, error, claim } = await searchParams;
   return (
-    <LoginForm
+    <AuthCard
+      initialMode="signin"
       next={next ?? ""}
       error={googleAuthErrorMessage(error) ?? undefined}
       googleEnabled={googleConfigured()}

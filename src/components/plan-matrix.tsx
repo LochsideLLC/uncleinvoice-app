@@ -30,15 +30,15 @@ export function PlanMatrix({ current }: { current?: string | null }) {
           <th scope="col" className="py-3 pr-4 font-medium text-muted">Compare the plans</th>
           {PLANS.map((plan) => (
             <th key={plan} scope="col" className="px-3 py-3 text-center">
-              <span className="flex items-center justify-center gap-2 whitespace-nowrap">
-                {PLAN_LABEL[plan]}
+              <span className="flex min-h-5 items-center justify-center">
                 {plan === active ? (
-                  <span title="Your plan" className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-accent-ink">
+                  <span title="Your plan" className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
                     <span className="sr-only">Your plan: </span>
                     <span aria-hidden="true">Current</span>
                   </span>
                 ) : null}
               </span>
+              <span className="mt-1 block whitespace-nowrap">{PLAN_LABEL[plan]}</span>
               <span className="mt-1 block text-sm font-normal text-muted">{monthlyPrice(plan)}</span>
             </th>
           ))}
@@ -56,9 +56,9 @@ export function PlanMatrix({ current }: { current?: string | null }) {
           </tr>
         ))}
         <tr>
-          <th scope="row" className="py-4 pr-4 text-left font-normal text-muted">Get started</th>
+          <th scope="row" className="py-4 pr-4 text-left font-normal text-muted align-middle">Get started</th>
           {PLANS.map((plan) => (
-            <td key={plan} className="px-3 py-4 text-center align-top">
+            <td key={plan} className="px-3 py-4 text-center align-middle">
               {plan === active ? (
                 <p className="text-sm text-muted">You are on this plan.</p>
               ) : plan === "free" || !canRequestPlan(active, plan) ? (

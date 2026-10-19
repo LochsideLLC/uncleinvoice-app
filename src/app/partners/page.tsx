@@ -14,7 +14,7 @@ export default function BookkeepingConroePartnersPage() {
           Earn income and experience referring bookkeeping clients
         </h1>
         <img
-          src="/images/partner-receiving-business-card.png"
+          src="/images/partner-receiving-business-card.webp"
           alt="Partner receiving a business card"
           className="mx-auto w-full max-w-4xl rounded-2xl shadow-md"
         />

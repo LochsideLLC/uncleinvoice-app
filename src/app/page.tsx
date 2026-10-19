@@ -66,7 +66,7 @@ export default async function HomePage() {
           </div>
           <div>
             <Image
-              src="/images/contractor-paid-hero.png"
+              src="/images/contractor-paid-hero.webp"
               alt="Smiling contractor cheering with raised fists beside a laptop and a printed page showing her paid invoice"
               width={1672}
               height={941}

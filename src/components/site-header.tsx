@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { AccountCta } from "@/components/account-cta";
+import { AuthDialog } from "@/components/auth-dialog";
 import { AccountMenu } from "@/components/account-menu";
+import { googleConfigured } from "@/lib/google-oauth";
 import { UncleStamp } from "@/components/brand-mark";
 import { asPlan } from "@/lib/plan";
 
@@ -77,7 +78,7 @@ export function SiteHeader({
             <Link href="/how-it-works" className={`${navLink} hidden sm:inline-flex`}>
               How it works
             </Link>
-            <AccountCta buttonClassName="btn btn-primary btn-sm whitespace-nowrap" />
+            <AuthDialog buttonClassName="btn btn-primary btn-sm whitespace-nowrap" googleEnabled={googleConfigured()} />
           </nav>
         )}
       </div>
