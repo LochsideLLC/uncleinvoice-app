@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { DashboardTabs } from "@/components/dashboard-tabs";
 import { BookkeeperHome } from "@/components/bookkeeper-home";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { WorkspaceIdentity } from "@/components/workspace-identity";
 import { ConfirmMyInvoices } from "@/components/confirm-my-invoices";
 import { SendToClient } from "@/components/send-to-client";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
@@ -75,12 +76,62 @@ export default async function AppHomePage({
   );
   const first = mine[0];
 
+  // Bookkeeper documentation metrics, derived from real records in the
+  // businesses this account belongs to. Skipped entirely for contractor mode.
+  const wsIds = memberships.map((m) => m.workspace.id);
+  const [awaitingByWorkspace, verifiedByWorkspace, paidAwaiting, recentImports] =
+    kind === "bookkeeper" && wsIds.length > 0
+      ? await Promise.all([
+          db.invoice.groupBy({
+            by: ["workspaceId"],
+            where: { workspaceId: { in: wsIds }, confirmedAt: null },
+            _count: true,
+          }),
+          db.invoice.groupBy({
+            by: ["workspaceId"],
+            where: { workspaceId: { in: wsIds }, confirmedAt: { not: null } },
+            _count: true,
+          }),
+          db.invoice.count({
+            where: { workspaceId: { in: wsIds }, confirmedAt: null, amountPaid: { gt: 0 } },
+          }),
+          db.invoiceEvent.findMany({
+            where: {
+              invoice: { workspaceId: { in: wsIds } },
+              message: { startsWith: "Imported from spreadsheet" },
+            },
+            include: {
+              invoice: {
+                select: {
+                  id: true,
+                  number: true,
+                  workspace: { select: { id: true, name: true } },
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          }),
+        ])
+      : [[], [], 0, []];
+
   return (
     <div className="space-y-8">
       <WorkspaceSwitcher active={kind} />
+      <WorkspaceIdentity active={kind} />
 
       {kind === "bookkeeper" ? (
-        <BookkeeperHome memberships={memberships} />
+        <BookkeeperHome
+          memberships={memberships}
+          awaitingByWorkspace={Object.fromEntries(
+            awaitingByWorkspace.map((row) => [row.workspaceId, row._count]),
+          )}
+          verifiedByWorkspace={Object.fromEntries(
+            verifiedByWorkspace.map((row) => [row.workspaceId, row._count]),
+          )}
+          paidAwaiting={paidAwaiting}
+          recentImports={recentImports}
+        />
       ) : (
         <>
           {waiting.length > 0 && first ? (

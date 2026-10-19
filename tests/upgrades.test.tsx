@@ -15,6 +15,7 @@ import PlansPage from "@/app/app/plans/page";
 import ImportPage from "@/app/app/w/[workspaceId]/import/page";
 import OnboardingPage from "@/app/app/onboarding/page";
 import { PlanMatrix } from "@/components/plan-matrix";
+import { WorkspaceIdentity } from "@/components/workspace-identity";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { BookkeeperHome } from "@/components/bookkeeper-home";
 import { QuickInvoiceForm } from "@/components/quick-invoice-form";
@@ -147,6 +148,15 @@ test("workspace switcher marks the active side and offers both", () => {
   }
 });
 
+test("workspace identity names the mode and its job in one short block", () => {
+  const contractor = renderToStaticMarkup(<WorkspaceIdentity active="contractor" />);
+  assert.match(contractor, /Contractor Workspace/);
+  assert.match(contractor, /Create invoices, manage customers, and track payments/);
+  const bookkeeper = renderToStaticMarkup(<WorkspaceIdentity active="bookkeeper" />);
+  assert.match(bookkeeper, /Bookkeeper Workspace/);
+  assert.match(bookkeeper, /Manage client records, contractor verification, and missing invoices/);
+});
+
 test("workspace matrix shows both free sides with the current badge", () => {
   const markup = renderToStaticMarkup(<PlanMatrix current="contractor" />);
   assert.match(markup, /Current/);
@@ -165,16 +175,30 @@ test("onboarding offers both starting sides without restricting access", () => {
 });
 
 test("bookkeeper home explains the flow and lists client businesses", () => {
-  const empty = renderToStaticMarkup(<BookkeeperHome memberships={[]} />);
-  assert.match(empty, /No clients yet/);
-  assert.match(empty, /Add a client business/);
+  const emptyProps = { memberships: [], awaitingByWorkspace: {}, verifiedByWorkspace: {}, paidAwaiting: 0, recentImports: [] };
+  const empty = renderToStaticMarkup(<BookkeeperHome {...emptyProps} />);
+  assert.match(empty, /Add Your First Client/);
   const memberships = [{
     workspace: { id: "w1", name: "Client Co", email: "client@example.test", _count: { contractors: 2, invoices: 5 } },
     role: "owner",
   }];
-  const full = renderToStaticMarkup(<BookkeeperHome memberships={memberships as never} />);
+  const fullProps = {
+    memberships: memberships as never,
+    awaitingByWorkspace: { w1: 3 },
+    verifiedByWorkspace: { w1: 2 },
+    paidAwaiting: 1,
+    recentImports: [{
+      id: "e1",
+      message: "Imported from spreadsheet (100 on today, paid in full).",
+      createdAt: new Date("2026-01-02"),
+      invoice: { id: "i1", number: "INV-1", workspace: { id: "w1", name: "Client Co" } },
+    }],
+  };
+  const full = renderToStaticMarkup(<BookkeeperHome {...fullProps} />);
   assert.match(full, /Client Co/);
   assert.match(full, /Import payments/);
+  assert.match(full, /Awaiting verification/);
+  assert.match(full, /Recent payment imports/);
 });
 
 test("generated PDF carries no credit and preserves invoice content", async () => {

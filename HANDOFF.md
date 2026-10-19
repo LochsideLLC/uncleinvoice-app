@@ -45,7 +45,26 @@ confirmed. Mobile 390px screenshots verified: switcher, both homes, plans all
 stack cleanly; header pill matched the active mode after a redirect-after-
 persist fix for ?workspace= links (header reads the user row before the page
 writes it). Google entry verified to 307 to accounts.google.com with PKCE.
-COMMITTED as 2fa602f on `feature/free-dual-workspaces` (55 files), NOT merged
+COMMITTED as f569663 on `feature/free-dual-workspaces` (55 files), NOT merged.
+Follow-up commit d22eb8e adds distinct workspace themes (10 files), also
+unmerged. Contractor keeps the exact warm/terracotta look (untouched :root
+tokens). Bookkeeper overrides the same tokens under
+[data-workspace="bookkeeper"] (teal #2E615B, sage #EAF2EF) set on the /app
+container (server-rendered, no flash) plus body background via a
+WorkspaceTheme effect that cleans up when leaving /app. Bigger switcher with
+icons and accent active state (icon + pressed state, not color alone);
+compact WorkspaceIdentity header per mode; bookkeeper home rebuilt with real
+metrics (clients, awaiting, verified, paid-awaiting-paperwork), per-client
+counts, recent spreadsheet imports, Import Payments / Add Your First Client
+primary actions. Invoice documents render outside /app scope and PDFs are
+server-built, so customer-facing invoices never change. Keyboard: native
+submit buttons + new accent focus-visible ring; CDP-synthesized Enter would
+not trigger native button activation in headless Chromium (harness artifact,
+same class as the earlier synthetic-click issue) — real keyboards use native
+activation. Verified: 27/27 tests, tsc, lint, build, desktop + mobile
+screenshots of both themes, refresh persistence, no theme leak onto invoice
+view. Header nav tweaks in the same commit (Dashboard plain link left of How
+it works, workspace pill removed, dropdown closes on click-off/Escape).
 — needs review + the three blockers below. Test server and Chromium stopped;
 :3000 untouched. Remaining blockers needing Tom: (1) Google full round-trip
 needs his consent click in a browser; (2) emailed-link delivery needs
