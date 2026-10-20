@@ -4,7 +4,8 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireWorkspace } from "@/lib/workspace";
+import { requireWorkspace, listWorkspaces } from "@/lib/workspace";
+import { requireUser } from "@/lib/auth";
 import { parseDate } from "@/lib/dates";
 import {
   createContractorLink,
@@ -597,4 +598,71 @@ export async function contractorLinkAction(
 
   const link = await createContractorLink(contractor.id, contractor.email ?? "");
   return { ok: true, message: link };
+}
+
+/**
+ * Deletes one invoice and its share links. Supporting documents, line items,
+ * events, and login tokens cascade in the database. Invoices with payment
+ * activity (money recorded, payment rows, or checkout attempts) are refused:
+ * deleting those would rewrite financial history.
+ */
+export async function deleteInvoiceAction(
+  workspaceId: string,
+  invoiceId: string,
+): Promise<ActionState> {
+  await requireWorkspace(workspaceId);
+  const invoice = await db.invoice.findFirst({
+    where: { id: invoiceId, workspaceId },
+    include: { payments: { take: 1 }, checkoutAttempts: { take: 1 } },
+  });
+  if (!invoice) return { error: "Invoice not found." };
+  if (invoice.amountPaid > 0 || invoice.payments.length > 0 || invoice.checkoutAttempts.length > 0) {
+    return { error: "This invoice has payment activity, so it can't be deleted." };
+  }
+  await db.$transaction([
+    db.hostedInvoiceAccess.deleteMany({ where: { invoiceId } }),
+    db.invoice.delete({ where: { id: invoiceId } }),
+  ]);
+  revalidatePath("/app");
+  revalidatePath(`/app/w/${workspaceId}/invoices`);
+  return { ok: true };
+}
+
+/**
+ * Deletes a batch of the caller's own invoices. Same payment-activity guard
+ * as the single delete, applied per invoice: blocked ones are skipped and
+ * reported, never silently dropped.
+ */
+export async function bulkDeleteInvoicesAction(invoiceIds: string[]): Promise<ActionState> {
+  const user = await requireUser();
+  const ids = [...new Set(invoiceIds.filter((id) => typeof id === "string" && id.length > 0))];
+  if (!ids.length) return { error: "Select at least one invoice." };
+  const maxBatch = 50;
+  if (ids.length > maxBatch) {
+    return { error: `Delete up to ${maxBatch} invoices at a time.` };
+  }
+  const wsIds = (await listWorkspaces(user.id)).map((m) => m.workspace.id);
+  const invoices = await db.invoice.findMany({
+    where: { id: { in: ids }, workspaceId: { in: wsIds } },
+    include: { payments: { take: 1 }, checkoutAttempts: { take: 1 } },
+  });
+  const deletable = invoices.filter(
+    (invoice) => invoice.amountPaid === 0 && invoice.payments.length === 0 && invoice.checkoutAttempts.length === 0,
+  );
+  const skipped = ids.length - deletable.length;
+  if (deletable.length > 0) {
+    const deletableIds = deletable.map((invoice) => invoice.id);
+    await db.$transaction([
+      db.hostedInvoiceAccess.deleteMany({ where: { invoiceId: { in: deletableIds } } }),
+      db.invoice.deleteMany({ where: { id: { in: deletableIds } } }),
+    ]);
+  }
+  revalidatePath("/app");
+  if (!deletable.length) {
+    return { error: "None of the selected invoices can be deleted (payment activity)." };
+  }
+  const message = `Deleted ${deletable.length} ${deletable.length === 1 ? "invoice" : "invoices"}.`;
+  return skipped > 0
+    ? { ok: true, message: `${message} Skipped ${skipped} with payment activity.` }
+    : { ok: true, message };
 }

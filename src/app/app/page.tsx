@@ -5,12 +5,11 @@ import { getDashboardStats } from "@/lib/dashboard";
 import { listWorkspaces } from "@/lib/workspace";
 import { asWorkspaceKind } from "@/lib/workspace-kind";
 import { db } from "@/lib/db";
-import { DashboardTabs } from "@/components/dashboard-tabs";
+import { DashboardStats } from "@/components/dashboard-stats";
+import { CustomersPanel } from "@/components/dashboard-tabs";
 import { BookkeeperHome } from "@/components/bookkeeper-home";
 import { WorkspaceDashboard } from "@/components/workspace-dashboard";
-import { DocumentIcon } from "@/components/workspace-icons";
 import { ConfirmMyInvoices } from "@/components/confirm-my-invoices";
-import { SendToClient } from "@/components/send-to-client";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
 
 export default async function AppHomePage({
@@ -62,17 +61,6 @@ export default async function AppHomePage({
     }),
   ]);
   const waiting = mine.flatMap((c) => c.invoices);
-  const confirmed = mine.length
-    ? await db.invoice.findMany({
-        where: { contractorId: { in: mine.map((c) => c.id) }, confirmedAt: { not: null } },
-        include: { lineItems: true },
-      })
-    : [];
-  const confirmedTotal = confirmed.reduce(
-    (sum, invoice) => sum + invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps),
-    0,
-  );
-  const alreadySent = confirmed.filter((invoice) => invoice.sentAt).length;
   const waitingTotal = waiting.reduce(
     (sum, invoice) => sum + invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps),
     0,
@@ -118,31 +106,14 @@ export default async function AppHomePage({
         ])
       : [[], [], 0, []];
 
-  const contractor = (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <span
-            aria-hidden
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
-            style={{
-              background: "color-mix(in srgb, var(--accent) 12%, var(--paper))",
-              color: "var(--accent)",
-            }}
-          >
-            <DocumentIcon className="h-7 w-7" />
-          </span>
-          <div>
-            <p className="text-sm uppercase tracking-[0.14em] text-muted">Contractor workspace</p>
-            <h1 className="display text-4xl leading-tight">Your invoices</h1>
-            <p className="mt-1 text-muted">Create invoices, manage customers, and track payments.</p>
-          </div>
-        </div>
-        <Link href="/create" className="btn btn-primary shrink-0">
-          <span aria-hidden className="text-xl leading-none">+</span> Create Invoice
-        </Link>
-      </div>
+  const createAction = (
+    <Link href="/create" className="btn btn-primary shrink-0">
+      <span aria-hidden className="text-xl leading-none">+</span> Create Invoice
+    </Link>
+  );
 
+  const invoices = (
+    <>
       {waiting.length > 0 && first ? (
         <ConfirmMyInvoices
           count={waiting.length}
@@ -159,18 +130,11 @@ export default async function AppHomePage({
         />
       ) : null}
 
-      {confirmed.length > 0 && first ? (
-        <SendToClient
-          clientName={first.workspace.name}
-          count={confirmed.length}
-          total={formatMoney(confirmedTotal)}
-          alreadySent={alreadySent}
-        />
-      ) : null}
-
-      <DashboardTabs stats={stats} memberships={memberships} />
+      <DashboardStats stats={stats} />
     </>
   );
+
+  const clients = <CustomersPanel memberships={memberships} />;
 
   const bookkeeper = (
     <BookkeeperHome
@@ -186,5 +150,13 @@ export default async function AppHomePage({
     />
   );
 
-  return <WorkspaceDashboard kind={kind} contractor={contractor} bookkeeper={bookkeeper} />;
+  return (
+    <WorkspaceDashboard
+      kind={kind}
+      createAction={createAction}
+      invoices={invoices}
+      clients={clients}
+      bookkeeper={bookkeeper}
+    />
+  );
 }
