@@ -1,6 +1,14 @@
 ## Current handoff — 2026-11-08
 
-Branch: `feat/dashboard-section-row`, pushed as PR #58. It includes the compact customer list, icon-only Bookkeeper client navigation, removal of redundant client-settings copy, dashboard workspace switcher styling, compact sign-in dialog, and development-only demo sign-in; see dated entries below and above. Checks run 2026-11-08: `git diff --check` passed; `npm run lint` passed with 0 errors and 2 existing `<img>` warnings in `src/app/partners/page.tsx`; `npm run test:upgrades` passed 27/27; `npm run test:payments` passed 11/11; `npm run test:phone` passed 11/11; `npm run test:terms` passed 4/4; `npm run test:migration` passed (30 migrations, 23 RLS tables); `npm run build` passed. Build printed the existing Prisma `package.json#prisma` deprecation and Next.js middleware deprecation warnings. No phone visual recheck. PR #58 was squash-merged as `7bfb9c3a99473df0c64baf5cc0ef8601a73291ac`. GitHub deleted `feat/dashboard-section-row`; an explicit delete returned “remote ref does not exist,” then `git fetch --prune` confirmed the tracking ref was removed. The worktree was clean on `main` at `origin/main` after merge.
+Branch: `feat/client-invoice-overview`, based on clean `main` at `022b9a0`. The Contractor customer list row is one full-width profile link with the client name centered and “View profile” at the right; the archive action stays separate. The profile displays invoices and has the edit action. The Bookkeeper client page likewise has an invoice list and edit action. Search, status filtering, and 25-row pagination are supported. The old work queue is no longer the landing page; its dedicated route remains. `git diff --check` passed. No tests or visual recheck run. Next: review the phone view and run project checks before merge.
+
+## Customer profile flow — 2026-11-08
+
+Changed the Contractor customer entry to one full-row profile link, with the client name centered and “View profile →” at the right; there is no separate profile button inside the card. The archive action remains separate. The profile carries `?view=customer`, labels its edit action “Edit customer details,” and preserves that context through search, filters, pagination, and the settings link. The settings page has a “Back to profile” link. On the Bookkeeper client list, the profile defaults to “Edit client details.” Tom clarified that editing belongs inside the profile, after the user can see the invoice history.
+
+## Bookkeeper client overview — 2026-11-08
+
+Replaced the redirect from `/app/w/[workspaceId]` to the contractor paperwork queue with a simple client invoice overview. The overview begins with one clear “Edit client details” action and then lists invoices with contractor, date, amount, and status; it supports search by invoice number or contractor, filters by draft / needs review / ready to send / sent, and paginates 25 at a time. The client name in the shared header links back to the overview. Contractor paperwork and payment import remain available on their existing routes but are removed from the client landing view. Tests and visual review not run.
 
 ## Bookkeeper client page cleanup — 2026-11-08
 
