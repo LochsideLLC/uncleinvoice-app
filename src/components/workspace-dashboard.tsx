@@ -19,12 +19,14 @@ import type { WorkspaceKind } from "@/lib/workspace-kind";
  */
 export function WorkspaceDashboard({
   kind,
+  initialSection = "invoices",
   createAction,
   invoices,
   clients,
   bookkeeper,
 }: {
   kind: WorkspaceKind;
+  initialSection?: DashboardSection;
   createAction: React.ReactNode;
   invoices: React.ReactNode;
   clients: React.ReactNode;
@@ -34,7 +36,7 @@ export function WorkspaceDashboard({
   const [current, setCurrent] = useState(kind);
   const [lastKind, setLastKind] = useState(kind);
   const [pending, setPending] = useState(false);
-  const [section, setSection] = useState<DashboardSection>("invoices");
+  const [section, setSection] = useState<DashboardSection>(initialSection);
 
   // Server-confirmed value arrives after the background save + refresh.
   if (kind !== lastKind) {

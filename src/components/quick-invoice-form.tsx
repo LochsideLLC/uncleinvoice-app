@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { createPublicInvoiceAction } from "@/actions/public-invoice";
 import { createServiceItemAction } from "@/actions/service-items";
 import { createWorkspaceInlineAction, updateDefaultTermsAction } from "@/actions/workspaces";
@@ -641,47 +642,57 @@ export function QuickInvoiceForm({
                     className="fixed inset-0 z-10 cursor-default"
                     onClick={() => setCompanyOpen(false)}
                   />
-                  <div
-                    id="bill-to-client-list"
-                    role="listbox"
-                    aria-label="Customers"
-                    className="paper absolute left-0 top-full z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl p-1 text-ink shadow-lg"
-                  >
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-base font-medium normal-case tracking-normal text-accent hover:bg-background"
-                      onClick={() => openNewClient(billToName.trim())}
+                  <div className="paper absolute left-0 top-full z-20 mt-1 w-full rounded-xl p-1 text-ink shadow-lg">
+                    <div
+                      id="bill-to-client-list"
+                      role="listbox"
+                      aria-label="Customers"
+                      className="max-h-64 overflow-auto"
                     >
-                      <span aria-hidden="true">+</span>
-                      {billToName.trim() &&
-                      !clientOptions.some(
-                        (client) =>
-                          client.name.toLowerCase() === billToName.trim().toLowerCase(),
-                      )
-                        ? `Add "${billToName.trim()}" as a new customer…`
-                        : "Add new customer…"}
-                    </button>
-                    {matchClients(billToName).map((client) => (
                       <button
-                        key={client.id}
                         type="button"
-                        role="option"
-                        aria-selected={billToClientId === client.id}
-                        className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-base font-normal normal-case tracking-normal hover:bg-background"
-                        onClick={() => {
-                          pickBillToClient(client.id);
-                          setCompanyOpen(false);
-                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-base font-medium normal-case tracking-normal text-accent hover:bg-background"
+                        onClick={() => openNewClient(billToName.trim())}
                       >
-                        <span>{client.name}</span>
-                        <span className="truncate text-sm text-muted">{client.email}</span>
+                        <span aria-hidden="true">+</span>
+                        {billToName.trim() &&
+                        !clientOptions.some(
+                          (client) =>
+                            client.name.toLowerCase() === billToName.trim().toLowerCase(),
+                        )
+                          ? `Add "${billToName.trim()}" as a new customer…`
+                          : "Add new customer…"}
                       </button>
-                    ))}
-                    {billToName.trim() && matchClients(billToName).length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-muted">
-                        No saved customers match — add it as new.
-                      </p>
-                    ) : null}
+                      {matchClients(billToName).map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          role="option"
+                          aria-selected={billToClientId === client.id}
+                          className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-base font-normal normal-case tracking-normal hover:bg-background"
+                          onClick={() => {
+                            pickBillToClient(client.id);
+                            setCompanyOpen(false);
+                          }}
+                        >
+                          <span>{client.name}</span>
+                          <span className="truncate text-sm text-muted">{client.email}</span>
+                        </button>
+                      ))}
+                      {billToName.trim() && matchClients(billToName).length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-muted">
+                          No saved customers match — add it as new.
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="mt-1 border-t border-line px-3 py-2">
+                      <Link
+                        href="/app?workspace=contractor&section=clients&from=create"
+                        className="font-medium text-accent underline underline-offset-2"
+                      >
+                        Manage customers
+                      </Link>
+                    </div>
                   </div>
                 </>
               ) : null}

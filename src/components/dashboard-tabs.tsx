@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DocumentIcon } from "@/components/workspace-icons";
 import { WorkspaceArchiveButton } from "@/components/workspace-archive-button";
 import type { listWorkspaces } from "@/lib/workspace";
@@ -62,7 +63,14 @@ export function SectionTabs({
   );
 }
 
-export function CustomersPanel({ memberships }: { memberships: Membership[] }) {
+export function CustomersPanel({
+  memberships,
+  fromCreate = false,
+}: {
+  memberships: Membership[];
+  fromCreate?: boolean;
+}) {
+  const router = useRouter();
   const active = memberships.filter(({ workspace }) => !workspace.archivedAt);
   const archived = memberships.filter(({ workspace }) => workspace.archivedAt);
 
@@ -96,6 +104,20 @@ export function CustomersPanel({ memberships }: { memberships: Membership[] }) {
 
   return (
     <div className="space-y-4">
+      <button
+        type="button"
+        onClick={() => {
+          if (fromCreate && window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/app?workspace=contractor&section=invoices");
+          }
+        }}
+        className="flex items-center gap-2 text-sm font-semibold text-muted hover:text-ink"
+      >
+        <span aria-hidden="true">←</span>
+        {fromCreate ? "Back to invoice" : "Back to invoices"}
+      </button>
       <div>
         <p className="text-sm uppercase tracking-widest text-muted">Customers &amp; clients</p>
         <h2 className="mt-1 text-3xl">The businesses you work with</h2>
