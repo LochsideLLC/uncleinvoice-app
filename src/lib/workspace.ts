@@ -17,9 +17,12 @@ export async function requireWorkspace(workspaceId: string) {
   return { user, membership, workspace: membership.workspace };
 }
 
-export async function listWorkspaces(userId: string) {
+export async function listWorkspaces(userId: string, includeArchived = false) {
   return db.workspaceMember.findMany({
-    where: { userId },
+    where: {
+      userId,
+      ...(includeArchived ? {} : { workspace: { archivedAt: null } }),
+    },
     include: {
       workspace: {
         include: {

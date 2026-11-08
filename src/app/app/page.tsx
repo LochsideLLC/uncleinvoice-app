@@ -47,13 +47,14 @@ export default async function AppHomePage({
   // and content together with no server wait. Wall time is roughly the
   // slowest query, not the sum.
   const [memberships, stats] = await Promise.all([
-    listWorkspaces(user.id),
+    listWorkspaces(user.id, true),
     getDashboardStats(user.id),
   ]);
 
   // Bookkeeper documentation metrics, derived from real records in the
   // businesses this account belongs to.
-  const wsIds = memberships.map((m) => m.workspace.id);
+  const activeMemberships = memberships.filter(({ workspace }) => !workspace.archivedAt);
+  const wsIds = activeMemberships.map((m) => m.workspace.id);
   const [awaitingByWorkspace, confirmedUnsentByWorkspace, paidAwaitingByWorkspace] =
     wsIds.length > 0
       ? await Promise.all([
@@ -91,16 +92,10 @@ export default async function AppHomePage({
 
   const bookkeeper = (
     <BookkeeperHome
-      memberships={memberships}
-      awaitingByWorkspace={Object.fromEntries(
-        awaitingByWorkspace.map((row) => [row.workspaceId, row._count]),
-      )}
-      confirmedUnsentByWorkspace={Object.fromEntries(
-        confirmedUnsentByWorkspace.map((row) => [row.workspaceId, row._count]),
-      )}
-      paidAwaitingByWorkspace={Object.fromEntries(
-        paidAwaitingByWorkspace.map((row) => [row.workspaceId, row._count]),
-      )}
+      memberships={activeMemberships}
+      awaitingByWorkspace={Object.fromEntries(awaitingByWorkspace.map((row) => [row.workspaceId, row._count]))}
+      confirmedUnsentByWorkspace={Object.fromEntries(confirmedUnsentByWorkspace.map((row) => [row.workspaceId, row._count]))}
+      paidAwaitingByWorkspace={Object.fromEntries(paidAwaitingByWorkspace.map((row) => [row.workspaceId, row._count]))}
     />
   );
 

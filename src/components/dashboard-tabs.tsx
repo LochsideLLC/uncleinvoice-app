@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { DocumentIcon } from "@/components/workspace-icons";
+import { WorkspaceArchiveButton } from "@/components/workspace-archive-button";
 import type { listWorkspaces } from "@/lib/workspace";
 
 function UsersIcon({ className = "h-4 w-4" }: { className?: string }) {
@@ -62,6 +63,37 @@ export function SectionTabs({
 }
 
 export function CustomersPanel({ memberships }: { memberships: Membership[] }) {
+  const active = memberships.filter(({ workspace }) => !workspace.archivedAt);
+  const archived = memberships.filter(({ workspace }) => workspace.archivedAt);
+
+  function customerCard({ workspace, role }: Membership, isArchived: boolean) {
+    return (
+      <li key={workspace.id} className="paper rounded-3xl p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Link href={`/app/w/${workspace.id}`} className="text-xl hover:underline">
+              {workspace.businessName || workspace.name}
+            </Link>
+            {workspace.contactName ? <p className="mt-1 text-muted">{workspace.contactName}</p> : null}
+          </div>
+          <span className="text-xs uppercase tracking-wide text-muted">{isArchived ? "Archived" : role}</span>
+        </div>
+        <p className="mt-2 text-sm text-muted">{workspace.email || workspace.phone}</p>
+        <p className="mt-3 text-sm text-muted">
+          {workspace._count.contractors} contractors · {workspace._count.invoices} invoices
+        </p>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Link href={`/app/w/${workspace.id}/settings`} className="btn btn-secondary w-full sm:w-auto">
+            Edit details
+          </Link>
+          {role === "owner" ? (
+            <WorkspaceArchiveButton workspaceId={workspace.id} archived={isArchived} />
+          ) : null}
+        </div>
+      </li>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -77,35 +109,24 @@ export function CustomersPanel({ memberships }: { memberships: Membership[] }) {
           Open Bookkeeper workspace
         </Link>
       </div>
-      {memberships.length === 0 ? (
+      {active.length === 0 ? (
         <div className="paper rounded-3xl p-8">
-          <h3 className="text-2xl">No businesses saved yet</h3>
+          <h3 className="text-2xl">No active customers</h3>
           <p className="mt-2 max-w-xl text-muted">
             Add a customer you bill, or a business you keep books for. Their details will be ready the next time you write an invoice.
           </p>
         </div>
       ) : (
         <ul className="space-y-3">
-          {memberships.map(({ workspace, role }) => (
-            <li key={workspace.id}>
-              <Link
-                href={`/app/w/${workspace.id}`}
-                className="paper block rounded-3xl p-6 transition hover:-translate-y-0.5"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-2xl">{workspace.name}</h3>
-                  <span className="text-xs uppercase tracking-wide text-muted">{role}</span>
-                </div>
-                <p className="mt-2 text-muted">{workspace.email}</p>
-                <p className="mt-4 text-sm text-muted">
-                  {workspace._count.contractors} contractors · {workspace._count.invoices}{" "}
-                  invoices
-                </p>
-              </Link>
-            </li>
-          ))}
+          {active.map((membership) => customerCard(membership, false))}
         </ul>
       )}
+      {archived.length > 0 ? (
+        <section className="space-y-3 pt-4">
+          <h3 className="text-2xl">Archived customers</h3>
+          <ul className="space-y-3">{archived.map((membership) => customerCard(membership, true))}</ul>
+        </section>
+      ) : null}
     </div>
   );
 }

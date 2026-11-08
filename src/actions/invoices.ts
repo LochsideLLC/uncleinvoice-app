@@ -33,7 +33,8 @@ export async function createInvoiceAction(
   formData: FormData,
 ): Promise<ActionState> {
   const workspaceId = String(formData.get("workspaceId") ?? "");
-  const { user } = await requireWorkspace(workspaceId);
+  const { user, workspace } = await requireWorkspace(workspaceId);
+  if (workspace.archivedAt) return { error: "Restore this customer before creating a new invoice." };
   const contractorId = String(formData.get("contractorId") ?? "");
   const issueDate = parseDate(formData.get("issueDate"));
   const items = parseLineItems(formData);
@@ -719,7 +720,7 @@ export async function bulkDeleteInvoicesAction(invoiceIds: string[]): Promise<Ac
   if (ids.length > maxBatch) {
     return { error: `Delete up to ${maxBatch} invoices at a time.` };
   }
-  const wsIds = (await listWorkspaces(user.id)).map((m) => m.workspace.id);
+  const wsIds = (await listWorkspaces(user.id, true)).map((m) => m.workspace.id);
   const invoices = await db.invoice.findMany({
     where: { id: { in: ids }, workspaceId: { in: wsIds } },
     include: { payments: { take: 1 }, checkoutAttempts: { take: 1 } },

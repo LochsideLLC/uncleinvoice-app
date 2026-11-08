@@ -17,7 +17,7 @@ export default async function SettingsPage({
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      <h2 className="text-2xl">Client details</h2>
+      <h2 className="text-2xl">Customer details</h2>
       <p className="text-muted">
         Finished invoices are emailed to this office address, and it prints on the bill-to
         block.
