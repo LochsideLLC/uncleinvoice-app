@@ -14,8 +14,8 @@ import type { WorkspaceKind } from "@/lib/workspace-kind";
  * workspace attribute and the content is already here. The choice persists
  * in the background and fresh data streams in silently underneath.
  *
- * Contractor mode packs the mode switcher, section tabs, and primary
- * action into one toolbar so invoices start near the top of the viewport.
+ * Contractor mode keeps the mode switcher and primary action together,
+ * with the invoice/client section tabs on their own row below.
  */
 export function WorkspaceDashboard({
   kind,
@@ -66,29 +66,17 @@ export function WorkspaceDashboard({
 
   return (
     <div className="mobile-dashboard space-y-3 sm:space-y-4">
-      {/* Single toolbar: mode switcher, section tabs, primary action. */}
-      {/* On wide screens a 1fr / auto / 1fr grid puts the section tabs on the
-          page's true centre line, whatever the widths of the switcher and the
-          action beside them. Narrower screens wrap as before. */}
-      <div
-        className={
-          isContractor
-            ? "grid grid-cols-2 items-center gap-x-2 gap-y-1 sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 lg:grid lg:grid-cols-[1fr_auto_1fr]"
-            : "flex flex-wrap items-center gap-x-4 gap-y-2"
-        }
-      >
-        <div className={isContractor ? "col-span-2 w-full sm:col-span-1 sm:w-60 sm:shrink-0 lg:w-full" : "w-60 shrink-0 sm:w-72"}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className={isContractor ? "w-full sm:w-60 sm:shrink-0" : "w-full sm:w-72 sm:shrink-0"}>
           <WorkspaceSwitcher active={current} pending={pending} onSelect={switchTo} />
         </div>
-        {isContractor ? (
-          <>
-            <div className="w-full min-w-0 lg:w-auto lg:justify-self-center">
-              <SectionTabs tab={section} onChange={setSection} />
-            </div>
-            <div className="w-full min-w-0 sm:ml-auto sm:w-auto lg:justify-self-end">{createAction}</div>
-          </>
-        ) : null}
+        {isContractor ? <div className="w-full sm:ml-auto sm:w-auto">{createAction}</div> : null}
       </div>
+      {isContractor ? (
+        <div className="w-full">
+          <SectionTabs tab={section} onChange={setSection} />
+        </div>
+      ) : null}
 
       {/* Keyed by mode so the entrance animation replays on every switch. */}
       <div key={current} className="workspace-enter space-y-3 sm:space-y-4">

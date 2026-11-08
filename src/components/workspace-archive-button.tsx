@@ -20,7 +20,7 @@ export function WorkspaceArchiveButton({
     >
       <input type="hidden" name="workspaceId" value={workspaceId} />
       <input type="hidden" name="archived" value={String(!archived)} />
-      <button type="submit" className="btn btn-secondary w-full sm:w-auto">
+      <button type="submit" className="btn btn-secondary btn-sm whitespace-nowrap">
         {archived ? "Restore" : "Archive"}
       </button>
     </form>

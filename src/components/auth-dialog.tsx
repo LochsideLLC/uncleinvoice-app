@@ -13,6 +13,7 @@ export function AuthDialog({
   initialMode = "signup",
   next = "",
   googleEnabled,
+  devAccessEnabled = false,
   claim,
 }: {
   label?: string;
@@ -20,6 +21,7 @@ export function AuthDialog({
   initialMode?: AuthMode;
   next?: string;
   googleEnabled: boolean;
+  devAccessEnabled?: boolean;
   claim?: string;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -39,17 +41,29 @@ export function AuthDialog({
       </button>
       <dialog
         ref={dialogRef}
-        aria-label={initialMode === "signup" ? "Create your free account" : "Sign in"}
+        aria-label="Sign in or create an account"
         onClick={(event) => {
           if (event.target === event.currentTarget) dialogRef.current?.close();
         }}
-        className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-3xl border border-line bg-background p-6 text-ink shadow-2xl backdrop:bg-ink/55 print:hidden"
+        className="auth-dialog m-auto max-h-[calc(100dvh-1rem)] w-[calc(100%-1.5rem)] max-w-md overflow-y-auto rounded-3xl border border-line bg-background p-4 text-ink shadow-2xl backdrop:bg-ink/55 sm:p-6 print:hidden"
       >
+        <button
+          type="button"
+          className="auth-dialog-close"
+          aria-label="Close"
+          title="Close"
+          onClick={() => dialogRef.current?.close()}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
+        </button>
         <AuthCard
           key={openCount}
           initialMode={initialMode}
           next={next}
           googleEnabled={googleEnabled}
+          devAccessEnabled={devAccessEnabled}
           claim={claim}
           embedded
         />

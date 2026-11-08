@@ -10,6 +10,7 @@ export function LoginForm({
   next,
   error,
   googleEnabled,
+  devAccessEnabled = false,
   claim,
   embedded = false,
   workspace,
@@ -18,6 +19,7 @@ export function LoginForm({
   next: string;
   error?: string;
   googleEnabled: boolean;
+  devAccessEnabled?: boolean;
   claim?: string;
   embedded?: boolean;
   workspace?: "bookkeeper";
@@ -39,27 +41,22 @@ export function LoginForm({
   );
 
   const heading = (
-    <>
-      <h1 className="display text-center text-3xl">Sign in</h1>
-      <p className="mt-2 text-center text-muted">
-        Use Google, your password, or a link in your email.
-      </p>
-    </>
+    <h1 className="display auth-title text-center text-3xl">Sign in</h1>
   );
 
   const card = (
     <>
-      <div className={embedded ? "mt-4" : ""}>
+      <div className={embedded ? "auth-methods mt-4" : ""}>
         {googleEnabled ? (
           <>
             <ContinueWithGoogle next={next} from="/login" claim={claim} workspace={workspace} />
-            <div className="relative my-6 text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+            <div className="auth-separator relative my-6 text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted">
               <span className={`relative z-10 px-2 ${embedded ? "bg-background" : "bg-paper"}`}>or</span>
               <span className="absolute inset-x-0 top-1/2 border-t border-line" />
             </div>
           </>
         ) : null}
-        <form action={action} className="space-y-4">
+        <form action={action} className={embedded ? "auth-form space-y-4" : "space-y-4"}>
           {next ? <input type="hidden" name="next" value={next} /> : null}
           {claim ? <input type="hidden" name="claim" value={claim} /> : null}
           {workspace ? <input type="hidden" name="workspace" value={workspace} /> : null}
@@ -88,7 +85,7 @@ export function LoginForm({
               type="password"
               autoComplete="current-password"
             />
-            <p className="mt-1 text-center text-xs text-muted">
+            <p className={embedded ? "auth-forgot mt-1 text-center text-xs text-muted" : "mt-1 text-center text-xs text-muted"}>
               <Link
                 href={email ? `/forgot?email=${encodeURIComponent(email)}` : "/forgot"}
                 className="text-ink underline"
@@ -97,7 +94,7 @@ export function LoginForm({
               </Link>
             </p>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="auth-button-stack flex flex-col gap-2">
             <button
               className="btn btn-primary w-full"
               name="intent"
@@ -117,10 +114,22 @@ export function LoginForm({
           </div>
         </form>
       </div>
-      <p className="mt-6 text-center text-sm text-muted">
+      <p className="auth-switch mt-6 text-center text-sm text-muted">
         New here?{" "}
         {switchLink}
       </p>
+      {devAccessEnabled ? (
+        <div className="auth-dev-access mt-4 border-t border-line pt-4">
+          {/* Submit directly so a phone modal does not navigate to an
+              intermediate page that looks like the tap did nothing. */}
+          <form action="/dev-access/sign-in" method="post">
+            <button className="btn btn-secondary w-full" type="submit">
+              Open demo workspace
+            </button>
+          </form>
+          <p className="auth-note mt-2 text-xs text-muted">Development only · uses local sample data</p>
+        </div>
+      ) : null}
     </>
   );
 
@@ -128,9 +137,12 @@ export function LoginForm({
     <>
       {heading}
       {embedded ? (
-        <div className="mt-2">{card}</div>
+        <div className="auth-dialog-content">
+          <div className="auth-dialog-heading">{heading}</div>
+          {card}
+        </div>
       ) : (
-        <div className="paper mt-8 rounded-3xl p-6">{card}</div>
+        <>{heading}<div className="paper mt-8 rounded-3xl p-6">{card}</div></>
       )}
     </>
   );

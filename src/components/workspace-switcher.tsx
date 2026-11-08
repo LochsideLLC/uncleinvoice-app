@@ -17,8 +17,9 @@ const LABELS: Record<WorkspaceKind, string> = {
  * Contractor / Bookkeeper switcher. Presentational: the parent owns the
  * selection, paints the theme, persists the choice, and swaps the content,
  * so all four happen in the same instant. Native buttons keep it keyboard
- * accessible; the active side uses the workspace accent with light text plus
- * its icon and pressed state, so the mode never depends on color alone.
+ * accessible; a white surface separates the switcher from the primary action,
+ * while the selected side uses a thin accent outline, darker text, and its
+ * pressed state so the mode never depends on color alone.
  */
 export function WorkspaceSwitcher({
   active,
@@ -37,8 +38,9 @@ export function WorkspaceSwitcher({
         aria-label="Workspace"
         aria-busy={pending}
         style={{
-          background: "var(--paper-2)",
-          boxShadow: "inset 0 1px 4px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(0,0,0,0.06)",
+          background: "#fff",
+          border: "1px solid var(--line)",
+          boxShadow: "0 1px 3px rgba(42,31,22,0.08)",
         }}
       >
         {(["contractor", "bookkeeper"] as const).map((kind) => {
@@ -54,11 +56,11 @@ export function WorkspaceSwitcher({
               style={
                 isActive
                   ? {
-                      background: "var(--accent)",
-                      color: "var(--accent-ink)",
-                      boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                      background: "#fff",
+                      color: "var(--ink)",
+                      boxShadow: "inset 0 0 0 1px var(--accent), 0 1px 3px rgba(42,31,22,0.12)",
                     }
-                  : { color: "var(--muted)" }
+                  : { background: "transparent", color: "var(--muted)" }
               }
             >
               <Icon />

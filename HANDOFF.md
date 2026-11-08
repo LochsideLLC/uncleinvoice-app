@@ -1,3 +1,35 @@
+## Current handoff — 2026-11-08
+
+Branch: `feat/dashboard-section-row`, based on `origin/main` at session start (0 commits ahead/behind before this wrap-up). This branch includes the compact customer list, icon-only Bookkeeper client navigation, removal of redundant client-settings copy, dashboard workspace switcher styling, compact sign-in dialog, and development-only demo sign-in; see dated entries below and above. `git diff --check` passes. Tests, lint, build, and phone visual recheck were not run after the latest UI edits. Next: review the combined diff, run project-required checks, then open/merge a PR if they pass.
+
+## Bookkeeper client page cleanup — 2026-11-08
+
+Changed the Bookkeeper client page navigation pills into four compact icon buttons with accessible names and hover titles: Work queue, Invoices, Import payments, and Client settings. Removed the “Customer details” heading and sentence about emailing and invoice bill-to output; kept the customer information form and services manager. `git diff --check` passed. No tests or visual recheck run. Changes remain uncommitted on `feat/dashboard-section-row`.
+
+## Customer panel navigation — 2026-11-08
+
+Removed the redundant “Back to invoices” link from the dashboard Clients panel because the Invoices / Clients tabs already provide that navigation. Kept “Back to invoice” when the panel is opened from invoice creation, with the existing history fallback. `git diff --check` passed. No tests or visual recheck run. Changes remain uncommitted on `feat/dashboard-section-row`.
+
+## Compact customer list — 2026-11-08
+
+Updated the Customers & clients panel: removed the explanatory heading and paragraph, changed customer entries into compact single-line rows with truncated names and compact edit/archive controls, and stacked “Add a customer or client” and “Open Bookkeeper workspace” full-width actions. Removed the extra sentence from the empty state. `git diff --check` passed. No tests or visual recheck run. Changes remain uncommitted on `feat/dashboard-section-row`.
+
+## White dashboard workspace switcher — 2026-11-08
+
+Changed the Contractor / Bookkeeper switcher surface and selected segment to white. Kept the selected state visible with darker text, a thin accent outline, and its pressed state; the Create Invoice action remains the only filled red control in that row. No tests run.
+
+## Compact sign-in dialog and close control — 2026-11-08
+
+Added an accessible Close button to the header account dialog, so it can be dismissed and the underlying page remains available. Tightened only the embedded sign-in form: smaller dialog gutters, title, inputs, and buttons; reduced gaps around Google, fields, and actions; removed the redundant explanatory sentence. `git diff --check` passed. `/login` and `/` each returned HTTP 200, and their HTML includes the close control; the login page includes Open demo workspace. No tests or phone visual recheck run. Changes remain uncommitted on `feat/dashboard-section-row` with prior dashboard and local demo sign-in work.
+
+## Development sign-in on private browser previews — 2026-11-08
+
+Added an “Open demo workspace” button to the sign-in form when `NODE_ENV=development` and `DATABASE_URL` uses a local database host. The button submits directly to the existing `/dev-access/sign-in` route and local `test@bookkeepingconroe.com` fixture; the same-origin POST guard is unchanged. This avoids an intermediate page on the phone modal. Passed the server-only flag through `/login`, `/signup`, and the header sign-in dialog. Production and remote-database previews do not render the option. Google rejects the current phone preview callback `http://100.98.89.93:3000/api/auth/google/callback`: Google web OAuth requires HTTPS and a domain host, with localhost exempt. Keep OAuth for the HTTPS site and use local demo access on the phone preview. `git diff --check` passed; `GET /login` returned HTTP 200 and included the button; the button POST returned HTTP 303 and the signed-in dashboard returned HTTP 200 with Sunrise Cleaning. No tests run. Changes are uncommitted on `feat/dashboard-section-row`, which also contains the earlier dashboard row edit.
+
+## Dashboard section toggle row — 2026-11-08
+
+Moved the contractor dashboard Invoices / Clients tabs onto their own full-width row below the workspace switcher and Create Invoice action. The workspace switcher and primary action remain together above. Change is on `feat/dashboard-section-row`; not committed. No tests or visual check run.
+
 ## Customer editing and archive controls — 2026-11-08
 
 The invoice customer picker includes a same-tab “Manage customers” link to `/app?workspace=contractor&section=clients&from=create`. The Customers & clients panel shows “Back to invoice” when entered from `/create`; it returns through browser history to preserve the previous form, with a dashboard-invoices fallback when no prior page exists. The dashboard reads the section query and opens Customers & clients directly. This update was merged in PR #56 at `2d90dc1906ec182f31a805fd3009b4ba314b0fda`; the topic branch was removed, and local `main` is clean and aligned with `origin/main`. Editing supports customer name, business name, email, phone, and address; either customer name or business name is required. Archiving hides the customer from active lists and the invoice customer picker, but preserves its workspace, invoices, and history. Archived customers appear in their own section and can be restored. New seeded invoices are blocked until the customer is restored; historical invoice access and exports remain available. Added nullable `Workspace.archivedAt` with migration `20261108150000_workspace_archive`. The archive and customer-name migrations were applied to the local demo database at `localhost:5433` after the phone preview returned Prisma `P2022` for missing `Workspace.archivedAt`. `npx prisma migrate status` reports all 30 migrations up to date on that local database. Production was not manually migrated; production Netlify builds run `prisma migrate deploy` before the build. Final release checks after the same-tab navigation update: `npm run lint` passed with 0 errors and 2 existing `<img>` warnings in `src/app/partners/page.tsx`; standalone `npx tsc --noEmit` passed after the build. The first standalone TypeScript attempt ran concurrently with `npm run build` and failed because `.next/types` files were being regenerated; the build’s own TypeScript phase passed and the sequential rerun passed. Tests passed: `test:upgrades` 27/27, `test:payments` 11/11, `test:phone` 11/11, `test:terms` 4/4, `test:migration` (30 migrations, 23 RLS tables). `npm run build` passed. Authenticated local `/create` and customer-management routes returned HTTP 200. No phone visual recheck; production deployment completion not verified.
