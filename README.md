@@ -98,7 +98,9 @@ Do not run migrations against `public`. That schema already holds the other Loch
 ## Deploy (Netlify)
 
 1. Import `lochsidellc/uncleinvoice-app` in Netlify.
-2. Build command and publish directory come from `netlify.toml`.
+2. Production builds apply pending Prisma migrations before building the app.
+   Deploy Previews do not change the production database. Keep `DATABASE_URL`
+   available to production builds in Netlify.
 3. Set environment variables:
 
 ```

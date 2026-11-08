@@ -1,5 +1,9 @@
 # HANDOFF — Uncle Invoice
 
+## Google sign-in production failure — 2026-11-08
+
+After PR #51 deployed commit `344d5e4a44266b49abf584b0e9b80b1c84dcd6cd` to Netlify production, the Google OAuth callback returned HTTP 500. Netlify function logs showed Prisma `P2022`: the live database lacked `User.defaultInvoiceMessage`, which the new Prisma client selected during `User.findUnique`. Production had 5 local migrations pending. Applied them with `npx prisma migrate deploy`; `npx prisma migrate status` now reports “Database schema is up to date.” The migrations add optional columns, an index, and the workspace `ServiceItem` table. Netlify has `DATABASE_URL` in both production build and function scopes. Durable fix in this branch: Netlify production builds run `prisma migrate deploy` before `npm run build`; Deploy Previews keep the default build command and do not alter production data. User must retry Google sign-in to confirm on their phone; callback logs after migration had no new request yet.
+
 ## Payment address toggle, shared save feedback, and release checks — 2026-11-08
 
 The Pay by check action now uses the signed-in user's saved business address when the invoice has no mailing address, and copies that address into the invoice snapshot. Its missing-address alert includes a direct “Edit mailing address” link. Save feedback is shared across site save buttons without state updates in effects: edits show the action label in red, submitting shows “Saving…”, success stays green as “Saved”, and errors show “Not saved” until another edit. The hosted secure-payment-link action guards its optional error result. Manual payment keeps a direct form action for the older status panel and uses a feedback action in the invoice dialog; successful payment rotates its idempotency nonce.
