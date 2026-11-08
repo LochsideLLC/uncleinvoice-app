@@ -1,6 +1,6 @@
 ## Current handoff — 2026-11-08
 
-Branch: `feat/client-invoice-overview`, based on clean `main` at `022b9a0`. The Contractor customer list row is one full-width profile link with the client name centered and “View profile” at the right; the archive action stays separate. The profile displays invoices and has the edit action. The Bookkeeper client page likewise has an invoice list and edit action. Search, status filtering, and 25-row pagination are supported. The old work queue is no longer the landing page; its dedicated route remains. `git diff --check` passed. No tests or visual recheck run. Next: review the phone view and run project checks before merge.
+Branch: `feat/client-invoice-overview`, based on clean `main` at `022b9a0`. Implementation is in `5f7a9b9`; PR #60 is open. The Contractor customer list row is one full-width profile link with the client name centered and “View profile” at the right; the archive action stays separate. The profile displays invoices and has the edit action. The Bookkeeper client page likewise has an invoice list and edit action. Search, status filtering, and 25-row pagination are supported. The old work queue is no longer the landing page; its dedicated route remains. `git diff --check` passed. Tests, lint, build, and phone visual recheck were not run; GitHub reports no PR checks. Next: review the phone view and run project checks before merge.
 
 ## Customer profile flow — 2026-11-08
 
