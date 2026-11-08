@@ -76,23 +76,20 @@ export function CustomersPanel({
 
   function customerCard({ workspace, role }: Membership, isArchived: boolean) {
     return (
-      <li key={workspace.id} className="paper rounded-3xl p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <Link href={`/app/w/${workspace.id}`} className="text-xl hover:underline">
+      <li key={workspace.id} className="paper rounded-xl px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+          <div className="flex min-w-0 flex-1 items-baseline gap-2 overflow-hidden">
+            <Link href={`/app/w/${workspace.id}`} className="truncate text-base font-semibold hover:underline">
               {workspace.businessName || workspace.name}
             </Link>
-            {workspace.contactName ? <p className="mt-1 text-muted">{workspace.contactName}</p> : null}
+            {workspace.contactName ? <span className="hidden truncate text-sm text-muted sm:inline">{workspace.contactName}</span> : null}
           </div>
-          <span className="text-xs uppercase tracking-wide text-muted">{isArchived ? "Archived" : role}</span>
-        </div>
-        <p className="mt-2 text-sm text-muted">{workspace.email || workspace.phone}</p>
-        <p className="mt-3 text-sm text-muted">
-          {workspace._count.contractors} contractors · {workspace._count.invoices} invoices
-        </p>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <Link href={`/app/w/${workspace.id}/settings`} className="btn btn-secondary w-full sm:w-auto">
-            Edit details
+          <span className="hidden shrink-0 text-xs text-muted md:inline">
+            {workspace._count.contractors} contractors · {workspace._count.invoices} invoices
+          </span>
+          <span className="hidden shrink-0 text-xs uppercase tracking-wide text-muted lg:inline">{isArchived ? "Archived" : role}</span>
+          <Link href={`/app/w/${workspace.id}/settings`} className="btn btn-secondary btn-sm shrink-0">
+            Edit
           </Link>
           {role === "owner" ? (
             <WorkspaceArchiveButton workspaceId={workspace.id} archived={isArchived} />
@@ -104,26 +101,23 @@ export function CustomersPanel({
 
   return (
     <div className="space-y-4">
-      <button
-        type="button"
-        onClick={() => {
-          if (fromCreate && window.history.length > 1) {
-            router.back();
-          } else {
-            router.push("/app?workspace=contractor&section=invoices");
-          }
-        }}
-        className="flex items-center gap-2 text-sm font-semibold text-muted hover:text-ink"
-      >
-        <span aria-hidden="true">←</span>
-        {fromCreate ? "Back to invoice" : "Back to invoices"}
-      </button>
-      <div>
-        <p className="text-sm uppercase tracking-widest text-muted">Customers &amp; clients</p>
-        <h2 className="mt-1 text-3xl">The businesses you work with</h2>
-        <p className="mt-2 text-sm text-muted">The customers you bill, and the clients whose books you keep — free, as many as you need.</p>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
+      {fromCreate ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/app?workspace=contractor&section=invoices");
+            }
+          }}
+          className="flex items-center gap-2 text-sm font-semibold text-muted hover:text-ink"
+        >
+          <span aria-hidden="true">←</span>
+          Back to invoice
+        </button>
+      ) : null}
+      <div className="flex flex-col gap-2">
         <Link href="/app/workspaces/new" className="btn btn-secondary w-full">
           Add a customer or client
         </Link>
@@ -134,9 +128,6 @@ export function CustomersPanel({
       {active.length === 0 ? (
         <div className="paper rounded-3xl p-8">
           <h3 className="text-2xl">No active customers</h3>
-          <p className="mt-2 max-w-xl text-muted">
-            Add a customer you bill, or a business you keep books for. Their details will be ready the next time you write an invoice.
-          </p>
         </div>
       ) : (
         <ul className="space-y-3">

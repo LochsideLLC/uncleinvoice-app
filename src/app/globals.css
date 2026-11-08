@@ -293,6 +293,98 @@ button {
     0 18px 40px -28px rgba(42, 31, 22, 0.35);
 }
 
+.auth-dialog-close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  z-index: 2;
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  background: var(--paper);
+  color: var(--muted);
+}
+
+.auth-dialog-close svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.auth-dialog-content .auth-title {
+  margin: 0;
+  font-size: 1.65rem;
+  line-height: 1.1;
+}
+
+.auth-dialog-content .auth-methods {
+  margin-top: 0.75rem;
+}
+
+.auth-dialog-content .btn {
+  padding: 0.5rem 0.8rem;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.auth-dialog-content .auth-separator {
+  margin-block: 0.65rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.auth-dialog-content .auth-form > :not(:first-child) {
+  margin-top: 0.55rem;
+}
+
+.auth-dialog-content .field {
+  gap: 0.12rem;
+}
+
+.auth-dialog-content .field label {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.auth-dialog-content .field input {
+  padding: 0.42rem 0.65rem;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.auth-dialog-content .auth-forgot {
+  margin-top: 0.1rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.auth-dialog-content .auth-button-stack {
+  gap: 0.35rem;
+}
+
+.auth-dialog-content .auth-switch {
+  margin-top: 0.85rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.auth-dialog-content .auth-dev-access {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.auth-dialog-content .auth-note {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
 .stamp-ring {
   box-shadow:
     inset 0 0 0 3px var(--accent),

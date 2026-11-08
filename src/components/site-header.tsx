@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AuthDialog } from "@/components/auth-dialog";
 import { AccountMenu } from "@/components/account-menu";
 import { googleConfigured } from "@/lib/google-oauth";
+import { localDevAccessEnabled } from "@/lib/dev-access";
 import { UncleStamp } from "@/components/brand-mark";
 
 
@@ -72,7 +73,11 @@ export function SiteHeader({
             <Link href="/how-it-works" className={`${navLink} hidden sm:inline-flex`}>
               How it works
             </Link>
-            <AuthDialog buttonClassName="btn btn-primary btn-sm whitespace-nowrap" googleEnabled={googleConfigured()} />
+            <AuthDialog
+              buttonClassName="btn btn-primary btn-sm whitespace-nowrap"
+              googleEnabled={googleConfigured()}
+              devAccessEnabled={localDevAccessEnabled()}
+            />
           </nav>
         )}
       </div>

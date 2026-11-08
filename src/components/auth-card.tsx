@@ -15,6 +15,7 @@ export function AuthCard({
   next = "",
   error,
   googleEnabled,
+  devAccessEnabled = false,
   claim,
   embedded = false,
   workspace,
@@ -23,6 +24,7 @@ export function AuthCard({
   next?: string;
   error?: string;
   googleEnabled: boolean;
+  devAccessEnabled?: boolean;
   claim?: string;
   embedded?: boolean;
   workspace?: "bookkeeper";
@@ -36,6 +38,7 @@ export function AuthCard({
         next={next}
         error={error}
         googleEnabled={googleEnabled}
+        devAccessEnabled={devAccessEnabled}
         claim={claim}
         embedded={embedded}
         workspace={workspace}
