@@ -573,6 +573,20 @@ button:disabled {
   padding: 0.22rem 0.5rem;
 }
 
+.compact-customer-fields .field {
+  gap: 0.15rem;
+}
+
+.compact-customer-fields .field label {
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.compact-customer-fields .field input {
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.65rem;
+}
+
 .field input:focus,
 .field textarea:focus,
 .field select:focus {

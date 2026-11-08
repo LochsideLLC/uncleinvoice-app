@@ -1,3 +1,7 @@
+## Compact customer creation and names — 2026-11-08
+
+The invoice form’s Add customer panel keeps all customer information visible with no accordion: customer name, business name, email, phone, street address, city, state, and ZIP. Either customer name or business name is required; the rest may be left blank. If both names are blank, the form reports “Enter a customer name or business name.” Main fields are stacked. State and ZIP share a row; city remains full width. Reduced drawer padding, field labels, input padding, and gaps so the form uses less vertical space on phones. New Workspace records store optional `businessName` and `contactName`; the company/business name remains the invoice Bill to heading, with the customer name shown as the contact. Existing clients without these fields keep their current display. Added migration `20261108100000_workspace_customer_names` and regenerated Prisma Client. The migration is present locally but has not been applied to any database or deployed. `git diff --check` passed; no tests or visual phone recheck run.
+
 # HANDOFF — Uncle Invoice
 
 ## Google sign-in production failure — 2026-11-08

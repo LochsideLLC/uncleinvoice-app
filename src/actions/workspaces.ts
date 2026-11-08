@@ -53,6 +53,8 @@ export type InlineWorkspaceResult =
       workspace: {
         id: string;
         name: string;
+        businessName: string | null;
+        contactName: string | null;
         email: string | null;
         phone: string | null;
         addressLine: string | null;
@@ -78,9 +80,14 @@ export async function createWorkspaceInlineAction(
   formData: FormData,
 ): Promise<InlineWorkspaceResult> {
   const user = await requireUser();
+  const customerName = String(formData.get("name") ?? "").trim();
+  const businessName = String(formData.get("businessName") ?? "").trim();
+  if (!customerName && !businessName) {
+    return { error: "Enter a customer name or business name." };
+  }
   const parsed = workspaceSchema.safeParse({
-    name: formData.get("name"),
-    email: formData.get("email"),
+    name: businessName || customerName,
+    email: String(formData.get("email") ?? "").trim().toLowerCase(),
     phone: emptyToUndef(formData.get("phone")),
     addressLine: emptyToUndef(formData.get("addressLine")),
     city: emptyToUndef(formData.get("city")),
@@ -93,6 +100,9 @@ export async function createWorkspaceInlineAction(
   const workspace = await db.workspace.create({
     data: {
       ...parsed.data,
+      name: businessName || customerName,
+      businessName: businessName || null,
+      contactName: customerName || null,
       createdById: user.id,
       members: {
         create: { userId: user.id, role: "owner" },
@@ -104,6 +114,8 @@ export async function createWorkspaceInlineAction(
     workspace: {
       id: workspace.id,
       name: workspace.name,
+      businessName: workspace.businessName,
+      contactName: workspace.contactName,
       email: workspace.email,
       phone: workspace.phone,
       addressLine: workspace.addressLine,
