@@ -1,6 +1,6 @@
 ## Current handoff — 2026-11-08
 
-Branch: `feat/dashboard-section-row`, pushed at `e5bdb25` and PR #58 opened. It includes the compact customer list, icon-only Bookkeeper client navigation, removal of redundant client-settings copy, dashboard workspace switcher styling, compact sign-in dialog, and development-only demo sign-in; see dated entries below and above. `git diff --check` passed. Tests, lint, build, and phone visual recheck were not run after the latest UI edits. `gh pr checks 58` reported “no checks reported”; PR is unmerged. Next: run the project-required checks, then merge PR #58 if they pass.
+Branch: `feat/dashboard-section-row`, pushed as PR #58. It includes the compact customer list, icon-only Bookkeeper client navigation, removal of redundant client-settings copy, dashboard workspace switcher styling, compact sign-in dialog, and development-only demo sign-in; see dated entries below and above. Checks run 2026-11-08: `git diff --check` passed; `npm run lint` passed with 0 errors and 2 existing `<img>` warnings in `src/app/partners/page.tsx`; `npm run test:upgrades` passed 27/27; `npm run test:payments` passed 11/11; `npm run test:phone` passed 11/11; `npm run test:terms` passed 4/4; `npm run test:migration` passed (30 migrations, 23 RLS tables); `npm run build` passed. Build printed the existing Prisma `package.json#prisma` deprecation and Next.js middleware deprecation warnings. No phone visual recheck. PR was mergeable; squash merge and branch pruning are the next step.
 
 ## Bookkeeper client page cleanup — 2026-11-08
 
