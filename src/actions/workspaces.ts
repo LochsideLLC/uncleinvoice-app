@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
@@ -134,8 +135,13 @@ export async function updateWorkspaceAction(
 ): Promise<ActionState> {
   const workspaceId = String(formData.get("workspaceId") ?? "");
   await requireWorkspace(workspaceId);
+  const customerName = String(formData.get("contactName") ?? "").trim();
+  const businessName = String(formData.get("businessName") ?? "").trim();
+  if (!customerName && !businessName) {
+    return { error: "Enter a customer name or business name." };
+  }
   const parsed = workspaceSchema.safeParse({
-    name: formData.get("name"),
+    name: businessName || customerName,
     email: formData.get("email"),
     phone: emptyToUndef(formData.get("phone")),
     addressLine: emptyToUndef(formData.get("addressLine")),
@@ -148,9 +154,29 @@ export async function updateWorkspaceAction(
   }
   await db.workspace.update({
     where: { id: workspaceId },
-    data: { ...parsed.data, email: parsed.data.email || null },
+    data: {
+      ...parsed.data,
+      name: businessName || customerName,
+      businessName: businessName || null,
+      contactName: customerName || null,
+      email: parsed.data.email || null,
+    },
   });
   return { ok: true, message: "Client details saved." };
+}
+
+export async function archiveWorkspaceAction(formData: FormData): Promise<void> {
+  const workspaceId = String(formData.get("workspaceId") ?? "");
+  const archived = formData.get("archived") === "true";
+  const { membership } = await requireWorkspace(workspaceId);
+  if (membership.role !== "owner") redirect("/app");
+
+  await db.workspace.update({
+    where: { id: workspaceId },
+    data: { archivedAt: archived ? new Date() : null },
+  });
+  revalidatePath("/app");
+  redirect("/app");
 }
 
 const defaultTermsSchema = z.object({

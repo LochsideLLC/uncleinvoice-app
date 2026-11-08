@@ -83,6 +83,7 @@ model Workspace {
   name              String
   businessName      String?
   contactName       String?
+  archivedAt        DateTime?
   email             String?
   phone             String?
   addressLine       String?

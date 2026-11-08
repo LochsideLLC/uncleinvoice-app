@@ -11,6 +11,8 @@ export function WorkspaceSettingsForm({
   workspace: {
     id: string;
     name: string;
+    businessName: string | null;
+    contactName: string | null;
     email: string | null;
     phone: string | null;
     addressLine: string | null;
@@ -27,8 +29,20 @@ export function WorkspaceSettingsForm({
       <input type="hidden" name="workspaceId" value={workspace.id} />
       <FormBanner state={state} />
       <div className="field">
-        <label htmlFor="name">Business name</label>
-        <input id="name" name="name" required defaultValue={workspace.name} />
+        <label htmlFor="contactName">Customer name</label>
+        <input
+          id="contactName"
+          name="contactName"
+          defaultValue={workspace.contactName ?? (workspace.businessName ? "" : workspace.name)}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="businessName">Business name</label>
+        <input
+          id="businessName"
+          name="businessName"
+          defaultValue={workspace.businessName ?? ""}
+        />
       </div>
       <div className="field">
         <label htmlFor="email">Office email</label>
