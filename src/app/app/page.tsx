@@ -13,7 +13,7 @@ import { WorkspaceDashboard } from "@/components/workspace-dashboard";
 export default async function AppHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string }>;
+  searchParams: Promise<{ workspace?: string; section?: string; from?: string }>;
 }) {
   const user = await requireUser();
   // A login created on someone's behalf has a password a third party knows.
@@ -29,7 +29,8 @@ export default async function AppHomePage({
   // The header renders from the user row before this page runs, so persisting
   // here would leave it showing the old mode for one request. Redirecting to
   // a clean /app re-renders everything from the stored choice instead.
-  const requested = (await searchParams).workspace;
+  const params = await searchParams;
+  const requested = params.workspace;
   if (requested === "contractor" || requested === "bookkeeper") {
     const kind = asWorkspaceKind(requested);
     const flag = kind === "bookkeeper" ? "bookkeeperOnboardedAt" : "contractorOnboardedAt";
@@ -38,6 +39,11 @@ export default async function AppHomePage({
         where: { id: user.id },
         data: { workspaceKind: kind, [flag]: new Date() },
       });
+    }
+    if (params.section === "clients") {
+      const nextParams = new URLSearchParams({ section: "clients" });
+      if (params.from === "create") nextParams.set("from", "create");
+      redirect(`/app?${nextParams.toString()}`);
     }
     redirect("/app");
   }
@@ -88,7 +94,7 @@ export default async function AppHomePage({
     </>
   );
 
-  const clients = <CustomersPanel memberships={memberships} />;
+  const clients = <CustomersPanel memberships={memberships} fromCreate={params.from === "create"} />;
 
   const bookkeeper = (
     <BookkeeperHome
@@ -102,6 +108,7 @@ export default async function AppHomePage({
   return (
     <WorkspaceDashboard
       kind={kind}
+      initialSection={params.section === "clients" ? "clients" : "invoices"}
       createAction={createAction}
       invoices={invoices}
       clients={clients}
