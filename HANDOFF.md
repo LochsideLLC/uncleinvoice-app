@@ -1,6 +1,6 @@
 ## Current handoff — 2026-11-08
 
-Branch: `feat/dashboard-section-row`, based on `origin/main` at session start (0 commits ahead/behind before this wrap-up). This branch includes the compact customer list, icon-only Bookkeeper client navigation, removal of redundant client-settings copy, dashboard workspace switcher styling, compact sign-in dialog, and development-only demo sign-in; see dated entries below and above. `git diff --check` passes. Tests, lint, build, and phone visual recheck were not run after the latest UI edits. Next: review the combined diff, run project-required checks, then open/merge a PR if they pass.
+Branch: `feat/dashboard-section-row`, pushed at `e5bdb25` and PR #58 opened. It includes the compact customer list, icon-only Bookkeeper client navigation, removal of redundant client-settings copy, dashboard workspace switcher styling, compact sign-in dialog, and development-only demo sign-in; see dated entries below and above. `git diff --check` passed. Tests, lint, build, and phone visual recheck were not run after the latest UI edits. `gh pr checks 58` reported “no checks reported”; PR is unmerged. Next: run the project-required checks, then merge PR #58 if they pass.
 
 ## Bookkeeper client page cleanup — 2026-11-08
 
