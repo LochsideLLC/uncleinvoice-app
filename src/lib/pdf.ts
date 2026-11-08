@@ -38,6 +38,8 @@ type PdfInvoice = {
   confirmedByEmail: string | null;
   workspace: {
     name: string;
+    businessName?: string | null;
+    contactName?: string | null;
     email: string | null;
     phone: string | null;
     addressLine: string | null;
@@ -130,7 +132,11 @@ export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   text("FROM", { x: 320, y, size: 9, font: bold, color: muted });
   y -= 16;
   const fromHead = partyLines(invoice.fromContactName, invoice.contractor.name);
-  const toHead = partyLines(invoice.billToContactName, invoice.workspace.name, true);
+  const toHead = partyLines(
+    invoice.billToContactName ?? invoice.workspace.contactName,
+    invoice.workspace.businessName || invoice.workspace.name,
+    true,
+  );
   text(toHead[0] ?? "", { x: left, y, size: 12, font: bold, color: ink });
   text(fromHead[0] ?? "", { x: 320, y, size: 12, font: bold, color: ink });
   if (fromHead[1] || toHead[1]) {

@@ -108,6 +108,8 @@ export function invoiceToDocument(invoice: {
   };
   workspace: {
     name: string;
+    businessName?: string | null;
+    contactName?: string | null;
     email: string | null;
     phone?: string | null;
     addressLine?: string | null;
@@ -144,8 +146,8 @@ export function invoiceToDocument(invoice: {
         invoice.fromRegion ?? invoice.contractor.region,
         invoice.fromPostalCode ?? invoice.contractor.postalCode,
       ) || null,
-    billToName: invoice.workspace.name,
-    billToContactName: invoice.billToContactName,
+    billToName: invoice.workspace.businessName || invoice.workspace.name,
+    billToContactName: invoice.billToContactName ?? invoice.workspace.contactName,
     billToEmail: invoice.workspace.email,
     billToPhone: invoice.workspace.phone,
     billToAddress: invoice.workspace.addressLine,

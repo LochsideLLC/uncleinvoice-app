@@ -81,6 +81,8 @@ model Session {
 model Workspace {
   id                String   @id @default(cuid())
   name              String
+  businessName      String?
+  contactName       String?
   email             String?
   phone             String?
   addressLine       String?

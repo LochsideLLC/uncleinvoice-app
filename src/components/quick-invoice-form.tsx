@@ -109,6 +109,8 @@ export function QuickInvoiceForm({
   billToClients?: {
     id: string;
     name: string;
+    businessName: string | null;
+    contactName: string | null;
     email: string | null;
     phone: string | null;
     addressLine: string | null;
@@ -159,6 +161,7 @@ export function QuickInvoiceForm({
   const [newClientSaveResult, setNewClientSaveResult] = useState<{ ok?: boolean; error?: string } | null>(null);
   const newClientSave = useSaveButton(newClientSaveResult);
   const [newClientName, setNewClientName] = useState("");
+  const [newClientBusiness, setNewClientBusiness] = useState("");
   const [suggestedNumber, setSuggestedNumber] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState(defaults?.invoiceNumber ?? "");
   const [issueDate, setIssueDate] = useState(defaults?.issueDate ?? today);
@@ -252,6 +255,8 @@ export function QuickInvoiceForm({
 
   function fillBillTo(client: {
     name: string;
+    businessName?: string | null;
+    contactName?: string | null;
     email: string | null;
     phone: string | null;
     addressLine: string | null;
@@ -259,7 +264,8 @@ export function QuickInvoiceForm({
     region: string | null;
     postalCode: string | null;
   }) {
-    setBillToName(client.name);
+    setBillToName(client.businessName || client.name);
+    setBillToContactName(client.contactName ?? "");
     setBillToEmail(client.email ?? "");
     setBillToPhone(displayPhoneNumber(client.phone ?? ""));
     setBillToPhoneE164(initialPhoneE164(displayPhoneNumber(client.phone ?? "")));
@@ -320,6 +326,7 @@ export function QuickInvoiceForm({
 
   function openNewClient(prefill: string) {
     setNewClientName(prefill);
+    setNewClientBusiness("");
     setNewClientError(null);
     setNewClientSaveResult(null);
     newClientSave.reset();
@@ -589,7 +596,7 @@ export function QuickInvoiceForm({
                 aria-expanded={canSaveClients ? companyOpen : undefined}
                 aria-autocomplete={canSaveClients ? "list" : undefined}
                 aria-controls={canSaveClients ? "bill-to-client-list" : undefined}
-                aria-label="Client company"
+                aria-label="Customer or business"
                 className="invoice-input w-full"
                 autoComplete="off"
                 value={billToName}
@@ -624,7 +631,7 @@ export function QuickInvoiceForm({
                     }
                   }
                 }}
-                placeholder="Company"
+                placeholder="Customer or business"
               />
               {companyOpen && canSaveClients ? (
                 <>
@@ -1139,63 +1146,78 @@ export function QuickInvoiceForm({
         <div
           role="dialog"
           aria-label="Add a new customer"
-          className="paper fixed inset-y-0 right-0 z-30 flex w-full max-w-md flex-col gap-4 overflow-auto p-6 shadow-2xl"
+          className="customer-drawer paper fixed inset-y-0 right-0 z-30 flex w-full max-w-md flex-col gap-3 overflow-auto p-4 shadow-2xl"
           onKeyDown={(event) => {
             if (event.key === "Escape") setNewClientOpen(false);
           }}
         >
           <div>
-            <h3 className="display text-2xl">Add a new customer</h3>
-            <p className="mt-1 text-sm text-muted">
-              Saved to your customer list, then filled straight into this invoice.
-            </p>
+            <h3 className="display text-2xl">Add customer</h3>
+            <p className="mt-1 text-sm text-muted">Saved to your list and added to this invoice.</p>
           </div>
           {newClientError ? (
             <p className="rounded-2xl bg-red-50 px-4 py-3 text-red-900">{newClientError}</p>
           ) : null}
-          <form action={saveNewClient} onChange={newClientSave.markDirty} className="space-y-4">
+          <form
+            action={saveNewClient}
+            onChange={() => {
+              newClientSave.markDirty();
+              setNewClientError(null);
+            }}
+            className="compact-customer-fields grid grid-cols-1 gap-y-2"
+          >
             <div className="field">
-              <label htmlFor="newClientName">Company</label>
+              <label htmlFor="newClientName">Customer name</label>
               <input
                 id="newClientName"
                 name="name"
-                required
                 autoFocus
-                defaultValue={newClientName}
+                value={newClientName}
+                onChange={(event) => setNewClientName(event.target.value)}
+                placeholder="Jane Smith"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="newClientBusiness">Business name</label>
+              <input
+                id="newClientBusiness"
+                name="businessName"
+                value={newClientBusiness}
+                onChange={(event) => setNewClientBusiness(event.target.value)}
                 placeholder="Acme Appliances"
               />
             </div>
             <div className="field">
-              <label htmlFor="newClientEmail">Office email</label>
-              <input id="newClientEmail" name="email" type="email" required />
+              <label htmlFor="newClientEmail">Email</label>
+              <input id="newClientEmail" name="email" type="email" autoComplete="email" />
             </div>
             <div className="field">
               <label htmlFor="newClientPhone">Phone</label>
-              <input id="newClientPhone" name="phone" />
+              <input id="newClientPhone" name="phone" type="tel" autoComplete="tel" />
             </div>
             <div className="field">
               <label htmlFor="newClientAddressLine">Street address</label>
-              <input id="newClientAddressLine" name="addressLine" />
+              <input id="newClientAddressLine" name="addressLine" autoComplete="street-address" />
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="field">
-                <label htmlFor="newClientCity">City</label>
-                <input id="newClientCity" name="city" />
-              </div>
+            <div className="field">
+              <label htmlFor="newClientCity">City</label>
+              <input id="newClientCity" name="city" autoComplete="address-level2" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="field">
                 <label htmlFor="newClientRegion">State</label>
-                <input id="newClientRegion" name="region" />
+                <input id="newClientRegion" name="region" autoComplete="address-level1" />
               </div>
               <div className="field">
                 <label htmlFor="newClientPostalCode">ZIP</label>
-                <input id="newClientPostalCode" name="postalCode" />
+                <input id="newClientPostalCode" name="postalCode" autoComplete="postal-code" />
               </div>
             </div>
             <div className="flex gap-2">
-              <SaveButton type="submit" pending={newClientPending} save={newClientSave} label="Save customer" />
+              <SaveButton type="submit" pending={newClientPending} save={newClientSave} label="Save customer" className="flex-1" />
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary flex-1"
                 onClick={() => setNewClientOpen(false)}
               >
                 Cancel
