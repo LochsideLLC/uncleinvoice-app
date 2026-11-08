@@ -1,12 +1,16 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import type { ReactNode } from "react";
 import type { ActionState } from "@/actions/auth";
 import { FormBanner } from "@/components/form-banner";
+import { SaveButton, useSaveButton } from "@/components/save-button";
+import Link from "next/link";
+import { DEFAULT_INVOICE_MESSAGE } from "@/lib/invoice-email";
 
 function IconEmail() {
   return (
-    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <rect x="1" y="3" width="14" height="10" rx="1.5" />
       <path d="M1 5.5l7 4.5 7-4.5" />
     </svg>
@@ -15,16 +19,27 @@ function IconEmail() {
 
 function IconLink() {
   return (
-    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M6.5 9.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-5-5l-1 1" />
       <path d="M9.5 6.5a3.5 3.5 0 0 0-5 0l-2 2a3.5 3.5 0 0 0 5 5l1-1" />
     </svg>
   );
 }
-import { markAsPaidAction, sendToClientComposedAction } from "@/actions/invoices";
+import { createShareLinkAction, markAsPaidWithFeedbackAction, sendToClientComposedAction } from "@/actions/invoices";
 
-const infoPill =
-  "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold whitespace-nowrap select-none";
+function createPaymentNonce() {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  // This is an idempotency key, not a secret. Older phone browsers may not
+  // expose randomUUID(), so retain the UUID format the server accepts.
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = character === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}
 
 export function InvoiceStatusBar({
   workspaceId,
@@ -37,6 +52,10 @@ export function InvoiceStatusBar({
   onlinePaymentEnabled,
   clientEmail,
   mailFrom,
+  defaultInvoiceMessage = DEFAULT_INVOICE_MESSAGE,
+  defaultMessageReturnTo,
+  openSendForm = false,
+  actionTools,
 }: {
   workspaceId: string;
   invoiceId: string;
@@ -48,25 +67,53 @@ export function InvoiceStatusBar({
   onlinePaymentEnabled: boolean;
   clientEmail: string | null;
   mailFrom: string;
+  defaultInvoiceMessage?: string;
+  defaultMessageReturnTo: string;
+  openSendForm?: boolean;
+  actionTools?: ReactNode;
 }) {
   const [showPayForm, setShowPayForm] = useState(false);
-  const [showSendForm, setShowSendForm] = useState(false);
+  const [showSendForm, setShowSendForm] = useState(openSendForm);
   const [copied, setCopied] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const [paymentNonce, setPaymentNonce] = useState(createPaymentNonce);
+  const [paymentState, paymentAction, paymentPending] = useActionState(
+    async (prev: ActionState | null, formData: FormData) => {
+      const result = await markAsPaidWithFeedbackAction(prev, formData);
+      if (result?.ok) setPaymentNonce(createPaymentNonce());
+      return result;
+    },
+    null,
+  );
+  const paymentSave = useSaveButton(paymentState);
   const [sendState, sendAction, sendPending] = useActionState(
     async (prev: ActionState | null, formData: FormData) => {
       const result = await sendToClientComposedAction(prev, formData);
-      if (result?.ok) setShowSendForm(false);
+      if (result?.ok) {
+        setShowSendForm(false);
+        setNotice(result.message ?? null);
+      }
       return result;
     },
     null,
   );
 
-  function copyLink() {
-    const url = `${window.location.origin}/invoices/view/${invoiceId}`;
-    navigator.clipboard.writeText(url).then(() => {
+  async function copyLink() {
+    setLinkError(null);
+    const result = await createShareLinkAction(workspaceId, invoiceId);
+    if ("error" in result) {
+      setLinkError(result.error);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(result.url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } catch {
+      setLinkError("Could not copy automatically. The link is: " + result.url);
+    }
   }
 
   const isSent = status === "sent";
@@ -97,70 +144,64 @@ export function InvoiceStatusBar({
 
   function dueStyle(): React.CSSProperties {
     if (daysUntilDue === null) return {};
-    if (daysUntilDue < 0) return { background: "#fde8e8", border: "1.5px solid #c0392b", color: "#9a1f1f" };
-    if (daysUntilDue <= 7) return { background: "#f3dcc0", border: "1.5px solid #c4612a", color: "#7a3a22" };
-    return { background: "var(--paper)", border: "1.5px solid var(--line)", color: "var(--muted)" };
+    if (daysUntilDue < 0) return { background: "#fde8e8", color: "#9a1f1f" };
+    if (daysUntilDue <= 7) return { background: "#f3dcc0", color: "#7a3a22" };
+    return { background: "var(--paper)", color: "var(--muted)" };
   }
 
   const dueLabelText = dueLabel();
+  const isOverdue = daysUntilDue !== null && daysUntilDue < 0 && !isPaid;
   const showActions = !isPaid;
+  const bannerStyle = isOverdue
+    ? dueStyle()
+    : isPaid
+      ? { background: "color-mix(in srgb, var(--olive) 18%, var(--paper))", color: "var(--olive)" }
+      : isSent
+        ? { background: "color-mix(in srgb, #5a8a6a 14%, var(--paper))", color: "#3d6b52" }
+        : { background: "color-mix(in srgb, #c4612a 10%, var(--paper))", color: "#c4612a" };
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 print:hidden">
+      <div className="flex flex-col gap-2 print:hidden">
+        <div className="flex w-full items-center gap-0.5">
+          {actionTools ? <div className="shrink-0">{actionTools}</div> : null}
 
-        {/* Info pills — pure indicators, no interactivity */}
-        <div className="flex items-center gap-2">
-          <span
-            className={infoPill}
-            style={
-              isSent
-                ? { background: "color-mix(in srgb, #5a8a6a 14%, var(--paper))", border: "1.5px solid #5a8a6a", color: "#3d6b52" }
-                : { background: "color-mix(in srgb, #c4612a 10%, var(--paper))", border: "1.5px solid #c4612a", color: "#c4612a" }
-            }
-          >
-            {sentLabel()}
-          </span>
-
-          {dueLabelText && !isPaid && (
-            <span className={infoPill} style={dueStyle()}>
-              {dueLabelText}
-            </span>
-          )}
-
-          {isPaid && (
-            <span
-              className={infoPill}
-              style={{ background: "color-mix(in srgb, var(--olive) 18%, var(--paper))", border: "1.5px solid var(--olive)", color: "var(--olive)" }}
-            >
-              Paid
-            </span>
+          {showActions && (
+            <>
+              {!isSent ? (
+                <button type="button" aria-label="Send invoice" title="Send invoice" className="btn btn-ghost h-9 w-9 shrink-0 !p-0" onClick={() => setShowSendForm(true)}>
+                  <IconEmail />
+                </button>
+              ) : (
+                <button type="button" aria-label="Send reminder" title="Send reminder" className="btn btn-ghost h-9 w-9 shrink-0 !p-0" onClick={() => { /* TODO: send reminder */ }}>
+                  <IconEmail />
+                </button>
+              )}
+              <button type="button" aria-label={copied ? "Link copied" : "Share invoice link"} title={copied ? "Link copied" : "Share invoice link"} className="btn btn-ghost h-9 w-9 shrink-0 !p-0" onClick={copyLink}>
+                <IconLink />
+              </button>
+              {!onlinePaymentEnabled ? (
+                <button type="button" className="btn btn-ghost ml-auto h-9 shrink-0 whitespace-nowrap !px-1.5 !py-0" onClick={() => { paymentSave.reset(); setShowPayForm(true); }}>
+                  Mark as paid
+                </button>
+              ) : null}
+            </>
           )}
         </div>
 
-        {/* Action buttons — rectangular, same shape as Print / Download */}
-        {showActions && (
-          <div className="flex items-center gap-2">
-            {!isSent ? (
-              <button type="button" className="btn btn-ghost" style={{ padding: "0.4rem 0.85rem", fontSize: "0.875rem" }} onClick={() => setShowSendForm(true)}>
-                <IconEmail /> Send
-              </button>
-            ) : (
-              <button type="button" className="btn btn-ghost" style={{ padding: "0.4rem 0.85rem", fontSize: "0.875rem" }} onClick={() => { /* TODO: send reminder */ }}>
-                <IconEmail /> Send reminder
-              </button>
-            )}
-            <button type="button" className="btn btn-ghost" style={{ padding: "0.4rem 0.85rem", fontSize: "0.875rem" }} onClick={copyLink}>
-              <IconLink /> {copied ? "Copied!" : "Share link"}
-            </button>
-            {!onlinePaymentEnabled ? (
-              <button type="button" className="btn btn-ghost" style={{ padding: "0.4rem 0.85rem", fontSize: "0.875rem" }} onClick={() => setShowPayForm(true)}>
-                Mark as paid
-              </button>
-            ) : null}
-          </div>
-        )}
+        <div className="relative left-1/2 flex w-screen -translate-x-1/2 items-center justify-between gap-3 whitespace-nowrap border-y border-line py-2 text-sm sm:text-base" style={bannerStyle}>
+          <span className="shrink-0 pl-4 font-semibold">{sentLabel()}</span>
+          {dueLabelText && !isPaid ? <span className="pr-4 font-semibold">{dueLabelText}</span> : null}
+          {isPaid ? <span className="pr-4 font-semibold">Paid</span> : null}
+        </div>
       </div>
+
+      {notice ? (
+        <p role="status" className="mt-2 text-sm text-muted print:hidden">{notice}</p>
+      ) : null}
+      {linkError ? (
+        <p role="alert" className="mt-2 text-sm text-red-900 print:hidden">{linkError}</p>
+      ) : null}
 
       {showSendForm && (
         <div
@@ -168,12 +209,12 @@ export function InvoiceStatusBar({
           style={{ background: "rgba(42,31,22,0.35)" }}
           onPointerDown={(e) => { if (e.target === e.currentTarget) setShowSendForm(false); }}
         >
-          <div className="paper max-h-full w-full max-w-md overflow-auto rounded-3xl p-6 shadow-xl">
-            <h3 className="text-xl">Send invoice</h3>
-            <p className="mt-2 text-sm text-muted">
-              This will email the invoice to your client and mark it as sent.
-            </p>
-            <form action={sendAction} className="mt-5 space-y-4">
+          <div className="paper max-h-[calc(100dvh_-_2rem)] w-full max-w-md overflow-auto overscroll-contain rounded-3xl p-4 shadow-xl sm:p-5">
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <h3 className="text-xl">Send invoice</h3>
+              <p className="text-sm text-muted">Email it to your customer.</p>
+            </div>
+            <form action={sendAction} className="send-invoice-form mt-3 space-y-2.5">
               <FormBanner state={sendState} />
               <input type="hidden" name="workspaceId" value={workspaceId} />
               <input type="hidden" name="invoiceId" value={invoiceId} />
@@ -188,48 +229,55 @@ export function InvoiceStatusBar({
                   placeholder="client@company.com"
                 />
               </div>
-              <div className="field">
-                <label htmlFor="send-from">From</label>
-                <input
-                  id="send-from"
-                  value={mailFrom}
-                  readOnly
-                  className="opacity-80"
-                />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold uppercase tracking-[0.08em] text-muted">From</p>
+                <p aria-label={`From ${mailFrom}`} title={mailFrom} className="send-form-from truncate rounded-lg border border-line bg-white px-3 py-2 text-sm text-muted">
+                  {mailFrom}
+                </p>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="field">
-                  <label htmlFor="send-cc">Cc</label>
-                  <input
-                    id="send-cc"
-                    name="cc"
-                    placeholder="comma, separated"
-                  />
+              <details className="rounded-xl border border-line px-3 py-2">
+                <summary className="cursor-pointer text-sm font-semibold text-muted">Add Cc or Bcc</summary>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="field">
+                    <label htmlFor="send-cc">Cc</label>
+                    <input id="send-cc" name="cc" placeholder="comma, separated" />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="send-bcc">Bcc</label>
+                    <input id="send-bcc" name="bcc" placeholder="comma, separated" />
+                  </div>
                 </div>
-                <div className="field">
-                  <label htmlFor="send-bcc">Bcc</label>
-                  <input
-                    id="send-bcc"
-                    name="bcc"
-                    placeholder="comma, separated"
-                  />
-                </div>
-              </div>
+              </details>
               <div className="field">
-                <label htmlFor="send-message">Message (optional)</label>
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="send-message">Message (optional)</label>
+                  <div className="send-message-actions flex shrink-0 items-center gap-3 text-xs">
+                    <button type="button" className="font-semibold underline" onClick={() => setMessage(defaultInvoiceMessage)}>
+                      Use default
+                    </button>
+                    <Link
+                      href={`/app/profile?${new URLSearchParams({ returnTo: defaultMessageReturnTo }).toString()}#default-invoice-message`}
+                      className="text-muted underline"
+                    >
+                      Change default
+                    </Link>
+                  </div>
+                </div>
                 <textarea
                   id="send-message"
                   name="message"
-                  rows={3}
+                  rows={message ? Math.min(8, Math.max(2, Math.ceil(message.length / 38))) : 2}
                   maxLength={2000}
                   placeholder="A quick note to go with the invoice"
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
                 />
               </div>
-              <div className="flex gap-3">
-                <button type="submit" className="btn btn-primary" disabled={sendPending}>
+              <div className="grid w-full grid-cols-2 gap-3">
+                <button type="submit" className="btn btn-primary w-full" disabled={sendPending}>
                   {sendPending ? "Sending…" : "Send now"}
                 </button>
-                <button type="button" className="btn btn-ghost" onClick={() => setShowSendForm(false)}>Cancel</button>
+                <button type="button" className="btn btn-ghost w-full" onClick={() => setShowSendForm(false)}>Cancel</button>
               </div>
             </form>
           </div>
@@ -245,9 +293,11 @@ export function InvoiceStatusBar({
           <div className="paper w-full max-w-sm rounded-3xl p-6 shadow-xl">
             <h3 className="text-xl">Record payment</h3>
             <p className="mt-1 text-sm text-muted">Fill in what you know. Even partial info helps.</p>
-            <form action={markAsPaidAction} className="mt-5 space-y-4">
+            <form action={paymentAction} onChange={paymentSave.markDirty} className="mt-5 space-y-4">
               <input type="hidden" name="workspaceId" value={workspaceId} />
               <input type="hidden" name="invoiceId" value={invoiceId} />
+              <input type="hidden" name="paymentNonce" value={paymentNonce} />
+              <FormBanner state={paymentState} />
               <div className="field">
                 <label htmlFor="pay-amount">Amount paid</label>
                 <input type="number" id="pay-amount" name="amount" step="0.01" min="0.01" defaultValue={remainingDollars} required />
@@ -273,7 +323,7 @@ export function InvoiceStatusBar({
                 <input type="text" id="pay-note" name="note" placeholder="e.g. Check #1234" />
               </div>
               <div className="flex gap-3 pt-1">
-                <button type="submit" className="btn btn-primary">Save payment</button>
+                <SaveButton type="submit" pending={paymentPending} save={paymentSave} label="Save payment" />
                 <button type="button" className="btn btn-ghost" onClick={() => setShowPayForm(false)}>Cancel</button>
               </div>
             </form>

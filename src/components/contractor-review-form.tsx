@@ -1,17 +1,25 @@
 "use client";
 
 import { useActionState } from "react";
-import { contractorConfirmAction, contractorUpdateInvoiceAction } from "@/actions/invoices";
+import {
+  contractorBatchConfirmInvoiceAction,
+  contractorBatchUpdateInvoiceAction,
+  contractorConfirmAction,
+  contractorUpdateInvoiceAction,
+} from "@/actions/invoices";
 import { FormBanner } from "@/components/form-banner";
 import { LineItemsEditor, toLineDrafts } from "@/components/line-items-editor";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 
 export function ContractorReviewForm({
   token,
   workspaceName,
   invoice,
+  batchInvoiceId,
 }: {
   token: string;
   workspaceName: string;
+  batchInvoiceId?: string;
   invoice: {
     issueDate: string;
     serviceStart: string;
@@ -20,19 +28,26 @@ export function ContractorReviewForm({
     lineItems: { description: string; quantity: number; unitPrice: number }[];
   };
 }) {
+  const saveServerAction = batchInvoiceId
+    ? contractorBatchUpdateInvoiceAction.bind(null, batchInvoiceId)
+    : contractorUpdateInvoiceAction;
+  const confirmServerAction = batchInvoiceId
+    ? contractorBatchConfirmInvoiceAction.bind(null, batchInvoiceId)
+    : contractorConfirmAction;
   const [saveState, saveAction, savePending] = useActionState(
-    contractorUpdateInvoiceAction,
+    saveServerAction,
     null,
   );
   const [confirmState, confirmAction, confirmPending] = useActionState(
-    contractorConfirmAction,
+    confirmServerAction,
     null,
   );
+  const save = useSaveButton(saveState);
 
   return (
     <div className="paper mt-6 space-y-5 rounded-3xl p-6">
       <FormBanner state={saveState ?? confirmState} />
-      <form id="review-form" className="space-y-4">
+      <form id="review-form" onChange={save.markDirty} className="space-y-4">
         <input type="hidden" name="token" value={token} />
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="field">
@@ -84,16 +99,15 @@ export function ContractorReviewForm({
           formAction={confirmAction}
           disabled={confirmPending}
         >
-          Confirm and send to {workspaceName}
+          Confirm this invoice
         </button>
-        <button
-          className="btn btn-ghost"
+        <SaveButton
           form="review-form"
           formAction={saveAction}
-          disabled={savePending}
-        >
-          Save my edits first
-        </button>
+          pending={savePending}
+          save={save}
+          label="Save my edits first"
+        />
       </div>
     </div>
   );

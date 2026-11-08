@@ -31,6 +31,7 @@ model User {
   taxId               String?
   clientTerm          String    @default("clients")
   emailSignature      String?
+  defaultInvoiceMessage String?
   admin               Boolean   @default(false)
   // "free", "invoice", or "bookkeeper". The tier lives on the person, not on
   // the client workspace, so a bookkeeper pays once and it covers every client
@@ -89,6 +90,7 @@ model Workspace {
   taxId             String?
   invoicePrefix     String   @default("INV")
   nextInvoiceNumber Int      @default(1)
+  defaultPaymentTerms String?
   createdById       String
   createdBy         User     @relation("CreatedBy", fields: [createdById], references: [id])
   createdAt         DateTime @default(now())
@@ -97,6 +99,7 @@ model Workspace {
   members     WorkspaceMember[]
   contractors Contractor[]
   invoices    Invoice[]
+  services    ServiceItem[]
 
   @@schema("uncleinvoice")
 }
@@ -152,9 +155,11 @@ model Invoice {
   paymentInstructions  String?
   taxRateBps           Int        @default(0)
   amountPaid           Int        @default(0)
+  sourcePaymentId      String?
   currency             String     @default("usd")
   collectionMode       String     @default("documentation")
   onlinePaymentEnabled Boolean    @default(false)
+  checkPaymentEnabled  Boolean    @default(false)
   firstViewedAt        DateTime?
   lastViewedAt         DateTime?
   approximateViewCount Int        @default(0)
@@ -189,6 +194,7 @@ model Invoice {
   notifications    Notification[]
 
   @@unique([workspaceId, number])
+  @@unique([workspaceId, sourcePaymentId])
   @@schema("uncleinvoice")
 }
 
@@ -209,6 +215,19 @@ model InvoiceAttachment {
   createdAt        DateTime @default(now())
 
   @@index([invoiceId])
+  @@schema("uncleinvoice")
+}
+
+model ServiceItem {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  description String
+  unitPrice   Int
+  taxable     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   @@schema("uncleinvoice")
 }
 

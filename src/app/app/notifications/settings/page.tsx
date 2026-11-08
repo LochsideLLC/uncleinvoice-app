@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { updateNotificationPreferencesAction, updateTimeZoneAction } from "@/actions/notifications";
 import { NOTIFICATION_EVENT_TYPES, TIME_ZONES } from "@/lib/notification-policy";
 import { PushNotificationControls } from "@/components/push-notification-controls";
+import { NotificationSettingsSaveForm } from "@/components/notification-settings-save-form";
 import { pushEnabled } from "@/lib/push";
 
 const LABELS: Record<(typeof NOTIFICATION_EVENT_TYPES)[number], string> = {
@@ -29,7 +30,7 @@ export default async function NotificationSettingsPage() {
         <p className="text-sm uppercase tracking-widest text-muted">Account</p>
         <h1 className="mt-1 text-3xl">Notification settings</h1>
       </div>
-      <form action={updateNotificationPreferencesAction} className="paper overflow-hidden rounded-3xl">
+      <NotificationSettingsSaveForm action={updateNotificationPreferencesAction} label="Save settings" className="paper overflow-hidden rounded-3xl" buttonClassName="m-5 mt-0">
         <div className="grid grid-cols-[1fr_repeat(3,auto)] gap-x-4 border-b border-line px-5 py-3 text-sm font-semibold text-muted">
           <span>Event</span><span>In app</span><span>Push</span><span>Email</span>
         </div>
@@ -47,9 +48,8 @@ export default async function NotificationSettingsPage() {
         })}
         <div className="space-y-3 p-5">
           <p className="text-sm text-muted">Push and email choices are saved now. Delivery stays off until their safety switches are enabled.</p>
-          <button className="btn btn-primary" type="submit">Save settings</button>
         </div>
-      </form>
+      </NotificationSettingsSaveForm>
       <section className="paper rounded-3xl p-5">
         <h2 className="mb-3 text-2xl">Browser alerts</h2>
         <PushNotificationControls
@@ -57,14 +57,13 @@ export default async function NotificationSettingsPage() {
           publicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
         />
       </section>
-      <form action={updateTimeZoneAction} className="paper flex flex-wrap items-end gap-3 rounded-3xl p-5">
+      <NotificationSettingsSaveForm action={updateTimeZoneAction} label="Save time zone" className="paper flex flex-wrap items-end gap-3 rounded-3xl p-5">
         <label className="flex-1 text-sm">Your time zone
           <select name="timeZone" defaultValue={user.timeZone} className="mt-1 block w-full rounded-xl border border-line bg-paper px-3 py-2">
             {TIME_ZONES.map((zone) => <option key={zone} value={zone}>{zone.replaceAll("_", " ")}</option>)}
           </select>
         </label>
-        <button className="btn btn-secondary" type="submit">Save time zone</button>
-      </form>
+      </NotificationSettingsSaveForm>
     </div>
   );
 }

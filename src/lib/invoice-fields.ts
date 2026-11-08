@@ -10,6 +10,14 @@ export const PAYMENT_TERMS = [
   "Net 60",
 ] as const;
 
+// Preselected when a client business has no saved default yet.
+export const DEFAULT_PAYMENT_TERMS = "Net 30";
+
+export function resolveDefaultTerms(saved: string | null | undefined): string {
+  const trimmed = (saved ?? "").trim();
+  return trimmed || DEFAULT_PAYMENT_TERMS;
+}
+
 export function optionalText(value: FormDataEntryValue | null): string | null {
   const text = String(value ?? "").trim();
   return text || null;

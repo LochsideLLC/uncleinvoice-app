@@ -34,7 +34,7 @@ export function SectionTabs({
   onChange: (tab: DashboardSection) => void;
 }) {
   return (
-    <div role="tablist" aria-label="Dashboard sections" className="flex gap-1">
+    <div role="tablist" aria-label="Dashboard sections" className="flex w-full gap-1 sm:w-auto">
       {SECTION_TABS.map(({ key, label, Icon }) => {
         const selected = tab === key;
         return (
@@ -44,7 +44,7 @@ export function SectionTabs({
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(key)}
-            className="flex items-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm font-semibold transition-colors"
+            className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap px-2 py-2.5 text-sm font-semibold transition-colors sm:flex-none sm:px-4"
             style={
               selected
                 ? { color: "var(--ink)", boxShadow: "inset 0 -2px 0 var(--accent)" }
@@ -52,7 +52,8 @@ export function SectionTabs({
             }
           >
             <Icon />
-            {label}
+            <span className="sm:hidden">{key === "clients" ? "Clients" : label}</span>
+            <span className="hidden sm:inline">{label}</span>
           </button>
         );
       })}

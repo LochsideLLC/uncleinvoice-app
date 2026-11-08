@@ -6,7 +6,11 @@ export function DashboardStats({ stats }: { stats: DashboardStats }) {
   return (
     <section className="space-y-8">
       <DashboardMetrics stats={stats} />
-      {stats.invoiceCount > 0 && <InvoiceList invoices={stats.allInvoices} manageable />}
+      {stats.invoiceCount > 0 && (
+        <div id="all-invoices" className="scroll-mt-4">
+          <InvoiceList invoices={stats.allInvoices} manageable perspective="contractor" />
+        </div>
+      )}
     </section>
   );
 }

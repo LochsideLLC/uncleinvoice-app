@@ -11,6 +11,9 @@ const hostedInvoiceHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Phone previews reach Ripley's dev server over the private tailnet.
+  // Next otherwise rejects the browser's script requests from this origin.
+  allowedDevOrigins: ["100.98.89.93"],
   async headers() {
     return [
       { source: "/i/:path*", headers: hostedInvoiceHeaders },

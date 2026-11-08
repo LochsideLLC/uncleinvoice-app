@@ -1,4 +1,6 @@
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { hashToken } from "@/lib/crypto";
 import { buildInvoicePdf } from "@/lib/pdf";
 import { sendEmail } from "@/lib/mail";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
@@ -15,6 +17,8 @@ import type { InvoiceStatus } from "@/lib/status";
  */
 export async function sendConfirmedInvoicesToClient(
   contractorId: string,
+  invoiceIds?: string[],
+  cc?: string,
 ): Promise<{ sent: number } | { error: string }> {
   const contractor = await db.contractor.findUnique({
     where: { id: contractorId },
@@ -29,8 +33,62 @@ export async function sendConfirmedInvoicesToClient(
     };
   }
 
+  // The outbox stores text only. Without a configured provider, PDFs would be
+  // lost while the UI claimed they had been sent. Fail closed before creating
+  // an outbox row or changing invoice state.
+  if (!process.env.RESEND_API_KEY || process.env.OUTBOUND_EMAIL_ENABLED?.toLowerCase() !== "true") {
+    return { error: "Email sending is not configured. No invoices were sent or marked as sent." };
+  }
+
+  const requestedIds = invoiceIds ? [...new Set(invoiceIds.filter(Boolean))] : null;
+  if (requestedIds && requestedIds.length !== invoiceIds!.length) {
+    return { error: "An invoice was selected more than once." };
+  }
+  if (requestedIds && (requestedIds.length === 0 || requestedIds.length > 50)) {
+    return { error: "Choose between 1 and 50 invoices for each email." };
+  }
+
+  if (cc && (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cc) || cc.trim().toLowerCase() === to.trim().toLowerCase())) {
+    return { error: "Enter a valid copy address that is different from the client email." };
+  }
+
+  const attemptIds = requestedIds ?? (await db.invoice.findMany({
+    where: { contractorId: contractor.id, confirmedAt: { not: null }, sentAt: null },
+    select: { id: true },
+  })).map((invoice) => invoice.id);
+  if (!attemptIds.length || attemptIds.length > 50) return { error: "Choose between 1 and 50 confirmed, unsent invoices." };
+  const packageId = hashToken(JSON.stringify({ contractorId, to: to.toLowerCase(), cc: cc?.toLowerCase() ?? "", invoiceIds: [...attemptIds].sort() }));
+  const attemptKeys = attemptIds.map((id) => `contractor-email:${id}`);
+
+  const existingAttempts = await db.invoiceEvent.findMany({
+    where: { dedupeKey: { in: attemptKeys } },
+    select: { id: true, invoiceId: true, dedupeKey: true, metadata: true },
+  });
+  if (existingAttempts.length) {
+    const metadata = existingAttempts[0]?.metadata as { packageId?: string; status?: string; invoiceIds?: string[] } | null;
+    if (
+      existingAttempts.length === attemptIds.length &&
+      metadata?.packageId === packageId &&
+      metadata.status === "accepted" &&
+      existingAttempts.every((event) => (event.metadata as { packageId?: string } | null)?.packageId === packageId)
+    ) {
+      const sentAt = new Date();
+      await db.invoice.updateMany({
+        where: { id: { in: attemptIds }, contractorId: contractor.id, confirmedAt: { not: null }, sentAt: null },
+        data: { status: "sent" satisfies InvoiceStatus, sentAt, sentToEmail: to },
+      });
+      return { sent: attemptIds.length };
+    }
+    return { error: "A send attempt already exists for one or more selected invoices. Check with the client before trying again." };
+  }
+
   const invoices = await db.invoice.findMany({
-    where: { contractorId: contractor.id, confirmedAt: { not: null } },
+    where: {
+      contractorId: contractor.id,
+      confirmedAt: { not: null },
+      sentAt: null,
+      ...(requestedIds ? { id: { in: requestedIds } } : {}),
+    },
     include: {
       contractor: true,
       workspace: true,
@@ -39,8 +97,12 @@ export async function sendConfirmedInvoicesToClient(
     orderBy: [{ issueDate: "asc" }, { number: "asc" }],
   });
   if (!invoices.length) {
-    return { error: "Confirm your invoices first, then you can send them." };
+    return { error: "No confirmed, unsent invoices were selected." };
   }
+  if (requestedIds && invoices.length !== requestedIds.length) {
+    return { error: "One or more selected invoices are not confirmed, were already sent, or are not yours." };
+  }
+  if (!requestedIds && invoices.length !== attemptIds.length) return { error: "The invoice list changed. Reload before sending." };
 
   const attachments = [];
   for (const invoice of invoices) {
@@ -59,26 +121,76 @@ export async function sendConfirmedInvoicesToClient(
     0,
   );
 
-  await sendEmail({
+  const attemptMetadata = {
+    packageId,
+    status: "pending",
+    invoiceIds: attemptIds,
     to,
-    replyTo: contractor.email ?? undefined,
-    subject: `Invoices from ${contractor.name}`,
-    text: [
-      "Hi,",
-      "",
-      `Here are the invoices I should have sent you — ${invoices.length} of them, ${formatMoney(sum)} in total, covering the work you have already paid me for.`,
-      "",
-      "They are attached as PDFs, with a summary in invoices.csv.",
-      "",
-      "Thanks,",
-      contractor.name,
-    ].join("\n"),
-    attachments,
+    cc: cc ?? null,
+  };
+  try {
+    await db.invoiceEvent.createMany({
+      data: invoices.map((invoice) => ({
+        invoiceId: invoice.id,
+        type: "contractor_send_attempt",
+        message: "An email send attempt is in progress or its result is unknown.",
+        actorEmail: contractor.email,
+        actorName: contractor.name,
+        dedupeKey: `contractor-email:${invoice.id}`,
+        metadata: attemptMetadata,
+      })),
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { error: "A send attempt already exists for one or more selected invoices. Check with the client before trying again." };
+    }
+    throw error;
+  }
+
+  const ccRecipients = cc ? [cc] : undefined;
+  try {
+    await sendEmail({
+      to,
+      cc: ccRecipients,
+      replyTo: contractor.email ?? undefined,
+      subject: `Invoices from ${contractor.name}`,
+      text: [
+        "Hi,",
+        "",
+        `Here are ${invoices.length} confirmed invoice${invoices.length === 1 ? "" : "s"}. The total is ${formatMoney(sum)}.`,
+        "",
+        "The PDFs and an invoice summary are attached.",
+        "",
+        "Thanks,",
+        contractor.name,
+      ].join("\n"),
+      attachments,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Email send failed.";
+    await db.invoiceEvent.updateMany({
+      where: { dedupeKey: { in: attemptKeys }, type: "contractor_send_attempt" },
+      data: {
+        type: "contractor_send_unknown",
+        message: `Email attempt did not get a confirmed result: ${message.slice(0, 250)}`,
+        metadata: { ...attemptMetadata, status: "unknown", error: message.slice(0, 250) },
+      },
+    });
+    return { error: `${message} No invoices were marked as sent. Check with the client before trying again.` };
+  }
+
+  await db.invoiceEvent.updateMany({
+    where: { dedupeKey: { in: attemptKeys }, type: "contractor_send_attempt" },
+    data: {
+      type: "contractor_send_accepted",
+      message: `The email provider accepted this package for ${to}.`,
+      metadata: { ...attemptMetadata, status: "accepted", acceptedAt: new Date().toISOString() },
+    },
   });
 
   const sentAt = new Date();
   await db.invoice.updateMany({
-    where: { id: { in: invoices.map((invoice) => invoice.id) } },
+    where: { id: { in: invoices.map((invoice) => invoice.id) }, contractorId: contractor.id, confirmedAt: { not: null }, sentAt: null },
     data: { status: "sent" satisfies InvoiceStatus, sentAt, sentToEmail: to },
   });
   await db.invoiceEvent.createMany({

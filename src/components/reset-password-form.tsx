@@ -3,9 +3,11 @@
 import { useActionState } from "react";
 import { resetPasswordAction } from "@/actions/auth";
 import { FormBanner } from "@/components/form-banner";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 
 export function ResetPasswordForm({ token, email }: { token: string; email: string }) {
   const [state, action, pending] = useActionState(resetPasswordAction, null);
+  const save = useSaveButton(state);
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-6 pb-16">
@@ -14,7 +16,7 @@ export function ResetPasswordForm({ token, email }: { token: string; email: stri
         For {email}. Saving it signs you in and signs out anywhere the old password was used.
       </p>
       <div className="paper mt-8 rounded-3xl p-6">
-        <form action={action} className="space-y-4">
+        <form action={action} onChange={save.markDirty} className="space-y-4">
           <FormBanner state={state} />
           <input type="hidden" name="token" value={token} />
           {/* Here only so a password manager knows which login it belongs to. */}
@@ -33,9 +35,7 @@ export function ResetPasswordForm({ token, email }: { token: string; email: stri
               placeholder="At least 8 characters"
             />
           </div>
-          <button className="btn btn-primary w-full" disabled={pending}>
-            {pending ? "Saving…" : "Save and sign in"}
-          </button>
+          <SaveButton pending={pending} save={save} label="Save and sign in" className="w-full" />
         </form>
       </div>
     </div>

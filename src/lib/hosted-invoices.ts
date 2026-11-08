@@ -116,12 +116,53 @@ export async function createHostedInvoiceAccess(args: {
   return { token, urlPath: `/i/${token}` };
 }
 
-export async function createHostedDeliveryLink(invoiceId: string, ownerUserId: string) {
+/**
+ * A customer link that leaves every earlier link working (unlike
+ * createHostedInvoiceAccess, which closes the old one). Used by Send and
+ * Share link, where a link may already be in someone's inbox.
+ *
+ * `collectPayment` follows the same rules as the Hosted invoice panel: only
+ * the issuing contractor, only with Stripe fully set up, only for a balance
+ * that is still due. Pass `undefined` to leave the invoice's payment setting
+ * as it is (Share link), `true`/`false` to set it (Send).
+ */
+export async function createHostedDeliveryLink(
+  invoiceId: string,
+  ownerUserId: string,
+  options: { collectPayment?: boolean; requestingUserId?: string } = {},
+) {
   const invoice = await db.invoice.findUnique({
     where: { id: invoiceId },
-    select: { contractor: { select: { userId: true } } },
+    include: { contractor: { select: { userId: true } }, lineItems: true },
   });
   if (!invoice || invoice.contractor.userId !== ownerUserId) throw new Error("Invoice owner mismatch");
+
+  const wantsPayment = options.collectPayment;
+  const changesPayment = wantsPayment !== undefined && wantsPayment !== invoice.onlinePaymentEnabled;
+  if (wantsPayment) {
+    if (invoice.collectionMode === "documentation") {
+      throw new Error("This invoice only documents an earlier payment, so online payment cannot be turned on from here.");
+    }
+    const account = await db.stripeConnectedAccount.findUnique({ where: { userId: ownerUserId } });
+    const eligibility = onlinePaymentEligibility({
+      total: invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps),
+      amountPaid: invoice.amountPaid,
+      status: invoice.status,
+      collectionMode: "stripe",
+      onlinePaymentEnabled: true,
+      ownerUserId,
+      requestingUserId: options.requestingUserId ?? ownerUserId,
+      account,
+    });
+    if (!eligibility.eligible) throw new Error(eligibility.reason);
+  }
+  if (
+    changesPayment &&
+    (await db.checkoutAttempt.count({ where: { invoiceId, activeKey: { not: null } } }))
+  ) {
+    throw new Error("Wait for the current payment to finish before changing online payment for this invoice.");
+  }
+
   const token = createToken();
   const existing = await db.hostedInvoiceAccess.findMany({
     where: { invoiceId, revokedAt: null },
@@ -142,8 +183,28 @@ export async function createHostedDeliveryLink(invoiceId: string, ownerUserId: s
         expiresAt: new Date(Date.now() + 365 * 86400_000),
       },
     });
+    if (changesPayment) {
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: wantsPayment
+          ? { collectionMode: "stripe", onlinePaymentEnabled: true }
+          : {
+              collectionMode: invoice.collectionMode === "documentation" ? "documentation" : "manual",
+              onlinePaymentEnabled: false,
+            },
+      });
+    }
     await tx.invoiceEvent.create({
-      data: { invoiceId, type: "hosted_link_created", source: "app", message: "Created a hosted invoice link for delivery." },
+      data: {
+        invoiceId,
+        type: "hosted_link_created",
+        source: "app",
+        message: changesPayment
+          ? wantsPayment
+            ? "Created a customer link with online payment enabled."
+            : "Created a customer link with online payment turned off."
+          : "Created a customer link.",
+      },
     });
   });
   return `/i/${token}`;

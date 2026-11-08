@@ -6,6 +6,7 @@ type ManifestInvoice = {
   amountPaid: number;
   status: string;
   confirmedAt: Date | null;
+  sourcePaymentId?: string | null;
   taxRateBps: number;
   contractor: { name: string };
   workspace: { name: string };
@@ -22,7 +23,7 @@ export function invoicePdfName(number: string, contractorName: string) {
  */
 export function invoicesManifestCsv(invoices: ManifestInvoice[]) {
   const rows = [
-    "invoice_number,issue_date,contractor,bill_to,amount,amount_paid,status,confirmed_at,description",
+    "invoice_number,issue_date,contractor,bill_to,amount,amount_paid,status,confirmed_at,description,source_payment_id",
   ];
   for (const invoice of invoices) {
     const total = invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps);
@@ -37,6 +38,7 @@ export function invoicesManifestCsv(invoices: ManifestInvoice[]) {
         invoice.confirmedAt ? "confirmed" : invoice.status,
         invoice.confirmedAt ? invoice.confirmedAt.toISOString() : "",
         invoice.lineItems[0]?.description ?? "",
+        invoice.sourcePaymentId ?? "",
       ]
         .map(csvCell)
         .join(","),

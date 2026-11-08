@@ -8,6 +8,7 @@ import {
   taxableSubtotal,
   taxCents,
 } from "@/lib/money";
+import type { ReactNode } from "react";
 
 export type InvoiceDocumentData = {
   number?: string;
@@ -16,6 +17,7 @@ export type InvoiceDocumentData = {
   poNumber?: string | null;
   paymentTerms?: string | null;
   paymentInstructions?: string | null;
+  checkPaymentEnabled?: boolean;
   taxRateBps?: number;
   amountPaid?: number;
   fromTaxId?: string | null;
@@ -80,6 +82,7 @@ export function invoiceToDocument(invoice: {
   poNumber?: string | null;
   paymentTerms?: string | null;
   paymentInstructions?: string | null;
+  checkPaymentEnabled?: boolean | null;
   taxRateBps?: number | null;
   amountPaid?: number | null;
   fromTaxId?: string | null;
@@ -122,6 +125,7 @@ export function invoiceToDocument(invoice: {
     poNumber: invoice.poNumber,
     paymentTerms: invoice.paymentTerms,
     paymentInstructions: invoice.paymentInstructions,
+    checkPaymentEnabled: invoice.checkPaymentEnabled ?? false,
     taxRateBps: invoice.taxRateBps ?? 0,
     amountPaid: invoice.amountPaid ?? 0,
     fromTaxId: invoice.fromTaxId ?? invoice.contractor.taxId,
@@ -133,7 +137,7 @@ export function invoiceToDocument(invoice: {
     fromContactName: invoice.fromContactName,
     fromEmail: invoice.contractor.email,
     fromPhone: invoice.contractor.phone,
-    fromAddress: invoice.fromAddressLine ?? invoice.contractor.addressLine,
+    fromAddress: invoice.fromAddressLine?.trim() || invoice.contractor.addressLine,
     fromCityLine:
       cityLine(
         invoice.fromCity ?? invoice.contractor.city,
@@ -168,9 +172,11 @@ export function UncleInvoiceCredit({ show = true }: { show?: boolean }) {
 export function InvoiceDocument({
   invoice,
   showBrand = true,
+  paymentOptions,
 }: {
   invoice: InvoiceDocumentData;
   showBrand?: boolean;
+  paymentOptions?: ReactNode;
 }) {
   const subtotal = invoiceTotal(invoice.lineItems);
   const tax = taxCents(taxableSubtotal(invoice.lineItems), invoice.taxRateBps ?? 0);
@@ -243,7 +249,41 @@ export function InvoiceDocument({
         </p>
       )}
 
-      <table className="mt-8 w-full text-left text-sm">
+      <div className="mt-6 space-y-3 sm:hidden">
+        {invoice.lineItems.length === 0 ? (
+          <p className="py-4 text-sm text-muted">Line items will show up here.</p>
+        ) : (
+          invoice.lineItems.map((item, index) => (
+            <div key={index} className="border-b border-line/70 py-3 last:border-b-0">
+              <p className="break-words whitespace-pre-wrap text-base text-ink">
+                {item.description || "—"}
+              </p>
+              <dl className="mt-3 grid grid-cols-[0.55fr_1fr_0.7fr_1.35fr] gap-2 text-xs">
+                <div className="min-w-0">
+                  <dt className="uppercase tracking-wide text-muted">Qty</dt>
+                  <dd className="mt-1 text-sm tabular-nums">{item.quantity}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="uppercase tracking-wide text-muted">Rate</dt>
+                  <dd className="mt-1 text-sm tabular-nums">{formatMoney(item.unitPrice)}</dd>
+                </div>
+                <div className="min-w-0 text-center">
+                  <dt className="uppercase tracking-wide text-muted">Tax</dt>
+                  <dd className="mt-1 text-sm text-muted">{item.taxable ? "Yes" : "—"}</dd>
+                </div>
+                <div className="min-w-0 text-right">
+                  <dt className="uppercase tracking-wide text-muted">Amount</dt>
+                  <dd className="mt-1 text-sm font-semibold tabular-nums">
+                    {formatMoney(lineTotal(item.quantity, item.unitPrice))}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          ))
+        )}
+      </div>
+
+      <table className="mt-8 hidden w-full text-left text-sm sm:table">
         <thead>
           <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
             <th className="py-2 pr-4 font-medium">Description</th>
@@ -312,10 +352,29 @@ export function InvoiceDocument({
         </div>
       ) : null}
 
+      {invoice.checkPaymentEnabled ? (
+        <div className="mt-6 border-t border-line pt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Pay by check</p>
+          <p className="mt-2 text-sm">Make the check payable to <span className="font-semibold">{invoice.fromName}</span>.</p>
+          <p className="mt-1 text-sm text-muted">Mail it to:</p>
+          <address className="mt-1 text-sm not-italic text-muted">
+            {invoice.fromAddress ? <span className="block">{invoice.fromAddress}</span> : null}
+            {invoice.fromCityLine ? <span className="block">{invoice.fromCityLine}</span> : null}
+            {!invoice.fromAddress && !invoice.fromCityLine ? <span>Contact {invoice.fromEmail || invoice.fromName} for the mailing address.</span> : null}
+          </address>
+        </div>
+      ) : null}
+
       {invoice.notes ? (
         <div className="mt-6">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">Notes</p>
           <p className="mt-1 whitespace-pre-line text-muted">{invoice.notes}</p>
+        </div>
+      ) : null}
+
+      {paymentOptions ? (
+        <div className="mt-6 border-t border-line pt-5 print:hidden">
+          {paymentOptions}
         </div>
       ) : null}
 

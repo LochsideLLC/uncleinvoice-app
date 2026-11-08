@@ -8,10 +8,11 @@ export type CsvPaymentRow = {
   amount: string;
   amountPaid: string;
   description: string;
+  sourcePaymentId: string;
 };
 
 export const CSV_TEMPLATE_HEADER =
-  "contractor_name,contractor_email,date,amount,amount_paid,description";
+  "contractor_name,contractor_email,date,amount,amount_paid,description,source_payment_id";
 
 export function parsePaymentCsv(text: string): CsvPaymentRow[] {
   const result = parse<Record<string, string>>(text, {
@@ -26,24 +27,34 @@ export function parsePaymentCsv(text: string): CsvPaymentRow[] {
     throw new Error(`Could not read the spreadsheet: ${first.message}`);
   }
 
-  return result.data
-    .map((row) => ({
+  const rows = result.data.map((row) => ({
       contractorName: (row.contractor_name ?? row.name ?? "").trim(),
       contractorEmail: (row.contractor_email ?? row.email ?? "").trim().toLowerCase(),
       date: (row.date ?? row.issue_date ?? "").trim(),
       amount: (row.amount ?? row.total ?? "").trim(),
       amountPaid: (row.amount_paid ?? row.paid ?? row.paid_amount ?? "").trim(),
       description: (row.description ?? row.memo ?? "Services").trim(),
-    }))
-    .filter((row) => row.contractorName && row.amount);
+      sourcePaymentId: (row.source_payment_id ?? row.source_transaction_id ?? row.transaction_id ?? row.payment_id ?? row.source_id ?? "").trim(),
+    }));
+  const invalid = rows.findIndex((row) => !row.contractorName || !row.amount);
+  if (invalid >= 0) throw new Error(`Row ${invalid + 2} needs a contractor name and amount.`);
+  return rows;
 }
 
 export function csvRowToCents(amount: string): number {
-  const cents = dollarsToCents(amount);
+  const cents = parseCsvMoney(amount);
   if (cents <= 0) {
     throw new Error(`Amount "${amount}" is not a valid dollar amount.`);
   }
   return cents;
+}
+
+function parseCsvMoney(value: string): number {
+  const normalized = value.trim();
+  if (!/^-?\$?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(normalized)) {
+    throw new Error(`Amount "${value}" is not a valid dollar amount.`);
+  }
+  return dollarsToCents(normalized);
 }
 
 /**
@@ -66,7 +77,7 @@ export function csvRowToPaidCents(
   if (!normalized) return defaultPaid ? totalCents : 0;
   if (["no", "false", "unpaid", "n"].includes(normalized)) return 0;
   if (["yes", "true", "paid", "y"].includes(normalized)) return totalCents;
-  const cents = dollarsToCents(value);
-  if (cents <= 0) return 0;
+  const cents = parseCsvMoney(value);
+  if (cents <= 0) throw new Error(`Paid amount "${value}" is not a valid dollar amount.`);
   return Math.min(cents, totalCents);
 }

@@ -4,9 +4,11 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { createWorkspaceAction } from "@/actions/workspaces";
 import { FormBanner } from "@/components/form-banner";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 
 export default function NewWorkspacePage() {
   const [state, action, pending] = useActionState(createWorkspaceAction, null);
+  const save = useSaveButton(state);
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
@@ -17,7 +19,7 @@ export default function NewWorkspacePage() {
       <p className="text-muted">
         Save a business you bill or keep books for. Use the email that should receive its invoices. Saving a business does not send anything.
       </p>
-      <form action={action} className="paper space-y-4 rounded-3xl p-6">
+      <form action={action} onChange={save.markDirty} className="paper space-y-4 rounded-3xl p-6">
         <FormBanner state={state} />
         <div className="field">
           <label htmlFor="name">Business name</label>
@@ -54,9 +56,7 @@ export default function NewWorkspacePage() {
             <input id="postalCode" name="postalCode" />
           </div>
         </div>
-        <button className="btn btn-primary" disabled={pending}>
-          Save business
-        </button>
+        <SaveButton pending={pending} save={save} label="Save business" />
       </form>
     </div>
   );

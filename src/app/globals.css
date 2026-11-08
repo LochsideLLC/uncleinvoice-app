@@ -51,6 +51,26 @@ body {
   animation: workspace-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* The site's general type scale is intentionally large. Bookkeeping screens
+   need a denser phone scale, while keeping larger text on wider screens. */
+@media (max-width: 39.999rem) {
+  .mobile-dashboard {
+    --text-xs: clamp(0.6875rem, 2.6vw, 0.75rem);
+    --text-sm: clamp(0.8125rem, 3.2vw, 0.875rem);
+    --text-base: clamp(0.875rem, 3.4vw, 0.9375rem);
+    --text-lg: clamp(1rem, 4.2vw, 1.125rem);
+    --text-xl: clamp(1.125rem, 4.6vw, 1.25rem);
+    --text-2xl: clamp(1.25rem, 5vw, 1.375rem);
+    --text-3xl: clamp(1.375rem, 5.5vw, 1.5rem);
+    font-size: clamp(0.875rem, 3.7vw, 1rem);
+  }
+
+  .mobile-dashboard .btn {
+    padding: 0.55rem 0.75rem;
+    font-size: var(--text-sm);
+  }
+}
+
 @keyframes workspace-in {
   from {
     opacity: 0;
@@ -148,6 +168,12 @@ body:has(.standalone-page-marker) footer {
   display: none;
 }
 
+/* Always reserve the scrollbar's width, so switching between a short tab and
+   a long one never shifts the layout sideways. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-size: 1.125rem;
   overflow-x: clip;
@@ -237,6 +263,28 @@ button {
   font-size: 1rem;
 }
 
+.payment-options-title {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.payment-method-option {
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.payment-method-switch {
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.payment-method-badge {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
 .paper {
   background: var(--paper);
   border: 1px solid var(--line);
@@ -263,8 +311,22 @@ button {
   font-weight: 600;
   transition:
     transform 120ms ease,
-    background 120ms ease,
+    background 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
     opacity 120ms ease;
+}
+
+.btn-save-success {
+  border-color: var(--olive);
+  background: var(--olive);
+  color: var(--paper);
+}
+
+.btn-save-dirty {
+  border-color: var(--warn);
+  background: var(--warn);
+  color: var(--accent-ink);
 }
 
 .btn:hover {
@@ -339,6 +401,25 @@ button:disabled {
    the 18px body size instead. */
 .toolbar-15 {
   font-size: 15px;
+}
+
+.send-invoice-form .field {
+  gap: 0.22rem;
+}
+
+.send-invoice-form .field input,
+.send-invoice-form .field textarea {
+  padding: calc(0.7rem - 1px) calc(0.8rem - 1px);
+  font-size: calc(1em - 1px);
+}
+
+.send-invoice-form .send-form-from {
+  padding: calc(0.5rem - 1px) calc(0.75rem - 1px);
+  font-size: calc(1em - 1px);
+}
+
+.send-message-actions {
+  font-size: 0.875rem;
 }
 
 /* Sparkly upgrade button. Colour is set here rather than with a Tailwind

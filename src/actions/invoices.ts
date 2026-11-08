@@ -10,6 +10,7 @@ import { parseDate } from "@/lib/dates";
 import {
   createContractorLink,
   createReviewLink,
+  createShareLink,
   nextInvoiceNumber,
   parseLineItems,
   recordEvent,
@@ -17,6 +18,8 @@ import {
   sendInvoiceToClient,
 } from "@/lib/invoices";
 import { hashToken } from "@/lib/crypto";
+import { parsePhoneNumber } from "@/lib/phone";
+import { smsConfigured } from "@/lib/sms";
 import { sendConfirmedInvoicesToClient } from "@/lib/contractor-send";
 import { invoiceBusinessData, parseBusinessInvoiceFields } from "@/lib/invoice-fields";
 import { invoiceGrandTotal, parseAmountPaid } from "@/lib/money";
@@ -237,15 +240,60 @@ export async function sendToClientComposedAction(
   if (!invoice || invoice.workspaceId !== workspaceId) {
     return { error: "That invoice does not belong here." };
   }
-  await sendInvoiceToClient(invoiceId, user, {
-    to,
-    cc,
-    bcc,
-    message: message.trim() || undefined,
-  });
+
+  // Texting needs a real number and the sender's say-so that they may text
+  // this person. Checked before anything goes out, so a bad number never
+  // leaves the invoice half-sent.
+  let textTo: string | undefined;
+  if (formData.get("sendText") === "on") {
+    if (formData.get("textConsent") !== "on") {
+      return { error: "Confirm you have permission to text this customer, or uncheck the text option." };
+    }
+    const phone = parsePhoneNumber(String(formData.get("textPhone") ?? ""));
+    if (!phone.ok) return { error: phone.error };
+    if (!phone.e164) return { error: "Enter the mobile number to text, or uncheck the text option." };
+    if (!smsConfigured()) return { error: "Text messages are not turned on yet. Uncheck the text option to send by email." };
+    textTo = phone.e164;
+  }
+
+  let result;
+  try {
+    result = await sendInvoiceToClient(invoiceId, user, {
+      to,
+      cc,
+      bcc,
+      message: message.trim() || undefined,
+      // Only the contractor sees the pay checkbox. Anyone else sending leaves
+      // the invoice's payment setting exactly as the contractor chose it.
+      collectPayment: formData.has("paymentControl") ? formData.get("collectPayment") === "on" : undefined,
+      textTo,
+      actorUserId: user.id,
+    });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "The invoice could not be sent." };
+  }
   revalidatePath(`/app/w/${workspaceId}/invoices/${invoiceId}`);
   revalidatePath(`/invoices/view/${invoiceId}`);
+  if (result.text === "sent") return { ok: true, message: "Emailed and texted." };
+  if (typeof result.text === "object") {
+    return { ok: true, message: `Emailed. The text was not sent: ${result.text.error}` };
+  }
   return { ok: true, message: "Sent." };
+}
+
+/** Share link: a real customer link (view, and pay if the invoice allows it), not the signed-in page. */
+export async function createShareLinkAction(
+  workspaceId: string,
+  invoiceId: string,
+): Promise<{ url: string } | { error: string }> {
+  await requireWorkspace(workspaceId);
+  const invoice = await db.invoice.findUnique({ where: { id: invoiceId }, select: { workspaceId: true } });
+  if (!invoice || invoice.workspaceId !== workspaceId) return { error: "That invoice does not belong here." };
+  try {
+    return { url: await createShareLink(invoiceId) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not create a link." };
+  }
 }
 
 export async function contractorUpdateInvoiceAction(
@@ -288,6 +336,83 @@ export async function contractorUpdateInvoiceAction(
   );
   revalidatePath(`/review/${token}`);
   return { ok: true, message: "Your changes are saved. Confirm when it looks right." };
+}
+
+/** Edit one draft through the broader contractor link, with invoice ownership checked server-side. */
+export async function contractorBatchUpdateInvoiceAction(
+  invoiceId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const token = String(formData.get("token") ?? "");
+  const link = await loadContractorBatchReview(token, invoiceId);
+  if ("error" in link) return { error: link.error };
+  if (link.invoice.confirmedAt || link.invoice.sentAt) return { error: "This invoice is already confirmed and cannot be edited." };
+
+  const items = parseLineItems(formData);
+  if (!items.length) return { error: "Keep at least one billed item on the invoice — what you did, how many, and the rate." };
+
+  await db.$transaction([
+    db.invoiceLineItem.deleteMany({ where: { invoiceId } }),
+    db.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        issueDate: parseDate(formData.get("issueDate")) ?? link.invoice.issueDate,
+        serviceStart: parseDate(formData.get("serviceStart")),
+        serviceEnd: parseDate(formData.get("serviceEnd")),
+        notes: String(formData.get("notes") ?? "").trim() || null,
+        lineItems: { create: items.map((item, index) => ({ ...item, sortOrder: index })) },
+      },
+    }),
+  ]);
+  await recordEvent(invoiceId, "contractor_edited", "Contractor edited the invoice before confirming.", {
+    email: link.email,
+    name: link.contractor.name,
+  });
+  revalidatePath(`/c/${token}`);
+  revalidatePath(`/c/${token}/review/${invoiceId}`);
+  return { ok: true, message: "Your changes are saved. Confirm when it looks right." };
+}
+
+/** Confirms one reviewed draft without sending it; sending is a separate package step. */
+export async function contractorBatchConfirmInvoiceAction(
+  invoiceId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const token = String(formData.get("token") ?? "");
+  const link = await loadContractorBatchReview(token, invoiceId);
+  if ("error" in link) return { error: link.error };
+  if (formData.get("attest") !== "on") return { error: "Check the box to confirm this invoice is accurate." };
+  if (link.invoice.confirmedAt || link.invoice.sentAt) return { error: "This invoice has already been confirmed." };
+
+  const items = parseLineItems(formData);
+  if (!items.length) return { error: "Keep at least one billed item on the invoice — what you did, how many, and the rate." };
+  const confirmedAt = new Date();
+  const email = link.contractor.email ?? link.email;
+  const updated = await db.$transaction(async (tx) => {
+    const changed = await tx.invoice.updateMany({
+      where: { id: invoiceId, contractorId: link.contractor.id, confirmedAt: null, sentAt: null },
+      data: { status: "confirmed" satisfies InvoiceStatus, confirmedAt, confirmedByEmail: email },
+    });
+    if (changed.count !== 1) return false;
+    await tx.invoiceLineItem.deleteMany({ where: { invoiceId } });
+    await tx.invoiceLineItem.createMany({ data: items.map((item, index) => ({ invoiceId, ...item, sortOrder: index })) });
+    await tx.invoiceEvent.create({
+      data: {
+        invoiceId,
+        type: "confirmed",
+        message: "Contractor confirmed this invoice is accurate.",
+        actorEmail: email,
+        actorName: link.contractor.name,
+      },
+    });
+    return true;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  if (!updated) return { error: "This invoice was already confirmed. Reload the page to see its current state." };
+
+  revalidatePath(`/c/${token}`);
+  redirect(`/c/${token}`);
 }
 
 export async function contractorConfirmAction(
@@ -348,15 +473,10 @@ export async function contractorConfirmAction(
     { email: link.email, name: link.invoice.contractor.name },
   );
 
-  const autoSend = formData.get("sendToClient") !== "off";
-  if (autoSend) {
-    await sendInvoiceToClient(link.invoice.id, {
-      email: link.email,
-      name: link.invoice.contractor.name,
-    });
-  }
-
-  redirect(`/review/${token}/done`);
+  // Confirmation records the contractor's assertion. Sending is a separate
+  // step so the recipient, copied bookkeeper, and exact package can be reviewed.
+  const contractorLink = await createContractorLink(link.invoice.contractor.id, link.email);
+  redirect(contractorLink);
 }
 
 export async function markAsSentAction(formData: FormData) {
@@ -372,7 +492,7 @@ export async function markAsSentAction(formData: FormData) {
   revalidatePath(`/app/w/${workspaceId}/invoices/${invoiceId}`);
 }
 
-export async function markAsPaidAction(formData: FormData) {
+async function recordManualPayment(formData: FormData): Promise<ActionState> {
   const workspaceId = String(formData.get("workspaceId") ?? "");
   const invoiceId = String(formData.get("invoiceId") ?? "");
   const { user } = await requireWorkspace(workspaceId);
@@ -381,16 +501,16 @@ export async function markAsPaidAction(formData: FormData) {
   const method = String(formData.get("method") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim();
   const nonce = String(formData.get("paymentNonce") ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(nonce)) return;
+  if (!/^[0-9a-f-]{36}$/i.test(nonce)) return { error: "Refresh the invoice and try again." };
   const invoice = await db.invoice.findFirst({
     where: { id: invoiceId, workspaceId },
     include: { lineItems: true },
   });
-  if (!invoice) return;
-  if (invoice.onlinePaymentEnabled) return;
+  if (!invoice) return { error: "Invoice not found." };
+  if (invoice.onlinePaymentEnabled) return { error: "Record this payment through the online payment record." };
   const total = invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps);
   const balance = Math.max(0, total - invoice.amountPaid);
-  if (!balance) return;
+  if (!balance) return { error: "This invoice is already paid." };
   const entered = parseFloat(String(formData.get("amount") ?? ""));
   const amountCents = Number.isFinite(entered) && entered > 0
     ? Math.min(balance, Math.round(entered * 100))
@@ -437,6 +557,18 @@ export async function markAsPaidAction(formData: FormData) {
 
   revalidatePath(`/app/w/${workspaceId}/invoices/${invoiceId}`);
   revalidatePath(`/invoices/view/${invoiceId}`);
+  return { ok: true, message: "Payment saved." };
+}
+
+export async function markAsPaidAction(formData: FormData): Promise<void> {
+  await recordManualPayment(formData);
+}
+
+export async function markAsPaidWithFeedbackAction(
+  _prev: ActionState | null,
+  formData: FormData,
+): Promise<ActionState> {
+  return recordManualPayment(formData);
 }
 
 async function loadReviewToken(token: string) {
@@ -459,33 +591,45 @@ async function loadReviewToken(token: string) {
   return { email: record.email, invoice: record.invoice };
 }
 
+async function loadContractorBatchReview(token: string, invoiceId: string) {
+  if (!token) return { error: "Missing contractor link." };
+  const record = await db.magicLink.findUnique({
+    where: { tokenHash: hashToken(token) },
+    include: { contractor: { include: { workspace: true } } },
+  });
+  if (
+    !record ||
+    record.purpose !== "contractor_invoices" ||
+    record.expiresAt < new Date() ||
+    !record.contractor
+  ) return { error: "This contractor link is invalid or has expired." };
+
+  const invoice = await db.invoice.findFirst({
+    where: { id: invoiceId, contractorId: record.contractor.id, workspaceId: record.contractor.workspaceId },
+    include: { contractor: true, workspace: true, lineItems: true },
+  });
+  if (!invoice) return { error: "That invoice is not part of this contractor link." };
+  return { email: record.email, contractor: record.contractor, invoice };
+}
+
 /**
- * Confirms every unconfirmed invoice behind a contractor link in one go.
+ * Sends the confirmed invoices behind a contractor link to the client, from
+ * the contractor, with the PDFs attached.
  *
- * A cleaner paid 65 times is not going to open 65 forms, and a confirmation
- * nobody finishes documents nothing. The attestation names the count and the
- * total so what is being confirmed is explicit, and it is recorded against
- * each invoice individually so the client's books still carry a per-invoice
- * record of who confirmed it and when.
+ * The contractor never handles a file. Downloading a zip, finding it,
+ * extracting it and attaching the contents to an email is the step this
+ * existed to avoid — on a phone it is often not possible at all.
  */
-/**
- * Confirms every invoice behind a contractor link, in one submission.
- *
- * The same submission carries the contractor's own email address. Nobody else
- * reliably knows it: the client often has only a phone number, and whatever
- * was invented when the account was set up has no business being printed on
- * someone else's invoice. The person it belongs to types it once, here, and it
- * becomes the reply-to on the email her client receives and the address
- * recorded against every invoice she confirmed.
- */
-export async function contractorConfirmAllAction(
+export async function contractorBatchSendInvoicesAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const token = String(formData.get("token") ?? "");
-  if (formData.get("attest") !== "on") {
-    return { error: "Tick the box to confirm these invoices are accurate." };
-  }
+  if (formData.get("confirmPackage") !== "on") return { error: "Confirm the recipient and selected invoices before sending." };
+  const invoiceIds = formData.getAll("invoiceId").map((value) => String(value).trim()).filter(Boolean);
+  if (!invoiceIds.length) return { error: "Select at least one confirmed invoice." };
+  const cc = String(formData.get("cc") ?? "").trim().toLowerCase();
+  if (cc && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cc)) return { error: "Enter a valid bookkeeper email or leave the copy field blank." };
 
   const record = await db.magicLink.findUnique({
     where: { tokenHash: hashToken(token) },
@@ -499,83 +643,17 @@ export async function contractorConfirmAllAction(
   ) {
     return { error: "This link is invalid or has expired." };
   }
-
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const phone = String(formData.get("phone") ?? "").trim();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.endsWith(".test")) {
-    return { error: "Enter a real email address so your client can reply to you." };
+  if (cc && cc === record.contractor.workspace.email?.trim().toLowerCase()) {
+    return { error: "The bookkeeper copy must be a different address from the client." };
   }
 
-  const pending = await db.invoice.findMany({
-    where: { contractorId: record.contractor.id, confirmedAt: null },
-    select: { id: true },
-  });
-  if (!pending.length) return { error: "These invoices are already confirmed." };
-
-  await db.contractor.update({
-    where: { id: record.contractor.id },
-    data: { email, ...(phone ? { phone } : {}) },
-  });
-  await db.magicLink.update({ where: { id: record.id }, data: { email } });
-
-  const confirmedAt = new Date();
-  await db.invoice.updateMany({
-    where: { id: { in: pending.map((invoice) => invoice.id) } },
-    data: {
-      status: "confirmed" satisfies InvoiceStatus,
-      confirmedAt,
-      confirmedByEmail: email,
-    },
-  });
-  await db.invoiceEvent.createMany({
-    data: pending.map((invoice) => ({
-      invoiceId: invoice.id,
-      type: "confirmed",
-      message: `Contractor confirmed ${pending.length} ${
-        pending.length === 1 ? "invoice" : "invoices"
-      } as accurate.`,
-      actorEmail: email,
-      actorName: record.contractor!.name,
-    })),
-  });
-
-  revalidatePath(`/c/${token}`);
-  return { ok: true, message: `Confirmed ${pending.length}.` };
-}
-
-/**
- * Sends the confirmed invoices behind a contractor link to the client, from
- * the contractor, with the PDFs attached.
- *
- * The contractor never handles a file. Downloading a zip, finding it,
- * extracting it and attaching the contents to an email is the step this
- * existed to avoid — on a phone it is often not possible at all.
- */
-export async function sendInvoicesByLinkAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const token = String(formData.get("token") ?? "");
-  const record = await db.magicLink.findUnique({
-    where: { tokenHash: hashToken(token) },
-    include: { contractor: true },
-  });
-  if (
-    !record ||
-    record.purpose !== "contractor_invoices" ||
-    record.expiresAt < new Date() ||
-    !record.contractor
-  ) {
-    return { error: "This link is invalid or has expired." };
-  }
-
-  const result = await sendConfirmedInvoicesToClient(record.contractor.id);
+  const result = await sendConfirmedInvoicesToClient(record.contractor.id, invoiceIds, cc || undefined);
   if ("error" in result) return { error: result.error };
 
   revalidatePath(`/c/${token}`);
   return {
     ok: true,
-    message: `Sent ${result.sent} ${result.sent === 1 ? "invoice" : "invoices"} to your client.`,
+    message: `The email provider accepted ${result.sent} ${result.sent === 1 ? "invoice" : "invoices"} for ${record.contractor.workspace.name}.`,
   };
 }
 

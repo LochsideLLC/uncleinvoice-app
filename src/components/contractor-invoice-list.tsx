@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useMemo, useState, useActionState } from "react";
 import Link from "next/link";
-import { contractorConfirmAllAction, sendInvoicesByLinkAction } from "@/actions/invoices";
+import { contractorBatchSendInvoicesAction } from "@/actions/invoices";
 import { FormBanner } from "@/components/form-banner";
+import { formatMoney } from "@/lib/money";
 
 type Row = {
   id: string;
@@ -11,6 +12,8 @@ type Row = {
   date: string;
   description: string;
   total: string;
+  cents: number;
+  payment: "paid" | "partial" | "unpaid";
   confirmed: boolean;
   sent: boolean;
 };
@@ -18,135 +21,90 @@ type Row = {
 export function ContractorInvoiceList({
   token,
   rows,
-  outstanding,
-  grandTotal,
   clientName,
-  contractorEmail,
+  clientEmail,
 }: {
   token: string;
   rows: Row[];
-  outstanding: number;
-  grandTotal: string;
   clientName: string;
-  contractorEmail: string | null;
+  clientEmail: string | null;
 }) {
-  const [confirmState, confirm, confirming] = useActionState(contractorConfirmAllAction, null);
-  const [sendState, send, sending] = useActionState(sendInvoicesByLinkAction, null);
-
-  const unsent = rows.filter((row) => row.confirmed && !row.sent).length;
-  const alreadySent = rows.filter((row) => row.sent).length;
+  const [sendState, send, sending] = useActionState(contractorBatchSendInvoicesAction, null);
+  const unsent = rows.filter((row) => row.confirmed && !row.sent);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(unsent.length <= 50 ? unsent.map((row) => row.id) : []));
+  const selectedRows = useMemo(() => unsent.filter((row) => selected.has(row.id)), [selected, unsent]);
+  const selectedTotal = selectedRows.reduce((sum, row) => sum + row.cents, 0);
   const justSent = Boolean(sendState?.ok);
 
   return (
-    <div className="mt-8 space-y-6">
-      {outstanding > 0 ? (
-        <form action={confirm} className="paper space-y-4 rounded-3xl p-6">
-          <input type="hidden" name="token" value={token} />
-          <FormBanner state={confirmState} />
-          <h2 className="text-xl">Confirm these are right</h2>
-          <p className="text-sm text-muted">
-            Confirming marks {outstanding === rows.length ? "all" : "the remaining"}{" "}
-            {outstanding} {outstanding === 1 ? "invoice" : "invoices"} as issued by you to{" "}
-            {clientName}. If something is wrong, contact {clientName} and get it corrected
-            first.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm">
-              <span className="text-muted">Your email address</span>
-              <input
-                name="email"
-                type="email"
-                required
-                defaultValue={contractorEmail ?? ""}
-                placeholder="you@example.com"
-                className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2 text-base placeholder:text-muted focus:border-accent focus:outline-none"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="text-muted">Phone (optional)</span>
-              <input
-                name="phone"
-                type="tel"
-                className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2 text-base focus:border-accent focus:outline-none"
-              />
-            </label>
-          </div>
-          <p className="text-xs text-muted">
-            Your email goes on the invoices and is where {clientName} replies. It is not
-            shown to anyone else.
-          </p>
-          <label className="flex items-start gap-3 text-sm">
-            <input type="checkbox" name="attest" className="mt-1" />
-            <span>
-              I confirm these {outstanding} {outstanding === 1 ? "invoice" : "invoices"},
-              totalling {grandTotal}, are an accurate record of work I did for {clientName}.
-            </span>
-          </label>
-          <button className="btn btn-primary" disabled={confirming}>
-            {confirming ? "Confirming…" : "Confirm"}
-          </button>
-        </form>
-      ) : justSent || (alreadySent > 0 && unsent === 0) ? (
-        <div className="paper rounded-3xl p-6">
-          <p className="text-lg" style={{ color: "var(--olive)" }}>
-            ✓ Sent to {clientName}
-          </p>
-          <p className="mt-2 text-muted">
-            {clientName} has {justSent ? "" : "already "}received{" "}
-            {justSent ? rows.filter((row) => row.confirmed).length : alreadySent}{" "}
-            {alreadySent === 1 ? "invoice" : "invoices"} from you, as PDFs. Nothing else is
-            needed. You can download any of them above while this link is live.
-          </p>
-        </div>
-      ) : (
-        <form action={send} className="paper space-y-4 rounded-3xl p-6">
-          <input type="hidden" name="token" value={token} />
-          <FormBanner state={sendState} />
-          <h2 className="text-xl">Send them to {clientName}</h2>
-          <p className="text-sm text-muted">
-            We email all {unsent} {unsent === 1 ? "invoice" : "invoices"} to {clientName} as
-            PDFs, from you, with your address as the reply-to. You do not have to download
-            or attach anything.
-          </p>
-          <button className="btn btn-primary" disabled={sending}>
-            {sending ? "Sending…" : `Send ${unsent} to ${clientName}`}
-          </button>
-        </form>
-      )}
+    <div className="mt-6 space-y-4">
+      {sendState ? <FormBanner state={sendState} /> : null}
 
-      <div className="paper overflow-hidden rounded-3xl">
-        <ul>
+      {unsent.length > 0 ? (
+        <form id="send-package-form" action={send} className="paper space-y-4 rounded-2xl p-4 sm:p-5">
+          <input type="hidden" name="token" value={token} />
+          <div>
+            <h2 className="text-lg font-semibold">Send confirmed invoices</h2>
+            <p className="mt-1 text-sm text-muted">Choose what to send. You can still fix any invoice that needs review.</p>
+          </div>
+          <dl className="grid gap-2 rounded-xl bg-background/70 p-3 text-sm sm:grid-cols-2">
+            <div><dt className="text-muted">To</dt><dd className="break-all font-medium">{clientEmail ?? "Client email not set"}</dd></div>
+            <div><dt className="text-muted">Selected</dt><dd className="font-medium tabular-nums">{selectedRows.length} invoices · {formatMoney(selectedTotal)}</dd></div>
+          </dl>
+          <label className="field">
+            <span>Copy bookkeeper (optional)</span>
+            <input name="cc" type="email" placeholder="bookkeeper@example.com" autoComplete="email" />
+          </label>
+          <label className="flex min-h-11 items-start gap-3 text-sm leading-snug">
+            <input type="checkbox" name="confirmPackage" required className="mt-1 h-5 w-5" />
+            <span>I checked the selected invoices and want to email their PDFs to {clientName}{clientEmail ? ` at ${clientEmail}` : ""}.</span>
+          </label>
+          <button className="btn btn-primary min-h-11 w-full sm:w-auto" disabled={sending || selectedRows.length === 0 || selectedRows.length > 50 || !clientEmail}>
+            {sending ? "Sending…" : `Email ${selectedRows.length} ${selectedRows.length === 1 ? "invoice" : "invoices"}`}
+          </button>
+          {!clientEmail ? <p className="text-sm text-muted">The client needs to add an email before invoices can be sent.</p> : null}
+          {selectedRows.length > 50 ? <p className="text-sm text-muted">Choose no more than 50 invoices per email.</p> : null}
+          {justSent ? <p role="status" className="text-sm text-muted">The mail provider accepted the selected package.</p> : null}
+        </form>
+      ) : null}
+
+      <section className="overflow-hidden rounded-2xl border border-line bg-paper" aria-label="Your invoice list">
+        <ul className="divide-y divide-line">
           {rows.map((row) => (
-            <li
-              key={row.id}
-              className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line px-5 py-4 first:border-t-0"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-muted">
-                  {row.number} · {row.date}
-                  {row.sent ? " · sent" : row.confirmed ? " · confirmed" : ""}
-                </p>
-                <p className="truncate">{row.description}</p>
+            <li key={row.id} className="p-4 sm:px-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted">{row.number} · {row.date}</p>
+                  <p className="mt-1 font-medium">{row.description}</p>
+                  <p className="mt-1 text-sm text-muted">Payment: {row.payment === "paid" ? "Paid" : row.payment === "partial" ? "Part paid" : "Not recorded"} <span aria-hidden>·</span> Paperwork: {row.sent ? "Sent to client" : row.confirmed ? "Confirmed" : "Needs your review"}</p>
+                  {!row.confirmed && !row.sent ? <Link href={`/c/${token}/review/${row.id}`} className="mt-2 inline-flex min-h-10 items-center font-medium text-ink underline underline-offset-4">Review and correct</Link> : null}
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <span className="font-medium tabular-nums">{row.total}</span>
+                  <Link href={`/api/invoices/${row.id}/pdf?token=${encodeURIComponent(token)}`} className="inline-flex min-h-10 items-center text-sm underline underline-offset-4" target="_blank" rel="noopener noreferrer">PDF</Link>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="tabular-nums">{row.total}</span>
-                <Link
-                  href={`/api/invoices/${row.id}/pdf?token=${token}`}
-                  className="text-sm text-ink underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  PDF
-                </Link>
-              </div>
+              {row.confirmed && !row.sent ? <label className="mt-3 flex min-h-11 items-center gap-3 border-t border-line pt-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="invoiceId"
+                  value={row.id}
+                  form="send-package-form"
+                  checked={selected.has(row.id)}
+                  onChange={(event) => setSelected((current) => {
+                    const next = new Set(current);
+                    if (event.target.checked) next.add(row.id);
+                    else next.delete(row.id);
+                    return next;
+                  })}
+                />
+                Include this invoice in the email
+              </label> : null}
             </li>
           ))}
         </ul>
-        <div className="flex justify-between border-t border-line px-5 py-4 text-lg">
-          <span className="display">Total</span>
-          <span className="display tabular-nums">{grandTotal}</span>
-        </div>
-      </div>
+        {!rows.length ? <p className="px-4 py-8 text-muted">No invoices are on this link yet.</p> : null}
+      </section>
     </div>
   );
 }

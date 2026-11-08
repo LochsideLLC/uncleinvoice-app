@@ -8,8 +8,12 @@ import {
   updateBusinessLogoKindAction,
 } from "@/actions/account";
 import { FormBanner } from "@/components/form-banner";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 import { ImageDropzone, fileToDataUrl } from "@/components/image-dropzone";
 import { formatUsPhone, US_STATES } from "@/lib/us-address";
+
+/** Largest original file accepted. It is resized in the browser before saving. */
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
 export function BusinessForm({
   businessName,
@@ -39,6 +43,7 @@ export function BusinessForm({
   const [state, action, pending] = useActionState(updateBusinessAction, null);
   const [logoState, logoAction, logoPending] = useActionState(updateBusinessLogoAction, null);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const save = useSaveButton(state);
   const [kind, setKind] = useState(businessLogoKind === "wide" ? "wide" : "mark");
   const [phoneValue, setPhoneValue] = useState(formatUsPhone(phone ?? ""));
 
@@ -46,6 +51,11 @@ export function BusinessForm({
     setLogoError(null);
     if (!file.type.startsWith("image/")) {
       setLogoError("Choose a JPG or PNG logo.");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      setLogoError(`That file is ${mb} MB. Logos can be up to 2 MB. Try a smaller or more compressed image.`);
       return;
     }
     try {
@@ -66,7 +76,11 @@ export function BusinessForm({
   }
 
   return (
-    <form action={action} className="paper compact-fields space-y-1 rounded-3xl p-6">
+    <form
+      action={action}
+      onChange={save.markDirty}
+      className="paper compact-fields space-y-1 rounded-3xl p-6"
+    >
       <div>
         <h2 className="text-xl">Who gets paid</h2>
         <p className="mt-1 text-sm text-muted">
@@ -74,11 +88,11 @@ export function BusinessForm({
           if you have one.
         </p>
       </div>
-      <FormBanner state={logoError ? { error: logoError } : logoState ?? state} />
+      <FormBanner state={logoError ? { error: logoError } : logoState ?? (state?.error ? state : null)} />
       <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3">
         <ImageDropzone
           label="Mark"
-          hint="Square"
+          hint="Square, 1:1"
           variant="square"
           value={businessLogoUrl}
           pending={logoPending}
@@ -95,7 +109,7 @@ export function BusinessForm({
         />
         <ImageDropzone
           label="Wide logo"
-          hint="Drop a horizontal logo"
+          hint="Horizontal, 4:1"
           variant="wide"
           value={businessWordmarkUrl}
           pending={logoPending}
@@ -111,6 +125,10 @@ export function BusinessForm({
           }
         />
       </div>
+      <p className="text-xs text-muted">
+        Mark: square (1:1), 512 × 512 px. Wide logo: 4:1, 640 × 160 px or larger.
+        JPG or PNG, up to 2 MB. Larger images are shrunk to fit automatically.
+      </p>
       <fieldset className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         <legend className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted">
           Use on invoices
@@ -225,9 +243,7 @@ export function BusinessForm({
         </div>
       </div>
       <div className="pt-3">
-        <button className="btn btn-primary w-full" disabled={pending}>
-          Save
-        </button>
+        <SaveButton pending={pending} save={save} className="w-full" />
       </div>
     </form>
   );

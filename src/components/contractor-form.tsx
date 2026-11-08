@@ -3,12 +3,14 @@
 import { useActionState } from "react";
 import { createContractorAction } from "@/actions/contractors";
 import { FormBanner } from "@/components/form-banner";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 
 export function ContractorForm({ workspaceId }: { workspaceId: string }) {
   const [state, action, pending] = useActionState(createContractorAction, null);
+  const save = useSaveButton(state);
 
   return (
-    <form action={action} className="paper h-fit space-y-4 rounded-3xl p-6">
+    <form action={action} onChange={save.markDirty} className="paper h-fit space-y-4 rounded-3xl p-6">
       <input type="hidden" name="workspaceId" value={workspaceId} />
       <h2 className="text-2xl">Add a contractor</h2>
       <FormBanner state={state} />
@@ -28,9 +30,7 @@ export function ContractorForm({ workspaceId }: { workspaceId: string }) {
         <label htmlFor="notes">Notes</label>
         <textarea id="notes" name="notes" rows={2} />
       </div>
-      <button className="btn btn-primary" disabled={pending}>
-        Save contractor
-      </button>
+      <SaveButton pending={pending} save={save} label="Save contractor" />
     </form>
   );
 }
