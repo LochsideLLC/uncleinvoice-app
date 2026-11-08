@@ -6,6 +6,7 @@ import {
   updateSponsorAction,
 } from "@/actions/sponsors";
 import { FormBanner } from "@/components/form-banner";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 
 type SponsorValues = {
   id?: string;
@@ -24,9 +25,10 @@ type SponsorValues = {
 export function SponsorForm({ sponsor }: { sponsor?: SponsorValues }) {
   const action = sponsor ? updateSponsorAction : createSponsorAction;
   const [state, formAction, pending] = useActionState(action, null);
+  const save = useSaveButton(state);
 
   return (
-    <form action={formAction} className="paper space-y-4 rounded-[1.4rem] p-6">
+    <form action={formAction} onChange={save.markDirty} className="paper space-y-4 rounded-[1.4rem] p-6">
       {sponsor ? <input type="hidden" name="id" value={sponsor.id} /> : null}
       <FormBanner state={state} />
       <div className="field">
@@ -84,9 +86,13 @@ export function SponsorForm({ sponsor }: { sponsor?: SponsorValues }) {
         <input type="checkbox" name="featured" defaultChecked={sponsor?.featured ?? false} />
         Show in the featured row on the home page
       </label>
-      <button className="btn btn-primary" disabled={pending}>
-        {sponsor ? "Save sponsor" : "Add sponsor"}
-      </button>
+      {sponsor ? (
+        <SaveButton pending={pending} save={save} label="Save sponsor" />
+      ) : (
+        <button className="btn btn-primary" disabled={pending}>
+          {pending ? "Saving…" : "Add sponsor"}
+        </button>
+      )}
     </form>
   );
 }

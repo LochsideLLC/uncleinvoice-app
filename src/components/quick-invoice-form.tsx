@@ -2,14 +2,19 @@
 
 import { useActionState, useMemo, useState, type FormEvent } from "react";
 import { createPublicInvoiceAction } from "@/actions/public-invoice";
-import { createWorkspaceInlineAction } from "@/actions/workspaces";
+import { createServiceItemAction } from "@/actions/service-items";
+import { createWorkspaceInlineAction, updateDefaultTermsAction } from "@/actions/workspaces";
 import { FormBanner } from "@/components/form-banner";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 import { UncleInvoiceCredit } from "@/components/invoice-document";
-import { PAYMENT_TERMS } from "@/lib/invoice-fields";
+import type { SavedService } from "@/components/workspace-services-manager";
+import { PAYMENT_TERMS, resolveDefaultTerms } from "@/lib/invoice-fields";
 import { displayPhoneNumber, parsePhoneNumber, phoneSubmitError } from "@/lib/phone";
 import { PhoneInput } from "@/components/phone-input";
+import { PaymentMethodOptions } from "@/components/payment-method-options";
 import {
   amountDue,
+  centsToDollars,
   dollarsToCents,
   formatMoney,
   invoiceTotal,
@@ -59,8 +64,13 @@ export function QuickInvoiceForm({
   invoiceId,
   viewToken,
   defaults,
+  defaultTerms,
+  defaultClientId,
+  savedServices = [],
   billToClients = [],
   canSaveClients = false,
+  paymentOptions,
+  returnTo,
 }: {
   defaultFromName?: string;
   defaultFromEmail?: string;
@@ -72,6 +82,9 @@ export function QuickInvoiceForm({
   defaultFromPostalCode?: string;
   invoiceId?: string;
   viewToken?: string;
+  defaultTerms?: string | null;
+  defaultClientId?: string;
+  savedServices?: { workspaceId: string; items: SavedService[] }[];
   defaults?: {
     invoiceNumber?: string;
     issueDate?: string;
@@ -102,11 +115,24 @@ export function QuickInvoiceForm({
     city: string | null;
     region: string | null;
     postalCode: string | null;
+    defaultPaymentTerms: string | null;
     nextNumber: string;
   }[];
   canSaveClients?: boolean;
+  paymentOptions?: {
+    enabled: boolean;
+    canManage: boolean;
+    canCollect: boolean;
+    canSetUpPayments: boolean;
+    setupNote: string | null;
+    checkPaymentEnabled: boolean;
+    checkPayee: string;
+    checkAddressLines: string[];
+  };
+  returnTo?: string;
 }) {
   const [state, action, pending] = useActionState(createPublicInvoiceAction, null);
+  const save = useSaveButton(state);
   const today = new Date().toISOString().slice(0, 10);
   const [fromName, setFromName] = useState(defaultFromCompany);
   const [fromContactName, setFromContactName] = useState(defaultFromName);
@@ -124,18 +150,27 @@ export function QuickInvoiceForm({
   const [billToCity, setBillToCity] = useState(defaults?.billToCity ?? "");
   const [billToRegion, setBillToRegion] = useState(defaults?.billToRegion ?? "");
   const [billToPostalCode, setBillToPostalCode] = useState(defaults?.billToPostalCode ?? "");
-  const [billToClientId, setBillToClientId] = useState("");
+  const [billToClientId, setBillToClientId] = useState(defaultClientId ?? "");
   const [clientOptions, setClientOptions] = useState(billToClients);
   const [companyOpen, setCompanyOpen] = useState(false);
   const [newClientOpen, setNewClientOpen] = useState(false);
   const [newClientError, setNewClientError] = useState<string | null>(null);
+  const [newClientPending, setNewClientPending] = useState(false);
+  const [newClientSaveResult, setNewClientSaveResult] = useState<{ ok?: boolean; error?: string } | null>(null);
+  const newClientSave = useSaveButton(newClientSaveResult);
   const [newClientName, setNewClientName] = useState("");
   const [suggestedNumber, setSuggestedNumber] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState(defaults?.invoiceNumber ?? "");
   const [issueDate, setIssueDate] = useState(defaults?.issueDate ?? today);
-  const [dueDate, setDueDate] = useState(defaults?.dueDate ?? "");
-  const [paymentTerms, setPaymentTerms] = useState(defaults?.paymentTerms ?? "");
-  const [termsOpen, setTermsOpen] = useState(false);
+  const initialTerms = resolveDefaultTerms(defaults?.paymentTerms || defaultTerms);
+  const [dueDate, setDueDate] = useState(
+    () => defaults?.dueDate || dueFromTerms(defaults?.issueDate ?? today, initialTerms),
+  );
+  const [paymentTerms, setPaymentTerms] = useState(initialTerms);
+  // True once the person picks terms themselves; client switching only
+  // fills terms they have not touched.
+  const [termsTouched, setTermsTouched] = useState(() => Boolean(defaults?.paymentTerms));
+  const [defaultMsg, setDefaultMsg] = useState<string | null>(null);
   const [customTermsMode, setCustomTermsMode] = useState(false);
   const paymentTermsIsPreset = (PAYMENT_TERMS as readonly string[]).includes(paymentTerms);
   const [poNumber, setPoNumber] = useState(defaults?.poNumber ?? "");
@@ -145,6 +180,8 @@ export function QuickInvoiceForm({
   );
   const [amountPaidInput, setAmountPaidInput] = useState(defaults?.amountPaid ?? "");
   const [paymentInstructions, setPaymentInstructions] = useState(defaults?.paymentInstructions ?? "");
+  const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(paymentOptions?.enabled ?? false);
+  const [checkPaymentEnabled, setCheckPaymentEnabled] = useState(paymentOptions?.checkPaymentEnabled ?? false);
   const [notes, setNotes] = useState(defaults?.notes ?? "");
   const [lines, setLines] = useState<LineDraft[]>(
     defaults?.lines ?? [{ description: "", quantity: "1", price: "", taxable: false }],
@@ -186,6 +223,32 @@ export function QuickInvoiceForm({
     const computed = dueFromTerms(nextIssue, nextTerms);
     if (computed) setDueDate(computed);
   }
+
+  function chooseTerms(nextTerms: string) {
+    setTermsTouched(true);
+    applyTerms(nextTerms);
+  }
+
+  async function saveTermsAsDefault() {
+    if (!billToClientId || !paymentTerms) return;
+    setDefaultMsg(null);
+    const data = new FormData();
+    data.set("workspaceId", billToClientId);
+    data.set("paymentTerms", paymentTerms);
+    const result = await updateDefaultTermsAction(null, data);
+    if (!result || "error" in result) {
+      setDefaultMsg(result?.error ?? "Could not save the default.");
+      return;
+    }
+    setClientOptions((current) =>
+      current.map((entry) =>
+        entry.id === billToClientId ? { ...entry, defaultPaymentTerms: paymentTerms } : entry,
+      ),
+    );
+    setDefaultMsg(result.message ?? "Saved.");
+  }
+
+  const selectedClient = clientOptions.find((entry) => entry.id === billToClientId) ?? null;
 
   function fillBillTo(client: {
     name: string;
@@ -233,6 +296,7 @@ export function QuickInvoiceForm({
     }
     fillBillTo(client);
     applySuggestedNumber(client.nextNumber);
+    if (!termsTouched) applyTerms(resolveDefaultTerms(client.defaultPaymentTerms));
   }
 
   function matchClients(query: string) {
@@ -257,29 +321,80 @@ export function QuickInvoiceForm({
   function openNewClient(prefill: string) {
     setNewClientName(prefill);
     setNewClientError(null);
+    setNewClientSaveResult(null);
+    newClientSave.reset();
     setCompanyOpen(false);
     setNewClientOpen(true);
   }
 
   async function saveNewClient(formData: FormData) {
-    const result = await createWorkspaceInlineAction(null, formData);
-    if ("error" in result) {
-      setNewClientError(result.error);
-      return;
+    setNewClientPending(true);
+    try {
+      const result = await createWorkspaceInlineAction(null, formData);
+      if ("error" in result) {
+        setNewClientSaveResult({ error: result.error });
+        setNewClientError(result.error);
+        return;
+      }
+      setNewClientSaveResult({ ok: true });
+      // Fill from the returned record directly: clientOptions has not
+      // re-rendered yet, so looking the new id up in it would miss.
+      setClientOptions((current) => [...current, result.workspace]);
+      setBillToClientId(result.workspace.id);
+      fillBillTo(result.workspace);
+      applySuggestedNumber(result.workspace.nextNumber);
+      if (!termsTouched) applyTerms(resolveDefaultTerms(result.workspace.defaultPaymentTerms));
+      setNewClientOpen(false);
+      setNewClientError(null);
+    } finally {
+      setNewClientPending(false);
     }
-    // Fill from the returned record directly: clientOptions has not
-    // re-rendered yet, so looking the new id up in it would miss.
-    setClientOptions((current) => [...current, result.workspace]);
-    setBillToClientId(result.workspace.id);
-    fillBillTo(result.workspace);
-    applySuggestedNumber(result.workspace.nextNumber);
-    setNewClientOpen(false);
-    setNewClientError(null);
   }
 
   function updateLine(index: number, patch: Partial<LineDraft>) {
     setLines((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
+
+  const [serviceOptions, setServiceOptions] = useState<Record<string, SavedService[]>>(() =>
+    Object.fromEntries(savedServices.map((entry) => [entry.workspaceId, entry.items])),
+  );
+  const [serviceMsg, setServiceMsg] = useState<string | null>(null);
+
+  async function saveLineAsService(index: number) {
+    const row = lines[index];
+    if (!billToClientId || !row?.description.trim() || !row.price.trim()) {
+      setServiceMsg("Add a description and price first, then save the service.");
+      return;
+    }
+    setServiceMsg(null);
+    const data = new FormData();
+    data.set("workspaceId", billToClientId);
+    data.set("description", row.description.trim());
+    data.set("unitPriceCents", String(dollarsToCents(row.price)));
+    data.set("taxable", row.taxable ? "1" : "0");
+    const result = await createServiceItemAction(null, data);
+    if (!("ok" in result)) {
+      setServiceMsg(result.error);
+      return;
+    }
+    setServiceOptions((current) => ({
+      ...current,
+      [billToClientId]: [...(current[billToClientId] ?? []), result.item],
+    }));
+    setServiceMsg(`Saved “${row.description.trim()}” to ${selectedClient?.name ?? "this client"}.`);
+  }
+
+  function fillLineFromService(index: number, serviceId: string) {
+    const item = (serviceOptions[billToClientId] ?? []).find((entry) => entry.id === serviceId);
+    if (!item) return;
+    updateLine(index, {
+      description: item.description,
+      price: centsToDollars(item.unitPriceCents),
+      taxable: item.taxable,
+    });
+  }
+
+  const savedForClient = serviceOptions[billToClientId] ?? [];
 
   const taxNeeded = lines.some((row) => row.taxable) && !(Number.parseFloat(taxRate) > 0);
 
@@ -301,9 +416,12 @@ export function QuickInvoiceForm({
 
   return (
     <>
-    <form action={action} onSubmit={onSubmit} className="space-y-6" data-lpignore="true">
+    <form action={action} onSubmit={onSubmit} onChange={save.markDirty} className="space-y-6" data-lpignore="true">
       {invoiceId ? <input type="hidden" name="invoiceId" value={invoiceId} /> : null}
       {viewToken ? <input type="hidden" name="viewToken" value={viewToken} /> : null}
+      {invoiceId && returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
+      {invoiceId && paymentOptions ? <input type="hidden" name="onlinePaymentEnabled" value={onlinePaymentEnabled ? "on" : "off"} /> : null}
+      {invoiceId && paymentOptions ? <input type="hidden" name="checkPaymentEnabled" value={checkPaymentEnabled ? "on" : "off"} /> : null}
       <FormBanner
         state={
           taxRateWarn && taxNeeded
@@ -350,104 +468,65 @@ export function QuickInvoiceForm({
           <div className="flex flex-col text-xs font-semibold uppercase tracking-wide text-muted">
             <span id="paymentTermsLabel">Terms</span>
             <input type="hidden" name="paymentTerms" value={paymentTerms} />
-            <div className="relative">
-              <button
-                type="button"
-                aria-labelledby="paymentTermsLabel"
-                aria-haspopup="listbox"
-                aria-expanded={termsOpen}
-                className="invoice-input mt-1 flex w-full items-center justify-between gap-2 text-left normal-case tracking-normal"
-                onClick={() => {
-                  setCustomTermsMode(false);
-                  setTermsOpen((open) => !open);
-                }}
-              >
-                <span className={paymentTerms ? "text-ink" : "text-muted"}>
-                  {paymentTerms || "—"}
-                </span>
-                <span aria-hidden="true" className="text-muted">
-                  ▾
-                </span>
-              </button>
-              {termsOpen ? (
-                <>
-                  <button
-                    type="button"
-                    aria-label="Close payment terms"
-                    className="fixed inset-0 z-10 cursor-default"
-                    onClick={() => setTermsOpen(false)}
-                  />
-                  <div
-                    role="listbox"
-                    aria-label="Payment terms"
-                    className="paper absolute left-0 top-full z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl p-1 text-ink shadow-lg"
-                    onKeyDown={(event) => {
-                      if (event.key === "Escape") setTermsOpen(false);
+            <div className="mt-1 flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <select
+                  id="paymentTermsSelect"
+                  aria-labelledby="paymentTermsLabel"
+                  className="invoice-input w-full"
+                  value={customTermsMode || (paymentTerms !== "" && !paymentTermsIsPreset) ? "__custom" : paymentTerms}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    if (next === "__custom") {
+                      setTermsTouched(true);
+                      setCustomTermsMode(true);
+                      return;
+                    }
+                    setCustomTermsMode(false);
+                    chooseTerms(next);
+                  }}
+                >
+                  <option value="">—</option>
+                  {PAYMENT_TERMS.map((term) => (
+                    <option key={term} value={term}>
+                      {term}
+                    </option>
+                  ))}
+                  <option value="__custom">Custom…</option>
+                </select>
+                {customTermsMode || (paymentTerms !== "" && !paymentTermsIsPreset) ? (
+                  <input
+                    autoFocus={customTermsMode}
+                    aria-label="Custom payment terms"
+                    className="invoice-input mt-2 w-full"
+                    placeholder="Net 90, Due Friday…"
+                    value={paymentTerms}
+                    onChange={(event) => {
+                      setTermsTouched(true);
+                      applyTerms(event.target.value);
                     }}
-                  >
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={!paymentTerms}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base font-normal normal-case tracking-normal hover:bg-background"
-                      onClick={() => {
-                        applyTerms("");
-                        setTermsOpen(false);
-                      }}
-                    >
-                      —
-                    </button>
-                    {PAYMENT_TERMS.map((term) => (
-                      <button
-                        key={term}
-                        type="button"
-                        role="option"
-                        aria-selected={paymentTerms === term}
-                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base font-normal normal-case tracking-normal hover:bg-background"
-                        onClick={() => {
-                          applyTerms(term);
-                          setTermsOpen(false);
-                        }}
-                      >
-                        {term}
-                      </button>
-                    ))}
-                    {customTermsMode ? (
-                      <input
-                        autoFocus
-                        aria-label="Custom payment terms"
-                        className="invoice-input mt-1 w-full text-base font-normal normal-case tracking-normal"
-                        placeholder="Net 90, Due Friday…"
-                        defaultValue={paymentTermsIsPreset ? "" : paymentTerms}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            applyTerms(event.currentTarget.value.trim());
-                            setCustomTermsMode(false);
-                            setTermsOpen(false);
-                          } else if (event.key === "Escape") {
-                            setCustomTermsMode(false);
-                          }
-                        }}
-                        onBlur={(event) => {
-                          const next = event.currentTarget.value.trim();
-                          if (next) applyTerms(next);
-                          setCustomTermsMode(false);
-                        }}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base font-normal normal-case tracking-normal text-accent hover:bg-background"
-                        onClick={() => setCustomTermsMode(true)}
-                      >
-                        Custom…
-                      </button>
-                    )}
-                  </div>
-                </>
+                  />
+                ) : null}
+              </div>
+              {selectedClient ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDefaultMsg(null);
+                    saveTermsAsDefault();
+                  }}
+                  disabled={!paymentTerms}
+                  className="shrink-0 text-xs font-normal normal-case tracking-normal text-muted underline underline-offset-2 transition active:scale-95 disabled:no-underline disabled:opacity-50"
+                >
+                  Set as default
+                </button>
               ) : null}
             </div>
+            {defaultMsg ? (
+              <p role="status" className="mt-1 text-sm font-normal normal-case tracking-normal text-muted">
+                {defaultMsg}
+              </p>
+            ) : null}
           </div>
           <div className="relative">
             <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-muted">
@@ -511,7 +590,7 @@ export function QuickInvoiceForm({
                 aria-autocomplete={canSaveClients ? "list" : undefined}
                 aria-controls={canSaveClients ? "bill-to-client-list" : undefined}
                 aria-label="Client company"
-                className="invoice-input"
+                className="invoice-input w-full"
                 autoComplete="off"
                 value={billToName}
                 onChange={(event) => {
@@ -754,9 +833,16 @@ export function QuickInvoiceForm({
           </div>
         </div>
 
-        <div className="mt-8 overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
+        <div className="mt-8">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Services</p>
+          {serviceMsg ? (
+            <p role="status" className="mt-1 text-sm text-muted">
+              {serviceMsg}
+            </p>
+          ) : null}
+          <div className="mt-2 overflow-x-auto">
+          <table className="block w-full text-left text-sm sm:table">
+            <thead className="hidden sm:table-header-group">
               <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
                 <th className="w-full py-2 pr-4 font-medium">Description</th>
                 <th className="w-32 min-w-32 py-2 px-3 text-right font-medium">Qty</th>
@@ -768,10 +854,30 @@ export function QuickInvoiceForm({
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="block sm:table-row-group">
               {lines.map((row, index) => (
-                <tr key={index} className="border-b border-line/70">
-                  <td className="w-full py-3 pr-4 align-top">
+                <tr key={index} className="grid grid-cols-6 gap-x-3 border-b border-line/70 py-3 sm:table-row sm:py-0">
+                  <td className="col-span-6 w-full py-1 pr-0 align-top sm:w-full sm:py-3 sm:pr-4">
+                    {selectedClient ? (
+                      <select
+                        aria-label={`Saved service for line ${index + 1}`}
+                        className="invoice-input mb-2 w-full"
+                        value=""
+                        onChange={(event) => {
+                          const next = event.target.value;
+                          if (next === "__save") void saveLineAsService(index);
+                          else if (next) fillLineFromService(index, next);
+                        }}
+                      >
+                        <option value="">Services…</option>
+                        {savedForClient.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.description} — {formatMoney(item.unitPriceCents)}
+                          </option>
+                        ))}
+                        <option value="__save">＋ Save this line as a service</option>
+                      </select>
+                    ) : null}
                     <textarea
                       name="item_description"
                       rows={1}
@@ -791,7 +897,7 @@ export function QuickInvoiceForm({
                       placeholder="What this line is for"
                     />
                   </td>
-                  <td className="w-32 min-w-32 px-3 py-3 align-top">
+                  <td className="col-span-3 px-0 py-1 align-top sm:w-32 sm:min-w-32 sm:px-3 sm:py-3">
                     <input
                       name="item_quantity"
                       aria-label={`Line ${index + 1} quantity`}
@@ -799,9 +905,10 @@ export function QuickInvoiceForm({
                       className="invoice-input h-10 w-full text-right tabular-nums"
                       value={row.quantity}
                       onChange={(event) => updateLine(index, { quantity: event.target.value })}
+                      placeholder="Qty"
                     />
                   </td>
-                  <td className="w-40 min-w-40 px-3 py-3 align-top">
+                  <td className="col-span-3 px-0 py-1 align-top sm:w-40 sm:min-w-40 sm:px-3 sm:py-3">
                     <input
                       name="item_price"
                       aria-label={`Line ${index + 1} rate`}
@@ -812,8 +919,8 @@ export function QuickInvoiceForm({
                       placeholder="0.00"
                     />
                   </td>
-                  <td className="px-4 py-3 align-top">
-                    <div className="flex h-10 items-center justify-center">
+                  <td className="col-span-2 px-0 py-1 align-top sm:w-16 sm:px-4 sm:py-3">
+                    <div className="flex h-10 items-center justify-start gap-2 sm:justify-center">
                       <input
                         type="checkbox"
                         name="item_taxable"
@@ -827,14 +934,15 @@ export function QuickInvoiceForm({
                         aria-label={`Charge tax on line ${index + 1}`}
                         className="h-4 w-4 accent-[var(--accent)]"
                       />
+                      <span className="text-sm text-muted sm:hidden">Tax</span>
                     </div>
                   </td>
-                  <td className="py-3 pl-4 align-top">
+                  <td className="col-span-3 px-0 py-1 align-top sm:w-28 sm:py-3 sm:pl-4">
                     <div className="flex h-10 items-center justify-end tabular-nums">
                       {formatMoney(lineTotal(pricedLines[index].quantity, pricedLines[index].unitPrice))}
                     </div>
                   </td>
-                  <td className="py-3 pl-2 align-top">
+                  <td className="col-span-1 px-0 py-1 align-top sm:w-8 sm:py-3 sm:pl-2">
                     <div className="flex h-10 items-center justify-center">
                       <button
                         type="button"
@@ -856,6 +964,7 @@ export function QuickInvoiceForm({
               ))}
             </tbody>
           </table>
+          </div>
           <button
             type="button"
             className="mt-2 text-sm text-accent underline-offset-2 hover:underline"
@@ -901,7 +1010,7 @@ export function QuickInvoiceForm({
                   setTaxRate(event.target.value);
                   if (Number.parseFloat(event.target.value) > 0) setTaxRateWarn(false);
                 }}
-                placeholder="%"
+                placeholder="0"
               />
               <span>%</span>
               {taxRateWarn && taxNeeded ? (
@@ -986,12 +1095,38 @@ export function QuickInvoiceForm({
             />
           </div>
         </div>
+        {invoiceId && paymentOptions ? (
+          <section className="mt-8 border-t border-line pt-6" aria-label="Invoice payment methods">
+            <PaymentMethodOptions
+              enabled={onlinePaymentEnabled}
+              onChange={setOnlinePaymentEnabled}
+              canManage={paymentOptions.canManage}
+              canCollect={paymentOptions.canCollect}
+              canSetUpPayments={paymentOptions.canSetUpPayments}
+              setupNote={paymentOptions.setupNote}
+              checkEnabled={checkPaymentEnabled}
+              onCheckChange={setCheckPaymentEnabled}
+              checkPayee={paymentOptions.checkPayee}
+              checkAddressLines={paymentOptions.checkAddressLines}
+              checkPending={false}
+              checkError=""
+            />
+          </section>
+        ) : null}
         <UncleInvoiceCredit />
       </article>
 
-      <button className="btn btn-primary w-full" disabled={pending}>
-        {pending ? "Saving…" : invoiceId ? "Save changes" : "Looks good — create it"}
-      </button>
+      {invoiceId ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <SaveButton name="saveIntent" value="save" pending={pending} save={save} className="col-span-2 w-full sm:col-span-1" />
+          <SaveButton name="saveIntent" value="close" pending={pending} save={save} label="Save and close" className="w-full" />
+          <SaveButton name="saveIntent" value="send" pending={pending} save={save} label="Save and send" className="w-full" />
+        </div>
+      ) : (
+        <button className="btn btn-primary w-full" disabled={pending}>
+          {pending ? "Saving…" : "Looks good — create it"}
+        </button>
+      )}
     </form>
     {newClientOpen ? (
       <>
@@ -1018,7 +1153,7 @@ export function QuickInvoiceForm({
           {newClientError ? (
             <p className="rounded-2xl bg-red-50 px-4 py-3 text-red-900">{newClientError}</p>
           ) : null}
-          <form action={saveNewClient} className="space-y-4">
+          <form action={saveNewClient} onChange={newClientSave.markDirty} className="space-y-4">
             <div className="field">
               <label htmlFor="newClientName">Company</label>
               <input
@@ -1057,9 +1192,7 @@ export function QuickInvoiceForm({
               </div>
             </div>
             <div className="flex gap-2">
-              <button type="submit" className="btn btn-primary">
-                Save customer
-              </button>
+              <SaveButton type="submit" pending={newClientPending} save={newClientSave} label="Save customer" />
               <button
                 type="button"
                 className="btn btn-secondary"

@@ -59,6 +59,7 @@ export type InlineWorkspaceResult =
         city: string | null;
         region: string | null;
         postalCode: string | null;
+        defaultPaymentTerms: string | null;
         nextNumber: string;
       };
     }
@@ -109,6 +110,7 @@ export async function createWorkspaceInlineAction(
       city: workspace.city,
       region: workspace.region,
       postalCode: workspace.postalCode,
+      defaultPaymentTerms: workspace.defaultPaymentTerms,
       nextNumber: `${workspace.invoicePrefix}-${String(workspace.nextInvoiceNumber).padStart(4, "0")}`,
     },
   };
@@ -137,6 +139,34 @@ export async function updateWorkspaceAction(
     data: { ...parsed.data, email: parsed.data.email || null },
   });
   return { ok: true, message: "Client details saved." };
+}
+
+const defaultTermsSchema = z.object({
+  workspaceId: z.string().min(1),
+  paymentTerms: z.string().trim().min(1, "Pick terms first").max(60),
+});
+
+/**
+ * Save the terms currently on the invoice form as this client's default,
+ * so the next new invoice starts with them already set.
+ */
+export async function updateDefaultTermsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = defaultTermsSchema.safeParse({
+    workspaceId: formData.get("workspaceId"),
+    paymentTerms: formData.get("paymentTerms"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form." };
+  }
+  await requireWorkspace(parsed.data.workspaceId);
+  await db.workspace.update({
+    where: { id: parsed.data.workspaceId },
+    data: { defaultPaymentTerms: parsed.data.paymentTerms },
+  });
+  return { ok: true, message: `Default terms saved: ${parsed.data.paymentTerms}.` };
 }
 
 function emptyToUndef(value: FormDataEntryValue | null) {

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { createToken, hashToken } from "@/lib/crypto";
 import { sendEmail } from "@/lib/mail";
+import { sendSms } from "@/lib/sms";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import type { InvoiceStatus } from "@/lib/status";
@@ -194,8 +195,19 @@ export async function sendForReview(invoiceId: string, actor: { email: string; n
 export async function sendInvoiceToClient(
   invoiceId: string,
   actor: { email: string; name: string },
-  options?: { to?: string; cc?: string[]; bcc?: string[]; message?: string },
-) {
+  options?: {
+    to?: string;
+    cc?: string[];
+    bcc?: string[];
+    message?: string;
+    /** Turn online payment on (true) or off (false) for the link. Omit to leave it alone. */
+    collectPayment?: boolean;
+    /** Also text the link to this E.164 number. The caller has already checked consent. */
+    textTo?: string;
+    /** Signed-in user sending, to confirm they are the issuing contractor when taking payment. */
+    actorUserId?: string;
+  },
+): Promise<{ text: "sent" | "skipped" | { error: string } }> {
   const invoice = await db.invoice.findUniqueOrThrow({
     where: { id: invoiceId },
     include: { contractor: true, workspace: true, lineItems: true },
@@ -215,23 +227,13 @@ export async function sendInvoiceToClient(
   const signature = sender?.emailSignature?.trim() || "";
   const message = options?.message?.trim() || "";
 
-  const viewToken = invoice.contractor.userId ? null : createToken();
-  if (viewToken) {
-    await db.magicLink.create({
-      data: {
-        tokenHash: hashToken(viewToken),
-        purpose: "invoice_view",
-        email: invoice.workspace.email ?? "",
-        invoiceId: invoice.id,
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-      },
-    });
+  if (options?.collectPayment && options.actorUserId !== invoice.contractor.userId) {
+    throw new Error("Only the contractor who issued this invoice can turn on online payment.");
   }
-  const hostedPath = invoice.contractor.userId
-    ? await createHostedDeliveryLink(invoice.id, invoice.contractor.userId)
-    : null;
-  const viewLink = hostedPath ? `${APP_URL}${hostedPath}` : `${APP_URL}/invoices/view/${invoice.id}?token=${viewToken}`;
-  const pdfLink = hostedPath ? `${APP_URL}/api${hostedPath}/pdf` : `${APP_URL}/api/invoices/${invoice.id}/pdf?token=${viewToken}`;
+  const { viewLink, pdfLink } = await customerLinks(invoice, {
+    collectPayment: options?.collectPayment,
+    requestingUserId: options?.actorUserId,
+  });
   const total = formatMoney(invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps));
 
   await sendEmail({
@@ -255,7 +257,7 @@ export async function sendInvoiceToClient(
         )
         .join("\n"),
       "",
-      `View / download: ${viewLink}`,
+      options?.collectPayment ? `View and pay online: ${viewLink}` : `View / download: ${viewLink}`,
       `PDF: ${pdfLink}`,
       "",
       `Confirmed by ${invoice.confirmedByEmail ?? invoice.contractor.email ?? invoice.contractor.name} on ${formatDate(invoice.confirmedAt)}.`,
@@ -277,6 +279,68 @@ export async function sendInvoiceToClient(
     `Emailed invoice to ${to}`,
     actor,
   );
+
+  if (!options?.textTo) return { text: "skipped" };
+  // The email is already out and the invoice is marked sent, so a text that
+  // fails is reported, not thrown: retrying the whole send would email twice.
+  try {
+    await sendSms({
+      to: options.textTo,
+      body: [
+        `${invoice.contractor.name} sent you invoice ${invoice.number} for ${total}.`,
+        `${options.collectPayment ? "View and pay" : "View"}: ${viewLink}`,
+        "Reply STOP to opt out.",
+      ].join("\n"),
+    });
+    await recordEvent(
+      invoice.id,
+      "texted_to_client",
+      `Texted the invoice link to ${options.textTo}. ${actor.name} confirmed permission to text this customer.`,
+      actor,
+    );
+    return { text: "sent" };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "The text message could not be sent.";
+    await recordEvent(invoice.id, "text_failed", `Text to ${options.textTo} failed: ${reason}`, actor);
+    return { text: { error: reason } };
+  }
+}
+
+/**
+ * The links a customer is given: the hosted page (with Pay when it is on) and
+ * its PDF. A contractor with no account yet falls back to a token link.
+ */
+async function customerLinks(
+  invoice: { id: string; workspace: { email: string | null }; contractor: { userId: string | null } },
+  options: { collectPayment?: boolean; requestingUserId?: string },
+) {
+  if (invoice.contractor.userId) {
+    const path = await createHostedDeliveryLink(invoice.id, invoice.contractor.userId, options);
+    return { viewLink: `${APP_URL}${path}`, pdfLink: `${APP_URL}/api${path}/pdf` };
+  }
+  const viewToken = createToken();
+  await db.magicLink.create({
+    data: {
+      tokenHash: hashToken(viewToken),
+      purpose: "invoice_view",
+      email: invoice.workspace.email ?? "",
+      invoiceId: invoice.id,
+      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    },
+  });
+  return {
+    viewLink: `${APP_URL}/invoices/view/${invoice.id}?token=${viewToken}`,
+    pdfLink: `${APP_URL}/api/invoices/${invoice.id}/pdf?token=${viewToken}`,
+  };
+}
+
+/** A link to hand a customer by hand (Share link). Leaves online payment as the invoice has it. */
+export async function createShareLink(invoiceId: string) {
+  const invoice = await db.invoice.findUniqueOrThrow({
+    where: { id: invoiceId },
+    include: { workspace: { select: { email: true } }, contractor: { select: { userId: true } } },
+  });
+  return (await customerLinks(invoice, {})).viewLink;
 }
 
 export const SEEDED_DISCLAIMER =

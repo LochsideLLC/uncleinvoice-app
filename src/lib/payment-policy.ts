@@ -34,6 +34,19 @@ export function isSafeConnectConfiguration(snapshot: ConnectConfigurationSnapsho
   );
 }
 
+/** Connected, safely configured, and cleared by Stripe to take card payments. */
+export function stripeReadyForPayments(account: PaymentAccountSnapshot | null): boolean {
+  return Boolean(
+    account &&
+      !account.disconnectedAt &&
+      isSafeConnectConfiguration(account) &&
+      account.chargesEnabled &&
+      account.payoutsEnabled &&
+      account.detailsSubmitted &&
+      account.cardPaymentsStatus === "active",
+  );
+}
+
 export function onlinePaymentEligibility(args: {
   total: number;
   amountPaid: number;

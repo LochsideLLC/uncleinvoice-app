@@ -3,12 +3,14 @@
 import { useActionState } from "react";
 import { changePasswordAction } from "@/actions/account";
 import { FormBanner } from "@/components/form-banner";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 
 export function FirstPasswordForm() {
   const [state, action, pending] = useActionState(changePasswordAction, null);
+  const save = useSaveButton(state);
 
   return (
-    <form action={action} className="paper mt-6 space-y-4 rounded-3xl p-6">
+    <form action={action} onChange={save.markDirty} className="paper mt-6 space-y-4 rounded-3xl p-6">
       <FormBanner state={state} />
       <div className="field">
         <label htmlFor="currentPassword">The temporary password you were given</label>
@@ -19,9 +21,7 @@ export function FirstPasswordForm() {
         <input id="password" name="newPassword" type="password" minLength={8} required />
         <p className="mt-1 text-xs text-muted">At least 8 characters.</p>
       </div>
-      <button className="btn btn-primary" disabled={pending}>
-        {pending ? "Saving…" : "Save my password"}
-      </button>
+      <SaveButton pending={pending} save={save} label="Save my password" />
     </form>
   );
 }

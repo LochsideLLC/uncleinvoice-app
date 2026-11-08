@@ -9,8 +9,6 @@ import { DashboardStats } from "@/components/dashboard-stats";
 import { CustomersPanel } from "@/components/dashboard-tabs";
 import { BookkeeperHome } from "@/components/bookkeeper-home";
 import { WorkspaceDashboard } from "@/components/workspace-dashboard";
-import { ConfirmMyInvoices } from "@/components/confirm-my-invoices";
-import { formatMoney, invoiceGrandTotal } from "@/lib/money";
 
 export default async function AppHomePage({
   searchParams,
@@ -48,29 +46,15 @@ export default async function AppHomePage({
   // Both modes' data loads in one parallel pass, so the toggle swaps theme
   // and content together with no server wait. Wall time is roughly the
   // slowest query, not the sum.
-  const [memberships, stats, mine] = await Promise.all([
+  const [memberships, stats] = await Promise.all([
     listWorkspaces(user.id),
     getDashboardStats(user.id),
-    // Invoices this person issued, as opposed to a client's books they keep.
-    db.contractor.findMany({
-      where: { userId: user.id },
-      include: {
-        workspace: { select: { name: true } },
-        invoices: { where: { confirmedAt: null }, include: { lineItems: true } },
-      },
-    }),
   ]);
-  const waiting = mine.flatMap((c) => c.invoices);
-  const waitingTotal = waiting.reduce(
-    (sum, invoice) => sum + invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps),
-    0,
-  );
-  const first = mine[0];
 
   // Bookkeeper documentation metrics, derived from real records in the
   // businesses this account belongs to.
   const wsIds = memberships.map((m) => m.workspace.id);
-  const [awaitingByWorkspace, verifiedByWorkspace, paidAwaiting, recentImports] =
+  const [awaitingByWorkspace, confirmedUnsentByWorkspace, paidAwaitingByWorkspace] =
     wsIds.length > 0
       ? await Promise.all([
           db.invoice.groupBy({
@@ -80,56 +64,25 @@ export default async function AppHomePage({
           }),
           db.invoice.groupBy({
             by: ["workspaceId"],
-            where: { workspaceId: { in: wsIds }, confirmedAt: { not: null } },
+            where: { workspaceId: { in: wsIds }, confirmedAt: { not: null }, sentAt: null },
             _count: true,
           }),
-          db.invoice.count({
+          db.invoice.groupBy({
+            by: ["workspaceId"],
             where: { workspaceId: { in: wsIds }, confirmedAt: null, amountPaid: { gt: 0 } },
-          }),
-          db.invoiceEvent.findMany({
-            where: {
-              invoice: { workspaceId: { in: wsIds } },
-              message: { startsWith: "Imported from spreadsheet" },
-            },
-            include: {
-              invoice: {
-                select: {
-                  id: true,
-                  number: true,
-                  workspace: { select: { id: true, name: true } },
-                },
-              },
-            },
-            orderBy: { createdAt: "desc" },
-            take: 5,
+            _count: true,
           }),
         ])
-      : [[], [], 0, []];
+      : [[], [], []];
 
   const createAction = (
-    <Link href="/create" className="btn btn-primary shrink-0">
-      <span aria-hidden className="text-xl leading-none">+</span> Create Invoice
+    <Link href="/create" className="btn btn-primary min-h-10 w-full shrink-0 px-2 text-sm sm:min-h-11 sm:w-auto sm:px-4 sm:text-base">
+      <span aria-hidden className="text-lg leading-none">+</span> Create Invoice
     </Link>
   );
 
   const invoices = (
     <>
-      {waiting.length > 0 && first ? (
-        <ConfirmMyInvoices
-          count={waiting.length}
-          total={formatMoney(waitingTotal)}
-          clientNames={[...new Set(mine.map((c) => c.workspace.name))]}
-          contact={{
-            email: first.email?.endsWith(".test") ? "" : (first.email ?? ""),
-            phone: first.phone ?? "",
-            addressLine: first.addressLine ?? "",
-            city: first.city ?? "",
-            region: first.region ?? "",
-            postalCode: first.postalCode ?? "",
-          }}
-        />
-      ) : null}
-
       <DashboardStats stats={stats} />
     </>
   );
@@ -142,11 +95,12 @@ export default async function AppHomePage({
       awaitingByWorkspace={Object.fromEntries(
         awaitingByWorkspace.map((row) => [row.workspaceId, row._count]),
       )}
-      verifiedByWorkspace={Object.fromEntries(
-        verifiedByWorkspace.map((row) => [row.workspaceId, row._count]),
+      confirmedUnsentByWorkspace={Object.fromEntries(
+        confirmedUnsentByWorkspace.map((row) => [row.workspaceId, row._count]),
       )}
-      paidAwaiting={paidAwaiting}
-      recentImports={recentImports}
+      paidAwaitingByWorkspace={Object.fromEntries(
+        paidAwaitingByWorkspace.map((row) => [row.workspaceId, row._count]),
+      )}
     />
   );
 

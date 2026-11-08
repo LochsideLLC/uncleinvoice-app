@@ -1,5 +1,9 @@
 # Next milestone: a clear bookkeeper workflow
 
+## Implementation status — 2026-11-04
+
+The core workflow is implemented locally on `fix/mobile-sign-in`: compact client and contractor queues, filtered/paged invoice records, one-invoice contractor review and correction, package selection with recipient/optional CC review, and confirmed-only PDF export. Payment import now previews first, stores optional source payment IDs, flags likely duplicates, and rejects malformed amounts. The migration is present but has not been applied to any database. Production build and the listed local checks pass. The end-to-end flow has not been run against an isolated database/browser fixture yet; no AAA records were imported and no email was sent. Remaining gates: run the full fixture journey, visually inspect at phone/desktop sizes, settle phone OAuth/email callback origins, and confirm outbound attachment provider limits before live use.
+
 ## Outcome
 
 A bookkeeper can open Uncle Invoice on a phone, choose a client, see which contractors still owe paperwork, and find the next action without scrolling past repeated summaries. A contractor can review and correct prepared drafts, confirm the right invoices, and review the client recipient and optional bookkeeper copy before sending. The bookkeeper can obtain the confirmed PDFs for attachment to existing payments.

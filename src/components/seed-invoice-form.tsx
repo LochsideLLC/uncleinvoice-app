@@ -5,6 +5,7 @@ import { createInvoiceAction } from "@/actions/invoices";
 import { FormBanner } from "@/components/form-banner";
 import { LineItemsEditor } from "@/components/line-items-editor";
 import { PAYMENT_TERMS } from "@/lib/invoice-fields";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 
 export function SeedInvoiceForm({
   workspaceId,
@@ -14,10 +15,11 @@ export function SeedInvoiceForm({
   contractors: { id: string; name: string; email: string | null }[];
 }) {
   const [state, action, pending] = useActionState(createInvoiceAction, null);
+  const save = useSaveButton(state);
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <form action={action} className="paper space-y-5 rounded-3xl p-6">
+    <form action={action} onChange={save.markDirty} className="paper space-y-5 rounded-3xl p-6">
       <input type="hidden" name="workspaceId" value={workspaceId} />
       <FormBanner state={state} />
       <div className="field">
@@ -112,9 +114,7 @@ export function SeedInvoiceForm({
         <input type="checkbox" name="sendNow" className="mt-1" />
         <span>Email the contractor a review link right after saving.</span>
       </label>
-      <button className="btn btn-primary" disabled={pending}>
-        Save draft
-      </button>
+      <SaveButton pending={pending} save={save} label="Save draft" />
     </form>
   );
 }

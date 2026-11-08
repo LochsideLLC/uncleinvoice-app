@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { updateWorkspaceAction } from "@/actions/workspaces";
 import { FormBanner } from "@/components/form-banner";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 
 export function WorkspaceSettingsForm({
   workspace,
@@ -19,9 +20,10 @@ export function WorkspaceSettingsForm({
   };
 }) {
   const [state, action, pending] = useActionState(updateWorkspaceAction, null);
+  const save = useSaveButton(state);
 
   return (
-    <form action={action} className="paper space-y-4 rounded-3xl p-6">
+    <form action={action} onChange={save.markDirty} className="paper space-y-4 rounded-3xl p-6">
       <input type="hidden" name="workspaceId" value={workspace.id} />
       <FormBanner state={state} />
       <div className="field">
@@ -60,9 +62,7 @@ export function WorkspaceSettingsForm({
           <input id="postalCode" name="postalCode" defaultValue={workspace.postalCode ?? ""} />
         </div>
       </div>
-      <button className="btn btn-primary" disabled={pending}>
-        Save
-      </button>
+      <SaveButton pending={pending} save={save} />
     </form>
   );
 }

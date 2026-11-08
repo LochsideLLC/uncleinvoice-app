@@ -1,5 +1,311 @@
 # HANDOFF — Uncle Invoice
 
+## Payment address toggle, shared save feedback, and release checks — 2026-11-08
+
+The Pay by check action now uses the signed-in user's saved business address when the invoice has no mailing address, and copies that address into the invoice snapshot. Its missing-address alert includes a direct “Edit mailing address” link. Save feedback is shared across site save buttons without state updates in effects: edits show the action label in red, submitting shows “Saving…”, success stays green as “Saved”, and errors show “Not saved” until another edit. The hosted secure-payment-link action guards its optional error result. Manual payment keeps a direct form action for the older status panel and uses a feedback action in the invoice dialog; successful payment rotates its idempotency nonce.
+
+Checks: `npm run lint` passed with 2 existing `<img>` warnings in `src/app/partners/page.tsx`; `npx tsc --noEmit` passed; `npm run test:upgrades` 27/27, `npm run test:payments` 11/11, `npm run test:phone` 11/11, `npm run test:terms` 4/4, and `npm run test:migration` passed (28 migrations, 23 RLS tables); `npm run build` passed. Re-run these after final edits. No phone visual recheck was run.
+
+## Business profile save feedback — 2026-11-07
+
+The Save button is neutral and says “Save” while the form is unchanged. Field edits switch it to red “Save”. During submit it says “Saving…”. Success turns it green and says “Saved”; that state stays after the brief success feedback ends. Any new field edit switches it back to red “Save”. Failure briefly says “Not saved”; the error banner remains visible. The earlier persistent inline success message and top success toast remain removed. No form-save semantics changed. No tests run.
+
+## Address alert link wording — 2026-11-07
+
+Changed the alert links to match the instruction and state the action: “Add mailing address to invoice” and “Add business address to profile.” `git diff --check` passed; no tests run.
+
+## Mailing address alert action links — 2026-11-07
+
+When Pay by check is blocked for a missing mailing address, the alert now offers links to edit the invoice address or jump to the business address in Profile. The Profile link includes a safe return path to the same invoice, preserving its view token when present. `git diff --check` passed; no tests or phone recheck run.
+
+## Pay by check toggle feedback — 2026-11-07
+
+The hosted invoice switch used optimistic state, so it could briefly show the check instructions and then revert if saving failed (including when no mailing address exists). The switch now changes only after the server confirms the save. It shows “Saving…” while pending and keeps a clearer address error visible in an alert. Updated validation copy to say the address can be on the invoice or business profile. `git diff --check` passed; no tests or phone recheck run.
+
+## Customer payment options heading — 2026-11-07
+
+Changed the payment group heading to “Customer payment options” and removed “Card payments” beside Stripe. `git diff --check` passed; no tests run.
+
+## Equal payment method label sizes — 2026-11-07
+
+Set switch rows (Pay by check and Stripe/Card payments) to the same explicit 1rem size and line height as coming-soon rows (Bank transfer, PayPal, ACH Direct Debit). Removed the smaller utility from “Card payments” so it matches “Stripe.” `git diff --check` passed; no tests or phone recheck run.
+
+## Payment options visual hierarchy — 2026-11-07
+
+Simplified the payment group: removed the all-caps “Pay online” label, added a quiet divider between check/transfer and online choices, removed whole-row fading from coming-soon options, and reduced the Stripe disabled fade to 80%. Added explicit component-scoped font sizes because global `button { font: inherit }` overrides Tailwind font-size utilities on button rows. All options now use the same ink color and method size; the availability badge is smaller. `git diff --check` passed; no tests or phone recheck run.
+
+## One payment options section — 2026-11-07
+
+Grouped Pay by check, Bank transfer, Stripe card payments, PayPal, and ACH Direct Debit inside one bordered “Payment options” fieldset. Kept “Pay online” as a small category label. Coming-soon dialogs and payment behavior are unchanged. `git diff --check` passed; no tests run.
+
+## Coming-soon payment method explanations — 2026-11-07
+
+Bank transfer, PayPal, and ACH Direct Debit now open an accessible dialog when tapped. Each dialog says the method is coming later, explains how it works, and gives the customer benefit. The payment rows remain informational; no new payment method is enabled or connected to checkout. `git diff --check` passed; no tests run.
+
+## Payment method groups — 2026-11-07
+
+Removed the Payment options title and the Accept online payment switch. Pay by check is now the first section, with Bank transfer beneath it. Pay online follows with Stripe (the card-payment switch) and PayPal. Moved Stripe setup guidance into Pay online and removed the secure-link explanatory sentence. The Create secure link button and its balance confirmation remain. `git diff --check` passed; no tests run.
+
+## Pay by check option — 2026-11-07
+
+Added a saved invoice-level Pay by check switch. Enabling it requires a mailing street or PO box, shows the payee and address in the owner controls, and adds customer instructions to the invoice view and PDF. The invoice editor can also save the setting. Removed the documentation-only payment explanation from the invoice view and editor. Added and applied migration `20261107150000_invoice_check_payment` to the local Docker database at `localhost:5433`; the main `.env` still points to hosted Supabase and was not migrated. Prisma Client generated with v6.19.3. Local dev server is running on port `3000` with local database URLs; `GET /create` returned `200` and a missing invoice URL returned `404`. `git diff --check` passed; no tests run.
+
+## Match invoice action button styling — 2026-11-07
+
+The compact invoice Download PDF icon now uses the same `btn-ghost` background and border as the other toolbar icons. Mark as paid has the same 36px height. `git diff --check` passed; no tests or phone preview run.
+
+## One-row invoice actions — 2026-11-07
+
+On the contractor invoice view, Send and Share link are now icon-only controls in the same row as Edit, Preview PDF, Print, and Download PDF. Mark as paid stays labeled and sits at the far right. The private toolbar uses 36px icons to fit the row; guest invoice controls keep their original size. `git diff --check` passed; no tests or phone preview run.
+
+## Invoice action button font size — 2026-11-07
+
+Removed the 0.8125rem override from Send/Reminder, Share link, and Mark as paid. They now use the standard `.btn` font size of 1.125rem. `git diff --check` passed; no tests or visual retest run.
+
+## Top/bottom banner borders — 2026-11-07
+
+Added top and bottom borders to the edge-to-edge status banner; there are no side borders. `git diff --check` passed; no tests or visual retest run.
+
+## Edge-to-edge borderless status banner — 2026-11-07
+
+The invoice status banner now uses viewport width, breaking past the invoice page’s horizontal gutters. Removed its border and rounded corners; status colors fill edge to edge. Text keeps a small inset for readability. `git diff --check` passed; no tests or visual retest run.
+
+## Single-row status banner above invoice — 2026-11-07
+
+Moved the PDF/edit toolbar and Send/Share/Mark-as-paid controls before the status. The status now sits immediately above the invoice card as one full-width horizontal row, with “Not sent” and due status on the same line. `git diff --check` passed; no tests or visual retest run.
+
+## Full-width invoice status banner — 2026-11-07
+
+Replaced the status/due pills with one full-width colored banner. On phones the PDF/edit toolbar sits on its own row below the banner; on larger screens it remains beside the banner. Overdue state colors the full banner red, preventing the long due text from colliding with icons or wrapping inside a narrow pill. `git diff --check` passed; no tests or visual retest run.
+
+## Prevent overdue badge overlap — 2026-11-07
+
+On phone widths, the due badge now moves to its own row below the status pill while the PDF/edit toolbar stays aligned with the top status row. The badge can wrap within the remaining width, so long overdue text does not run under the icons. Desktop keeps the badges on one row. `git diff --check` passed; no tests or visual retest run.
+
+## Remove Contractor waiting panel — 2026-11-07
+
+Removed the “invoice is waiting for you” card from `/app` and removed its contractor/invoice query and total calculation. The dashboard goes straight to its invoice metrics and list. `git diff --check` passed; no tests or visual retest run.
+
+## Return to All invoices section — 2026-11-07
+
+Dashboard edits now return to `/app#all-invoices`, with an anchor on the invoice list. This skips the “invoice waiting for you” panel at the top of `/app`. Other edit origins keep their existing return destinations. `git diff --check` passed; no tests or visual retest run.
+
+## Return to edit origin on close — 2026-11-07
+
+Edit links now carry a fixed local return path. Save and close returns to `/app` when editing from the dashboard list, the workspace invoice detail when editing there, or the invoice view when editing there. Unknown return paths fall back to that invoice’s view; tokens are preserved only for the invoice view. `git diff --check` passed; no tests or visual retest run.
+
+## White invoice editor save buttons — 2026-11-07
+
+Restored the original `btn-secondary` beige style for Save and Save and close, and the red `btn-primary` style for Save and send. Added borders to all three. Labels and actions are unchanged. `git diff --check` passed; no tests or visual retest run.
+
+## Save, save and close, save and send — 2026-11-06
+
+Invoice editing now has three submit actions: Save keeps the editor open; Save and close returns to the invoice; Save and send opens the send dialog after saving. Saving a draft moves it to the send-ready state and records the confirmation time. Drafts stay in the invoice list and draft count but are excluded from financial totals, open balance, overdue, and aging metrics until saved. Save and send opens the send dialog; the customer email is not sent until the user submits it. `git diff --check` passed; no tests or visual retest run.
+
+## Payment options in invoice editor — 2026-11-06
+
+The invoice editor now shows the same Payment options switches beneath the invoice fields. It loads the invoice’s current setting, shows the existing Stripe readiness/ownership guidance, and submits the selected Stripe setting with edits. The server only applies changes for the issuing contractor and only enables cards when Stripe is ready and the invoice is not documentation-only. `git diff --check` passed; no tests or visual retest run.
+
+## Temporary send-block feedback — 2026-11-06
+
+When Send invoice is tapped on a draft, its label changes to “Edit and save first,” turns red, and Edit invoice highlights green. The cues fade back to their normal styles after about 2.7 seconds. In awaiting-review state the button briefly says “Review and confirm first.” No invoice behavior changed. `git diff --check` passed; no tests or visual retest run.
+
+## Standard invoice action labels — 2026-11-06
+
+Restored the mobile menu labels to View invoice, Edit invoice, Send invoice, and Delete invoice. Tapping Send invoice for a draft reveals only “Edit and save first.” An invoice awaiting review reveals “Review and confirm first.” A confirmed invoice opens the send flow. `git diff --check` passed; no tests or visual retest run.
+
+## Draft action opens edit form — 2026-11-06
+
+Changed the mobile draft action from a disabled label to a link reading “Edit and save first” that opens the invoice edit form. The send-ready action continues to read “Send invoice.” No status or reporting behavior changed. `git diff --check` passed; no tests or visual retest run.
+
+## Draft action says save first — 2026-11-06
+
+Changed the mobile draft action to a non-interactive “Save first” label and removed the draft explanation and Draft badge. The awaiting-review explanation remains available when tapped. No save or send behavior changed. `git diff --check` passed; no tests or visual retest run.
+
+## Clarify saved draft and customer send — 2026-11-06
+
+The mobile action now says “Send to customer.” Its explanation states that a draft is already saved, then names the review-link step and contractor confirmation needed before customer delivery. The review state tells the user to confirm through the emailed link. `git diff --check` passed; no tests or visual retest run.
+
+## Explain blocked draft send action — 2026-11-06
+
+The mobile invoice action menu now lets “Send invoice · Draft/Review” be tapped to reveal why sending is unavailable and the next step. Drafts prompt the user to email a review link and wait for confirmation; invoices awaiting review prompt the user to open the email review link and confirm. This is a disclosure only; it does not change invoice status or send anything. `git diff --check` run; no tests or visual retest run.
+
+## Return path from default-message settings — 2026-11-05
+
+The Send panel's “Change default” link now opens the Profile message setting with a clear “Back to invoice” link. That link returns to the same invoice and reopens Send, preserving the invoice token when present. Return paths are restricted to local invoice-view URLs. No tests or visual retest run.
+
+## Compact invoice send panel — 2026-11-05
+
+Used Tom's phone screenshot to reduce the Send dialog's height: combined its title and short explanation, reduced panel padding and form spacing, reduced field padding and To/From/message text by 1px, and made Send now / Cancel equal-width across the full row. The message box grows to show the inserted default message (about four lines) instead of clipping it at two. No tests or visual retest run.
+
+## Default message for sending invoices — 2026-11-05
+
+Added a per-account default invoice message. The Send dialog now offers “Use default” to insert the text and “Change default” linking to its Profile field. The starter text is: “Hi, your invoice is ready. Please use the link below to view it. Let me know if you have any questions. Thank you!” It is inserted only when requested and can be edited before sending. Added nullable `User.defaultInvoiceMessage`, migration `20261105140000_user_default_invoice_message`, and profile validation (2,000 characters). Applied the migration to local Docker Postgres only (`localhost:5433`) and regenerated Prisma Client. No tests or lint checks run.
+
+## Hide text delivery option — 2026-11-05
+
+Removed the Text delivery section from the invoice Send dialog, along with its phone input and consent checkbox. Email sending is unchanged. SMS server support remains gated in code for future setup; the invoice view no longer advertises texting. No tests run.
+
+## Payment options placement — 2026-11-05
+
+Removed Payment options and its controls from the Send dialog. Payment settings remain in the Payment options section at the bottom of the invoice card. Sending no longer submits a payment-setting override, so it leaves the saved invoice setting unchanged. No tests run.
+
+## Card payment label — 2026-11-05
+
+Placed “Card payments” inline beside “Stripe” in the payment method row. No tests run.
+
+## Payment options copy — 2026-11-05
+
+Removed the extra “More ways to pay are coming soon” sentence. PayPal and Bank transfer still each carry their own “Coming soon” label. No tests run.
+
+## Disabled payment switches — 2026-11-05
+
+Tom reported that tapping the online-payment switches did nothing. They were intentionally disabled unless the viewer is the issuing contractor, Stripe is fully ready for card payments, and the invoice is not documentation-only. Made disabled switches look disabled and moved the Stripe setup reason and link above them so the cause is visible. No payment behavior or eligibility changed. `git diff --check` passed; local homepage returned HTTP 200; no tests or lint checks run.
+
+## Payment methods preview — 2026-11-05
+
+Added an “Accept online payment” switch and a Stripe / card row in both the invoice’s existing Payment options section and the Send dialog. PayPal and Bank transfer show as disabled “Coming soon” options, with a note that more ways to pay are coming. The master and Stripe switches control the same existing per-invoice card-payment setting; only card checkout is implemented, and the future rows do not affect checkout. The contractor who receives the money can change it; other members see it read-only. No payment permissions were widened. No tests or lint checks run.
+
+## Payment option at invoice bottom — 2026-11-05
+
+Kept the per-invoice Stripe choice in the Send dialog and placed the Payment options section inside the existing invoice card, after its totals and notes. Removed the extra off/on status sentence and Stripe-account explanation at Tom's request. No payment permissions were widened. No tests or lint checks run.
+
+## Visible per-invoice card payment choice — 2026-11-05
+
+Moved the card-payment checkbox out of the collapsed delivery section into a visible “Online payment” group in the send form. When the contractor's Stripe account is ready, the checkbox can be changed per invoice; when setup is missing, it explains the next step and links to Stripe setup only for the account owner. Text delivery remains separate and collapsible. No tests or lint checks run.
+
+## Plain card-payment setup note — 2026-11-05
+
+Reworded the invoice send form's payment note to explain in plain words that the contractor receiving the money must connect Stripe before a customer can pay by card. The contractor sees a direct setup link only when their account can act on it; documentation-only invoices do not show that link. No tests or lint checks run.
+
+## Compact invoice send form — 2026-11-05
+
+Tom's phone screenshot showed the send dialog filling the screen with optional fields and controls. Shortened the intro, made the non-editable From value compact, collapsed optional Cc/Bcc and payment/delivery settings into disclosures, reduced the message box to two rows, and bounded the dialog to the visible screen with internal scrolling only if needed. No tests or lint checks run.
+
+## Removed invoice recent activity — 2026-11-05
+
+Tom decided the invoice view does not need an activity card until a clear audit log is designed. Removed the card and its event/timezone query from `src/app/invoices/view/[invoiceId]/page.tsx`; existing invoice events remain in the database for a future audit-log feature. No tests or lint checks run.
+
+## Invoice line items on phones — 2026-11-05
+
+Tom's phone screenshot showed the five-column invoice line table overflowing the invoice card and clipping Amount. `InvoiceDocument` now shows stacked line-item details below the `sm` breakpoint and keeps the original table for larger screens. The mobile view gives Description its own line and places Qty, Rate, Tax, and Amount in a compact labeled row. No tests or lint checks run.
+
+## Invoice status and toolbar alignment — 2026-11-05
+
+Moved the member invoice view's Edit, Preview PDF, Print, and Download PDF icons onto the same row as the status and due-date pills. The “All invoices” link stays above; Send, Share link, and payment controls stay below. Non-member invoice views keep their existing top-row toolbar. No tests or lint checks run.
+
+## Invoice view header spacing — 2026-11-05
+
+After reviewing Tom's phone screenshot, moved the back link and four PDF/edit icon actions into one header row, tightened the gap before invoice controls, and fit Send, Share link, and Mark as paid on one compact mobile row. Reminder text is shortened to “Reminder” with the full accessible label preserved. No tests or lint checks run.
+
+## Invoice view toolbar icons — 2026-11-05
+
+Replaced the Edit, Preview PDF, Print, and Download PDF text buttons in `src/components/invoice-actions.tsx` with 44px icon buttons. Each keeps an accessible label and title; Download remains the accent action. The toolbar now stays compact on mobile. No tests or lint checks run for this change.
+
+## Saved services per client — 2026-11-05
+
+Tom asked for a Services header (done, same style as other section labels) plus picking already-saved products/services. New `ServiceItem` model (workspace, description, unitPrice cents, taxable) with migration `20261105124000_workspace_service_items` (RLS enabled default-deny like all tables; applied to local Docker Postgres only). New `src/actions/service-items.ts` (create/update/delete, member-only). Client settings page (`/app/w/[id]/settings`) gained a Services manager (add/edit/delete with confirm). `/create` loads each client's items; each invoice line gets a “Saved service…” picker once its client is picked, filling description/rate/tax. Checks: `tsc` 0, ESLint clean, test:migration 26/23 RLS pass, test:terms 4/4, test:upgrades 27/27, test:payments 11/11, test:phone 11/11, `/create` 200. Nothing seeded; Tom to add the first services in settings. Unused `EditInvoiceForm` still untouched. Headless proof 10/10 on isolated :3100 (prod build) via CDP: auth, settings add/edit/delete-with-confirm, create-form picker fill (desc/42.00/untaxed), probe rows cleaned, :3100/:9339 torn down, :3000 untouched. Follow-up: line picker now always shows when a client is picked, with “＋ Save this line as a service” built in. Headless CDP events would not reach React on the :3000 dev server (synthetic and trusted-key alike; prod :3100 run was unaffected), so the save tap itself is verified by code path (same proven action as settings-add, tsc/lint/test:terms/upgrades green) plus Tom’s real tap — settings page remains the fallback. No probe rows or sessions left behind. Later: Tom's phone showed `db.serviceItem.findMany` undefined on `/create` — the :3000 dev server predated `prisma generate` for the new model. Restarted it (mine, by port); signed-in draft-edit page now 200 with no error.
+
+## Line-item mobile cards — 2026-11-05
+
+Tom's screenshot showed the line table squeezed on phones: narrow description, price cut off with a sideways scroll bar under "Add a line", and a doubled % on the Tax row. Each line is now a stacked card on mobile (full-width description, Qty + Rate side by side, Tax checkbox with label, amount, remove), while desktop keeps the table (`sm:` gates, headers hidden on phones). Single set of inputs, so submitted data is unchanged. Tax input placeholder is now "0" since the % sign already sits beside it. Checks: `tsc` 0, ESLint clean, test:upgrades 27/27, diff clean. Needs Tom's phone refresh.
+
+## Default payment terms per client — 2026-11-05
+
+Tom asked for choosable terms with a preset default plus a quick way to update the default. New `Workspace.defaultPaymentTerms` (nullable; migration `20261105110000_workspace_default_terms`, applied to local Docker Postgres only) with built-in fallback Net 30 via `resolveDefaultTerms` in `src/lib/invoice-fields.ts`. New `updateDefaultTermsAction` (member-only) saves the current terms as a client's default. `/create` (new + `?edit=` draft) preselects the invoice's own terms, else the client's saved default, else Net 30, with matching due date; picking a client fills untouched terms with that client's default; the “Set as default” text link beside Terms saves the current terms for the picked client with one tap. Follow-up: the custom Terms dropdown still looked different from native ones and the save link never appeared on draft edits (no client is picked there), so Terms is now a native select identical to the other dropdowns with a Custom option revealing a text box, and draft edits preselect their workspace so the link shows. A stale Fast Refresh runtime error from a mid-edit save also meant the phone needed a reload. Later: the Bill-to company box rendered half-width because the dropdown wrapper broke the full-width selector, so it now carries w-full like the others. New `npm run test:terms` 4/4 (`tests/invoice-terms.test.ts`, `scripts/test-terms.mjs`). Checks: `tsc` 0, ESLint clean on touched files, test:upgrades 27/27, test:payments 11/11, test:phone 11/11, `/create` 200. Unused `EditInvoiceForm` left alone. Tom to try on his phone.
+
+## Invoice view mobile reflow — 2026-11-05
+
+Tom's screenshot showed three phone layout problems on `/invoices/view/[id]`. Fixed all three, desktop unchanged (`sm:` gates): the floating edit pencil overlapped the invoice date, so Edit is now a normal button in the top action row (member + unsent only, same rule as before) and the overlay is gone; the top toolbar stacks with "← All invoices" on its own row and Preview/Print/Download/Edit in a 2-col grid on mobile; the status bar stacks pills above a 2-col action grid (Send + Share link, Mark as paid full width) with no-wrapping labels. `InvoiceActions` gained an optional `editHref` prop; the hosted `/i/[token]` customer view is untouched. Checks: `tsc` 0 errors, ESLint clean on the three touched files, `git diff --check` clean, home page 200. No visual phone recheck run here — needs Tom's refresh.
+
+## Missing column crash on invoice view — 2026-11-05
+
+Tom's phone showed a Prisma crash on `/invoices/view/[id]`: P2022, `Invoice.sourcePaymentId` missing in the local database. The migration `20261104180000_add_source_payment_id` existed in the tree but was never applied there. Applied it with `prisma migrate deploy` against the LOCAL Docker Postgres only (`localhost:5433`); hosted Supabase untouched. The page query now runs clean (a token-less curl correctly gets the page's own 404 access gate, no crash). Tom to refresh on his phone.
+
+## Fixture fix for canSend — 2026-11-05
+
+Takeover fixed a typecheck break the invoice-list work left behind: `src/lib/dashboard.ts` added required `canSend` to `InvoiceRow`, but `tests/fixtures/upgrade-browser.tsx` still built a row without it, so `npx tsc --noEmit` failed with TS2322. Added `canSend: true` to the fixture row (it is a sent sample invoice). After the fix: `tsc` 0 errors, `npm run test:upgrades` 27/27, `git diff --check` clean, ESLint clean on `src/components/invoice-list.tsx`. Phone visual recheck still not run — needs Tom's refresh on his phone. Nothing committed, pushed, or sent.
+
+## Phone screenshot fixes — 2026-11-05
+
+Reviewed Tom's two phone screenshots. The invoice table forced horizontal scrolling and clipped values; the contractor dashboard toolbar overflowed; and the all-time period showed two empty date controls. `src/components/invoice-list.tsx` now renders compact invoice cards below the `sm` breakpoint, with selection, due/status details, view/edit/delete actions, and a mobile sort control; the sortable table remains for larger screens. `src/components/workspace-dashboard.tsx`, `src/components/dashboard-tabs.tsx`, and the create link in `src/app/app/page.tsx` now stack and fit on narrow screens, with the section label shortened to “Clients” there. `src/components/dashboard-metrics.tsx` now hides date inputs unless “Custom range” is chosen and labels them From/To. No client data or account settings changed. `git diff --check` was run; no tests or browser visual recheck were run after these edits. Refresh the phone page to see the changes.
+
+## Phone density pass — 2026-11-05
+
+Tom's follow-up screenshot showed the three-row toolbar, large KPI typography, zero-value aging buckets, and two-row filter pills still used too much phone space. The mobile contractor toolbar now places mode selection above section tabs and Create Invoice side by side. `src/app/globals.css` scopes a smaller responsive type scale to `.mobile-dashboard` under 40rem, leaving the rest of the site untouched. KPI and aging amounts scale down based on digit length so larger balances stay on one line; zero aging buckets are hidden; mobile filters use compact Status and Sort selects. Local server remains on port 3000. No tests or browser visual retest were run after these edits.
+
+## Bookkeeper milestone — 2026-11-04
+
+Branch: `fix/mobile-sign-in` (HEAD started at `32e10b3`, one local commit ahead of `origin/main` when work began). This work remains uncommitted. The tree already contained broad older uncommitted UI and auth changes; preserve them and inspect individual diffs before staging anything. No files were staged or committed.
+
+Implemented: compact bookkeeper client queue and contractor work queue; workspace task tabs; invoice search, contractor/year/paperwork filters and 50-row paging; payment state shown separately from paperwork state; individual contractor draft review/correction and confirmation; explicit selected-package recipient, optional CC, count and total; confirmed-only PDF ZIP export with membership and invoice-scope checks; safe payment CSV preview/import with duplicate detection and optional source payment IDs. Added a migration for `Invoice.sourcePaymentId`; it has not been applied. Removed an unused send-all action/component that could send every contractor’s invoices across multiple client businesses without showing the package first.
+
+Safety: no AAA or other client payment records were loaded. No browser or live client database was used. No outbound email was sent. Contractor email sending refuses to run unless Resend is configured and outbound email is enabled; only confirmed, unsent selected invoices are eligible. Send attempts are recorded to avoid blind retries. If provider delivery is uncertain, the action stops and requires a human check before retry. Attachment provider size limits are not yet checked. Imported payment records are drafts; source payment IDs are unique per client workspace. Rows without IDs that match contractor/date/amount are held for review.
+
+Checks on 2026-11-04: `npm run build` passed; `npx tsc --noEmit` passed; `npx prisma validate` passed (Prisma warns that `package.json#prisma` will be removed in Prisma 7); `npm run lint` passed with 2 existing `<img>` warnings in `src/app/partners/page.tsx`; targeted ESLint passed; `npm run test:upgrades` 27/27; `npm run test:payments` 11/11; `npm run test:phone` 11/11; `npm run test:migration` passed (24 migrations, 22 RLS tables); `git diff --check` passed. The migration was not applied and no DB-backed import/send journey or visual phone/desktop review was run.
+
+Open gates: use an isolated database fixture to test the whole bookkeeper-to-contractor journey; visually review at 390px and desktop; fix phone OAuth and email callback origins (Google still returns to localhost in the existing preview setup); confirm attachment size/count limits for Resend. Do not load AAA data or invite contractors until those gates and Tom’s UI review are complete.
+
+## Invoice status wording — 2026-11-05
+
+Tom said the mobile invoice status words were not clear. In `src/components/invoice-list.tsx`, statuses now name the next step: `Needs contractor review` (payment-based draft not checked yet), `Ready to send` (contractor confirmed it, but it is not sent), `Sent to client`, and `Draft` / `Not confirmed yet`. The due date is no longer repeated in the status detail. No tests or browser visual retest were run after this wording change.
+
+## Contractor point of view — 2026-11-05
+
+Tom clarified that this invoice list is shown in Contractor mode, so third-person labels like “Contractor confirmed this” are wrong there. `InvoiceList` accepts a `perspective` for status wording. Draft rows show only “Draft,” and confirmed rows show only “Ready to send,” with no extra explanation, to keep the list compact and clear. The bookkeeper wording remains available as the alternate perspective for statuses that need it. No status data or invoice records changed; no tests or browser visual retest were run.
+
+## Invoice card actions — 2026-11-05
+
+Tom asked for cleaner cards and a flexible action selector. Tapping a mobile invoice card opens a centered selector with View, plus Edit and Delete when manageable. Delete asks for confirmation. The card itself has no action icons or links; its selection checkbox still works independently. Status rows on mobile and desktop show only the status label. The selector was changed from bottom-aligned to centered after Tom's phone screenshot showed it far below the tapped card; it now renders in a portal under `document.body` so transformed ancestors cannot move it, and page scrolling is locked while it is open.
+
+## Status-tinted invoice cards — 2026-11-05
+
+Tom asked for status shown through each mobile card's background and a status watermark, without a separate status line. Mobile cards use a subtle tint and faint status label in the background. Follow-ups: Tom said the watermark competed with card text, then asked for a taller, more condensed font without added letter spacing and slightly more opacity. It now uses a heavy condensed system font stack, horizontal scaling, normal tracking, and 10% opacity. Tom then asked to reduce the watermark size by 1px for review. The card's accessible label also includes its status. No tests or phone visual retest were run.
+
+## Mobile batch selection — 2026-11-05
+
+Tom asked to hide per-card checkboxes unless batch selection is needed. Mobile invoice list now has a “Select invoices” control; entering selection mode reveals card checkboxes and “Select all shown,” with “Done” exiting and clearing the selection. Bulk actions continue to use the selected set. Desktop table selection remains unchanged. No tests or phone visual retest were run.
+
+Tom asked for an X icon beside the Close text in the mobile invoice action dialog. Added the icon; the button keeps its accessible “Close actions” label. No tests or phone visual retest were run.
+
+Tom asked to add Send to the mobile invoice action dialog. Confirmed, unsent invoices in a workspace the signed-in user belongs to now offer “Send invoice”; choosing it opens the existing email composer directly. Drafts, invoices already sent, and rows without workspace-member send access do not show the option. Sending still requires submitting the existing form; no email was sent during this change. No tests or phone visual retest were run.
+
+Tom asked for a disabled Send choice on drafts, with a short reason inside the button, and visible feedback after taps. The action dialog now shows disabled “Send invoice” with “Draft” or “Review” inside the button for eligible workspace rows that are not yet confirmed. Mobile cards, selector actions, Close, Delete confirmation, filters, search, and batch-selection controls show pressed or focus feedback. Confirmed unsent invoices keep the working Send path. No tests or phone visual retest were run.
+
+## Local demo preview — 2026-11-04
+
+Tom requested password-free developer access on his phone. Port 3000 was switched from hosted Supabase to the existing Docker Postgres on `localhost:5433` with explicit DATABASE_URL and DIRECT_URL. The local database received all 23 migrations and the existing Sunrise Cleaning Co. seed. `scripts/prepare-local-dev-access.mjs` created `test@bookkeepingconroe.com` as a non-admin bookkeeper member there only. `src/app/dev-access/` offers one-tap sign-in, gated by development mode, a local DB hostname, and same-origin POST. Verified GET 200, POST 303 with session cookie and correct phone-IP Location, cross-origin POST 403, and authenticated `/app` final 200 with Sunrise Cleaning Co. ESLint for new files and `git diff --check` passed. No full build, real phone tap, or outbound email test. The running dev server is a `functions.exec` session and may stop when the agent session ends; see `docs/sop-phone-preview.md` for the required environment. Do not restart with the repo `.env` alone: it points to hosted Supabase. Other dirty app files predate this work and were left untouched.
+
+## Database boundary verified — 2026-11-04
+
+Read-only inspection confirmed the running checkout's `.env` DATABASE_URL uses hosted Supabase (`aws-1-us-east-1.pooler.supabase.com`), not local Postgres. A local web server does not imply an isolated database. Do not seed/reset it or create review fixtures there. The test account exists and has a password hash; no plaintext password was recovered or changed. The Google-linked personal account has no password. Phone OAuth and emailed reset links still require fixing the APP_URL/callback origin described in the milestone plan.
+
+## Phone preview fix — 2026-11-04
+
+Branch `fix/mobile-sign-in`. Added exact Ripley private IP `100.98.89.93` to `next.config.ts` `allowedDevOrigins`: Next rejected browser script requests from that origin with 403, leaving the header sign-in button inert. Matching requests now return 200; browser verification over that IP opened the header dialog and switched to the Sign in form. ESLint on `next.config.ts` and `git diff --check` passed. No credentials submitted, no full authentication test, no build or production deploy. Added this as step 0 in the milestone plan. Procedure: `docs/sop-phone-preview.md`. Other dirty app files predate this fix and are untouched.
+
+## Planning update — 2026-11-04
+
+Tom requested a bookkeeper-focused review and a development plan, before implementation or loading real payment data. Read `reports/site-review-2026-11-04.md`, then `reports/next-milestone-plan-2026-11-04.md`. The proposed milestone covers a compact phone workflow from client selection through contractor review and invoice packaging, tested with isolated fixtures. The first review was source-based for authenticated screens because the browser redirected to login. No implementation or live account changes were made in this planning pass. Existing uncommitted app changes predate the review; preserve them.
+
+## Current state — 2026-10-20 (send flow: pay online + text, UNTESTED live)
+
+Send modal (contractor mode) now has "Let them pay online with Stripe" and
+"Also text them the link" (+ mobile number + permission checkbox). Share link
+now creates a real hosted link (`/i/<token>`) instead of the sign-in-only
+`/invoices/view/<id>`. Code: `src/lib/sms.ts` (Twilio REST), `createHostedDeliveryLink`
+in `src/lib/hosted-invoices.ts` (non-revoking, can enable payment),
+`sendInvoiceToClient`/`createShareLink` in `src/lib/invoices.ts`,
+`sendToClientComposedAction`/`createShareLinkAction` in `src/actions/invoices.ts`.
+Checked: tsc 0, eslint clean on touched files, test:payments 11/11,
+test:phone 11/11, test:upgrades pass. NOT run against a database or a browser.
+Not done / needs Tom: RESEND_API_KEY + OUTBOUND_EMAIL_ENABLED=true (email only
+lands in the outbox until then); Twilio account, A2P 10DLC registration, and
+TWILIO_* + OUTBOUND_SMS_ENABLED=true (text option is disabled until then);
+STRIPE_CONNECT_ENABLED and a connected test account to see the Pay button.
+Consent is recorded as an invoice event, not a column. Email is still plain
+text (no HTML/button). "Send reminder" button is still a TODO.
+
 ## Current state — 2026-10-19 (free dual workspaces, on feature branch)
 
 Phase 1 done per plan: uncommitted work committed as `3d1348a`, pushed to
@@ -1184,3 +1490,44 @@ address at the moment they confirm.
 - Key files: `src/app/page.tsx` (hero), `src/components/account-cta.tsx` (popup, label "Sign up / Sign in"), `src/components/site-header.tsx` (pill), `src/components/sponsor-board.tsx` + `.sponsor-desc` in `src/app/globals.css`.
 - CSS cascade traps: `.btn-block` must stay AFTER `.btn-hero`; theme maps --text-xs/sm/base all to 1.125rem (use scoped classes for small print).
 - Open follow-ups: global text-scale cleanup; `CARD_NAMES` "Southwest Digital Marketing" vs DB "Southwest Digital"; duplicate-active-subscription prevention; e2e checkout test owed by Tom.
+
+## 2026-10-20 — Invoice edit/delete + bulk delete (uncommitted on main)
+- User asked: edit + delete invoices individually, plus bulk delete, from contractor dashboard list.
+- New: `deleteInvoiceAction(workspaceId, invoiceId)` + `bulkDeleteInvoicesAction(ids)` in `src/actions/invoices.ts`. Guard: any payment activity (`amountPaid>0`, payment rows, checkout attempts) refuses with an error and keeps the row — financial history is never rewritten. Bulk caps at 50, scopes to caller's own workspaces via `listWorkspaces`, skips+reports blocked ones.
+- UI: `src/components/invoice-list.tsx` is now a client component with `manageable` prop; per-row pencil (`/create?edit=[id]`) + two-step trash (arm, then Confirm — no blocking dialogs); bulk bar gets matching two-step Delete; errors surface as a notice line. `DashboardStats` passes `manageable`. One-line fix along the way: second line of each row got `truncate` so squeezed middles clip instead of painting over the amount column (desktop unchanged).
+- Verified: tsc clean, eslint clean, upgrades 26/26, payments 11/11, phone 11/11, migration check ok. Throwaway-DB probe (real actions, stubbed next/*, /tmp/invdel/run.mjs — scratch, not committed): 11/11 — single delete cascades line items/events/attachments/hosted access/magic links and keeps the client; paid / payment-row / checkout-attempt rows refused and kept; cross-workspace id returns "Invoice not found"; bulk 5-mixed deletes 1 skips 4 with message; empty/51+/all-blocked bulk error correctly. CDP screenshots on :3100 (throwaway): desktop rows show pencil+trash aligned, 800px clean, mobile 390px rows tight but legible.
+- NOT committed: 4 modified files (`git status`: `src/actions/invoices.ts`, `src/app/app/page.tsx`, `src/components/dashboard-stats.tsx`, `src/components/invoice-list.tsx`). Needs Tom's go to commit/push/merge/prune. Owner :3000 server untouched throughout; :3100 test server stopped.
+
+## 2026-10-20 — Invoice list rebuilt as table (uncommitted on main)
+- User supplied a mock: header row (INVOICE, CLIENT, DUE DATE, AMOUNT, STATUS), status dot + label + sub-line, edit/delete at right.
+- `src/components/invoice-list.tsx`: rows are now a real `<table>` in a horizontally scrolling card with "Invoices / N invoices" header. Status cell via new `statusCell()` (Confirmed/Not sent amber, Paid green with sent/issue date sub-line, Overdue/Disputed red, Sent/Viewed teal, etc.); due column uses full dates ("Oct 19, 2026") or "On receipt". Removed `rowStatus`/`shortDate` (superseded). Filters, search, select-all, ZIP download, two-step single/bulk delete all preserved.
+- Verified: tsc, eslint clean; CDP screenshots on :3100 (throwaway) at 1280 (header + rows match mock) and 390 (table scrolls sideways, no overlap). Test servers stopped, shot seed rows removed, owner :3000 untouched (200).
+
+## 2026-10-20 — Dashboard restyled to match mock (uncommitted on main)
+- User supplied a mock: 4-segment KPI strip, one-row search+pills, sortable table headers, due-date countdowns, pagination footer.
+- `src/components/dashboard-metrics.tsx`: KPI cards merged into one strip (Invoiced / Collected / Overdue added; each value + "N invoices" sub-line + divider rules; new WarningIcon). Period pills + aging + status line untouched.
+- `src/components/invoice-list.tsx`: search left + pills right in one row (mock placeholder); Due date / Amount / Status headers sort (click cycles asc/desc/off, no-date dues sort last); due cells show relative line ("in 29 days" gray, "in 1 day"/"Due today" amber, "N days overdue" red); visible ACTIONS header; footer with "Showing x–y of z", Rows 10/25/50 select, prev/next, "N of M" (page resets on filter/search/size change).
+- Verified: tsc, eslint, upgrades 26/26 clean; CDP screenshots on :3100 at 1280 (strip, toolbar+sort arrows, countdowns, footer all match mock) + 2x zoom (no clipping) + 390px (table scrolls sideways). Test servers stopped, shot seeds removed, owner :3000 untouched (200).
+
+## 2026-10-20 — Overview section slimmed down (uncommitted on main)
+- User: overview used too much vertical space.
+- `src/components/dashboard-metrics.tsx`: KPI strip padding cut (py-3), values text-2xl->text-xl, tiles h-12->h-10, icons h-6->h-5, sub-lines text-sm->text-xs; aging card px-5/py-4->px-4/py-3, buckets collapsed to one line each (dot+label+amount+count inline, amounts text-base), color bar thinner; section spacing space-y-4->space-y-3.
+- Verified: tsc, eslint clean; CDP 1280 + 2x zoom: all four values render in full (earlier "…" was screenshot downscale blur, confirmed), strip + aging roughly half their former height; table/toolbar untouched. Test servers stopped, shot seeds removed, owner :3000 untouched (200).
+
+## 2026-10-20 — Full redesign pass: toolbar, overview card, unified table, 15px filter text (uncommitted on main)
+- Redesign brief from mock: single toolbar (switcher left, Invoices/Customers tabs center, Create right), content max 1280px, one overview card (header + period dropdown + 4 KPIs + collapsible aging row), unified invoice card (search+pills, sortable all columns, dense ~60px rows, right-aligned amounts, ⋮ menu instead of trash, 25/50/100 rows, footer), paid invoices never show due warnings ("Overdue by N days" wording otherwise).
+- Files: `dashboard-tabs.tsx` (SectionTabs + CustomersPanel exports), `workspace-dashboard.tsx` (owns section state, toolbar), `app/page.tsx` (split nodes), `app/app/layout.tsx` (max-w-[80rem]), `dashboard-metrics.tsx` (one card, select, collapsed aging default), `invoice-list.tsx` (RowMenu ⋮ with Delete+Confirm/Keep, sort invoice/client, bulk bar on selection only, no card title/select row).
+- Verified: tsc, eslint, upgrades 26/26 clean. CDP on :3100: 1920px full page (toolbar/card/table/footer all above fold, footer bottom 813px), ⋮ menu opens, real delete via menu 3 rows -> 2, aging aria-expanded true, period dropdown zeroes KPIs out-of-period, mobile 390 no page overflow + table scrolls in-card. 15px search/pills confirmed in screenshots.
+- Still uncommitted: 7 modified files. Needs Tom's go to commit/push/merge/prune. Test servers stopped, throwaway seeds removed, owner :3000 untouched (200).
+
+## 2026-10-20 — Table columns evened out (uncommitted on main)
+- User: columns bunched left. `invoice-list.tsx`: table is now `table-fixed` so the five data columns split the width evenly (checkbox/actions keep fixed widths, widened to w-12/w-28 after CDP measurement showed their content overflowing by 10px and causing a stray scrollbar); dropped `max-w-44` on client cells.
+- Verified: tsc clean; CDP 1920px: table scrollWidth == clientWidth (no scrollbar), ACTIONS fully visible, columns even. Test server stopped, shot seeds removed, owner :3000 untouched (200).
+
+## 2026-10-20 — Status column breathing room (uncommitted on main)
+- User: Amount and Status looked cramped (columns are even; right-aligned amounts abutted left-aligned statuses). `invoice-list.tsx`: status header + cells `px-2` -> `pl-8 pr-2`.
+- Verified: tsc clean; CDP 1920px shows clear gap, no overflow. Test server stopped, shot seeds removed, owner :3000 untouched (200).
+
+## 2026-10-20 — True 15px filter text (uncommitted on main)
+- User: pills/input looked 18px. Measured computed 18px on throwaway: the unlayered `input, button { font: inherit }` in globals.css beats Tailwind's layered `text-[15px]` (same trap as .sponsor-desc). Fix follows the file's own convention: scoped `.toolbar-15 { font-size: 15px }` in globals.css, applied to search input + pills.
+- Verified: tsc, eslint clean; CDP computed font-size reads 15px on both. Test server stopped, shot seeds removed, owner :3000 untouched (200).

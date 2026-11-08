@@ -15,10 +15,14 @@ export function InvoiceActions({
   pdfHref,
   showSignupNudge = false,
   signupHref = "/signup",
+  editHref,
+  compact = false,
 }: {
   pdfHref: string;
   showSignupNudge?: boolean;
   signupHref?: string;
+  editHref?: string;
+  compact?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -53,16 +57,47 @@ export function InvoiceActions({
   }
 
   return (
-    <div className="flex flex-wrap gap-3 print:hidden">
-      <button type="button" className="btn btn-ghost" onClick={() => handleClick("print")}>
-        Print
+    <div className={`flex items-center justify-end ${compact ? "gap-1" : "gap-2"} print:hidden`}>
+      {editHref ? (
+        <Link href={editHref} className={`btn btn-ghost ${compact ? "h-9 w-9" : "h-11 w-11"} !p-0`} aria-label="Edit invoice" title="Edit invoice">
+          <svg viewBox="0 0 20 20" className={compact ? "h-4 w-4" : "h-5 w-5"} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="m12.8 3.2 4 4M3 17l3.8-.8L16.5 6.5a2.1 2.1 0 0 0-3-3L3.8 13.2 3 17Z" />
+          </svg>
+        </Link>
+      ) : null}
+      {/* The page above is the on-screen view; the PDF is a separate layout.
+          This opens the real PDF inline so it can be checked before sending. */}
+      <a
+        href={pdfHref}
+        target="_blank"
+        rel="noopener"
+        className={`btn btn-ghost ${compact ? "h-9 w-9" : "h-11 w-11"} !p-0`}
+        aria-label="Preview PDF"
+        title="See the PDF your customer will receive"
+      >
+        <svg viewBox="0 0 20 20" className={compact ? "h-4 w-4" : "h-5 w-5"} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M5 2.5h6l4 4v11H5v-15Z" />
+          <path d="M11 2.5v4h4M7.5 11h5" />
+          <circle cx="10" cy="13.5" r="2.2" />
+          <path d="m11.6 15.1 1.6 1.6" />
+        </svg>
+      </a>
+      <button type="button" className={`btn btn-ghost ${compact ? "h-9 w-9" : "h-11 w-11"} !p-0`} onClick={() => handleClick("print")} aria-label="Print invoice" title="Print invoice">
+        <svg viewBox="0 0 20 20" className={compact ? "h-4 w-4" : "h-5 w-5"} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M6 6V2.8h8V6M6 14H4a1.5 1.5 0 0 1-1.5-1.5v-4A1.5 1.5 0 0 1 4 7h12a1.5 1.5 0 0 1 1.5 1.5v4A1.5 1.5 0 0 1 16 14h-2" />
+          <path d="M6 11h8v6H6zM14.5 9.5h.01" />
+        </svg>
       </button>
       <button
         type="button"
-        className="btn btn-primary"
+        className={`btn ${compact ? "btn-ghost h-9 w-9" : "btn-primary h-11 w-11"} !p-0`}
         onClick={() => handleClick("download")}
+        aria-label="Download PDF"
+        title="Download PDF"
       >
-        Download PDF
+        <svg viewBox="0 0 20 20" className={compact ? "h-4 w-4" : "h-5 w-5"} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M10 2.5v10m-3.5-3.5L10 12.5l3.5-3.5M4 13.5v3h12v-3" />
+        </svg>
       </button>
       {showSignupNudge ? (
         <dialog

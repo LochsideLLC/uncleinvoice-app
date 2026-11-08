@@ -6,6 +6,7 @@ import { FormBanner } from "@/components/form-banner";
 import { LineItemsEditor, toLineDrafts } from "@/components/line-items-editor";
 import { PAYMENT_TERMS } from "@/lib/invoice-fields";
 import { bpsToPercent } from "@/lib/money";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 
 export function EditInvoiceForm({
   workspaceId,
@@ -28,9 +29,10 @@ export function EditInvoiceForm({
   };
 }) {
   const [state, action, pending] = useActionState(updateInvoiceAction, null);
+  const save = useSaveButton(state);
 
   return (
-    <form action={action} className="paper space-y-4 rounded-3xl p-6">
+    <form action={action} onChange={save.markDirty} className="paper space-y-4 rounded-3xl p-6">
       <input type="hidden" name="workspaceId" value={workspaceId} />
       <input type="hidden" name="invoiceId" value={invoice.id} />
       <FormBanner state={state} />
@@ -117,9 +119,7 @@ export function EditInvoiceForm({
           defaultValue={invoice.internalNote}
         />
       </div>
-      <button className="btn btn-secondary" disabled={pending}>
-        Save changes
-      </button>
+      <SaveButton pending={pending} save={save} label="Save changes" />
     </form>
   );
 }

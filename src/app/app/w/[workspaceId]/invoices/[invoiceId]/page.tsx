@@ -17,7 +17,7 @@ export default async function InvoiceDetailPage({
   params: Promise<{ workspaceId: string; invoiceId: string }>;
 }) {
   const { workspaceId, invoiceId } = await params;
-  const { user } = await requireWorkspace(workspaceId);
+  await requireWorkspace(workspaceId);
   const invoice = await db.invoice.findFirst({
     where: { id: invoiceId, workspaceId },
     include: {
@@ -49,12 +49,13 @@ export default async function InvoiceDetailPage({
               <p className="text-sm text-muted">{invoice.number}</p>
               <h2 className="text-3xl">{invoice.contractor.name}</h2>
               <p className="mt-1 text-muted">{formatMoney(total)} · {formatDate(invoice.issueDate)}</p>
+              {invoice.sourcePaymentId ? <p className="mt-1 break-all text-xs text-muted">Source payment ID: {invoice.sourcePaymentId}</p> : null}
             </div>
             <div className="flex items-center gap-3">
               <StatusBadge status={invoice.status} />
               {!isSent && (
                 <Link
-                  href={`/create?edit=${invoice.id}`}
+                  href={`/create?edit=${invoice.id}&returnTo=${encodeURIComponent(`/app/w/${workspaceId}/invoices/${invoice.id}`)}`}
                   aria-label="Edit invoice"
                   className="rounded-lg p-1.5 text-muted transition hover:bg-paper-2 hover:text-ink"
                 >

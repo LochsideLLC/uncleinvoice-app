@@ -4,20 +4,43 @@ import { db } from "@/lib/db";
 import { listWorkspaces } from "@/lib/workspace";
 import { toDateInput } from "@/lib/dates";
 import { centsToDollars, invoiceGrandTotal, paymentState } from "@/lib/money";
+import type { SavedService } from "@/components/workspace-services-manager";
 import { CreateAccountNudge } from "@/components/create-account-nudge";
 import { QuickInvoiceForm } from "@/components/quick-invoice-form";
 import { W9Note } from "@/components/w9-note";
 import { formatStreetAddress } from "@/lib/us-address";
+import { stripeConnectEnabled } from "@/lib/stripe-connect";
+import { stripeReadyForPayments } from "@/lib/payment-policy";
 
 export default async function CreateInvoicePage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string; token?: string }>;
+  searchParams: Promise<{ edit?: string; token?: string; returnTo?: string }>;
 }) {
   const user = await getSessionUser();
-  const { edit, token } = await searchParams;
+  const { edit, token, returnTo } = await searchParams;
   const draft = edit ? await loadInvoiceDraft(edit, token, user?.id) : null;
   const memberships = user ? await listWorkspaces(user.id) : [];
+  const workspaceIds = memberships.map((membership) => membership.workspace.id);
+  const serviceRows = workspaceIds.length
+    ? await db.serviceItem.findMany({
+        where: { workspaceId: { in: workspaceIds } },
+        orderBy: { description: "asc" },
+      })
+    : [];
+  const savedServices: { workspaceId: string; items: SavedService[] }[] = workspaceIds.map(
+    (workspaceId) => ({
+      workspaceId,
+      items: serviceRows
+        .filter((row) => row.workspaceId === workspaceId)
+        .map((row) => ({
+          id: row.id,
+          description: row.description,
+          unitPriceCents: row.unitPrice,
+          taxable: row.taxable,
+        })),
+    }),
+  );
   const billToClients = memberships.map((membership) => ({
     id: membership.workspace.id,
     name: membership.workspace.name,
@@ -27,6 +50,7 @@ export default async function CreateInvoicePage({
     city: membership.workspace.city,
     region: membership.workspace.region,
     postalCode: membership.workspace.postalCode,
+    defaultPaymentTerms: membership.workspace.defaultPaymentTerms,
     // Peek, don't claim: the counter moves only when an invoice is saved.
     nextNumber: `${membership.workspace.invoicePrefix}-${String(membership.workspace.nextInvoiceNumber).padStart(4, "0")}`,
   }));
@@ -52,8 +76,13 @@ export default async function CreateInvoicePage({
         defaultFromRegion={draft?.fromRegion || user?.region || ""}
         defaultFromPostalCode={draft?.fromPostalCode || user?.postalCode || ""}
         defaults={draft?.defaults}
+        defaultTerms={draft?.workspaceDefaultTerms}
+        defaultClientId={draft?.workspaceId}
+        savedServices={savedServices}
         billToClients={billToClients}
         canSaveClients={!!user}
+        paymentOptions={draft?.paymentOptions}
+        returnTo={returnTo}
       />
       <div className="mt-8">
         <W9Note />
@@ -93,9 +122,46 @@ async function loadInvoiceDraft(invoiceId: string, token: string | undefined, us
 
   const total = invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps);
   const paid = paymentState(invoice.amountPaid, total);
+  const canManagePaymentOptions = Boolean(userId && invoice.contractor.userId === userId);
+  const stripeAvailable = stripeConnectEnabled();
+  const stripeAccount = canManagePaymentOptions
+    ? await db.stripeConnectedAccount.findUnique({ where: { userId: userId as string } })
+    : null;
+  const canCollectPayment = canManagePaymentOptions &&
+    stripeReadyForPayments(stripeAccount) &&
+    invoice.collectionMode !== "documentation";
+  const paymentOptionsNote = canCollectPayment
+    ? null
+    : !stripeAvailable
+      ? "Card payments are not available yet."
+      : !canManagePaymentOptions
+        ? "The contractor who receives the money must connect Stripe first."
+        : invoice.collectionMode === "documentation"
+          ? null
+          : "Connect Stripe before the customer can pay by card.";
 
   return {
     id: invoice.id,
+    workspaceId: invoice.workspaceId,
+    workspaceDefaultTerms: invoice.workspace.defaultPaymentTerms,
+    paymentOptions: {
+      enabled: invoice.onlinePaymentEnabled,
+      canManage: canManagePaymentOptions,
+      canCollect: canCollectPayment,
+      canSetUpPayments: canManagePaymentOptions && stripeAvailable && invoice.collectionMode !== "documentation",
+      setupNote: paymentOptionsNote,
+      checkPaymentEnabled: invoice.checkPaymentEnabled,
+      checkPayee: invoice.contractor.name,
+      checkAddressLines: [
+        invoice.fromAddressLine ?? invoice.contractor.addressLine,
+        [
+          invoice.fromCity ?? invoice.contractor.city,
+          [invoice.fromRegion ?? invoice.contractor.region, invoice.fromPostalCode ?? invoice.contractor.postalCode]
+            .filter(Boolean)
+            .join(" "),
+        ].filter(Boolean).join(", "),
+      ].filter((line): line is string => Boolean(line?.trim())),
+    },
     fromContactName: invoice.fromContactName ?? "",
     fromCompany: invoice.contractor.name,
     fromEmail: invoice.contractor.email ?? "",

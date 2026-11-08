@@ -20,6 +20,7 @@ type PdfInvoice = {
   poNumber?: string | null;
   paymentTerms?: string | null;
   paymentInstructions?: string | null;
+  checkPaymentEnabled?: boolean;
   taxRateBps?: number | null;
   amountPaid?: number | null;
   fromTaxId?: string | null;
@@ -146,7 +147,7 @@ export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     .join(", ");
 
   const fromLines = [
-    invoice.fromAddressLine ?? invoice.contractor.addressLine,
+    invoice.fromAddressLine?.trim() || invoice.contractor.addressLine,
     fromCity,
     invoice.contractor.email,
     invoice.contractor.phone,
@@ -260,6 +261,27 @@ export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     text("HOW TO PAY", { x: left, y, size: 9, font: bold, color: muted });
     y -= 14;
     text(invoice.paymentInstructions.replace(/\n/g, " ").slice(0, 90), {
+      x: left,
+      y,
+      size: 10,
+      font,
+      color: ink,
+    });
+  }
+
+  if (invoice.checkPaymentEnabled) {
+    y -= 28;
+    text("PAY BY CHECK", { x: left, y, size: 9, font: bold, color: muted });
+    y -= 14;
+    text(`Make checks payable to ${invoice.contractor.name}.`, {
+      x: left,
+      y,
+      size: 10,
+      font,
+      color: ink,
+    });
+    y -= 14;
+    text("Mail to the address shown under From above.", {
       x: left,
       y,
       size: 10,

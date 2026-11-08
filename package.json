@@ -13,6 +13,7 @@
     "test:upgrades": "node scripts/test-upgrades.mjs",
     "test:payments": "node scripts/test-payments.mjs",
     "test:phone": "node scripts/test-phone.mjs",
+    "test:terms": "node scripts/test-terms.mjs",
     "test:migration": "node scripts/test-migration.mjs",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",

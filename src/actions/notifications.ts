@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getRealSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NOTIFICATION_EVENT_TYPES, TIME_ZONES } from "@/lib/notification-policy";
+import type { ActionState } from "@/actions/auth";
 
 export async function markNotificationReadAction(formData: FormData) {
   const user = await getRealSessionUser();
@@ -20,9 +21,9 @@ export async function markAllNotificationsReadAction() {
   revalidatePath("/app/notifications");
 }
 
-export async function updateNotificationPreferencesAction(formData: FormData) {
+export async function updateNotificationPreferencesAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getRealSessionUser();
-  if (!user) return;
+  if (!user) return { error: "Please sign in again." };
   await db.$transaction(
     NOTIFICATION_EVENT_TYPES.map((eventType) =>
       db.notificationPreference.upsert({
@@ -43,13 +44,15 @@ export async function updateNotificationPreferencesAction(formData: FormData) {
     ),
   );
   revalidatePath("/app/notifications/settings");
+  return { ok: true };
 }
 
-export async function updateTimeZoneAction(formData: FormData) {
+export async function updateTimeZoneAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getRealSessionUser();
-  if (!user) return;
+  if (!user) return { error: "Please sign in again." };
   const timeZone = String(formData.get("timeZone") ?? "");
-  if (!TIME_ZONES.some((allowed) => allowed === timeZone)) return;
+  if (!TIME_ZONES.some((allowed) => allowed === timeZone)) return { error: "Choose a valid time zone." };
   await db.user.update({ where: { id: user.id }, data: { timeZone } });
   revalidatePath("/app/notifications/settings");
+  return { ok: true };
 }

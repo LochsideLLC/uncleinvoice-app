@@ -76,10 +76,14 @@ export async function updateProfileAction(
   if (emailSignature && emailSignature.length > 1000) {
     return { error: "Keep the signature under 1,000 characters." };
   }
+  const defaultInvoiceMessage = optionalText(formData.get("defaultInvoiceMessage")) ?? null;
+  if (defaultInvoiceMessage && defaultInvoiceMessage.length > 2000) {
+    return { error: "Keep the default invoice message under 2,000 characters." };
+  }
 
   await db.user.update({
     where: { id: user.id },
-    data: { name, backupEmail, clientTerm, emailSignature },
+    data: { name, backupEmail, clientTerm, emailSignature, defaultInvoiceMessage },
   });
   refreshAccountPages();
   return { ok: true, message: "Profile saved." };

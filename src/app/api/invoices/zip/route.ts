@@ -26,11 +26,21 @@ export async function POST(request: Request) {
   }
 
   const form = await request.formData();
-  const ids = form.getAll("id").map(String).filter(Boolean);
+  const submittedIds = form.getAll("id").map(String).filter(Boolean);
+  const ids = [...new Set(submittedIds)];
   if (!ids.length) {
     return NextResponse.json({ error: "Nothing selected" }, { status: 400 });
   }
+  if (ids.length !== submittedIds.length) {
+    return NextResponse.json({ error: "An invoice was selected more than once." }, { status: 400 });
+  }
   if (ids.length > 50) return NextResponse.json({ error: "Select up to 50 invoices." }, { status: 400 });
+
+  const requestedWorkspaceId = String(form.get("workspaceId") ?? "").trim();
+  const confirmedOnly = form.get("confirmedOnly") === "true";
+  if (confirmedOnly && !requestedWorkspaceId) {
+    return NextResponse.json({ error: "Choose a client before exporting confirmed invoices." }, { status: 400 });
+  }
 
   const memberships = await db.workspaceMember.findMany({
     where: { userId: user.id },
@@ -38,15 +48,23 @@ export async function POST(request: Request) {
   });
   const allowed = memberships.map((m) => m.workspaceId);
 
+  if (requestedWorkspaceId && !allowed.includes(requestedWorkspaceId)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const invoices = await db.invoice.findMany({
     where: {
       id: { in: ids },
-      OR: [
-        // A client this person keeps books for.
-        { workspaceId: { in: allowed } },
-        // Or their own invoices, as the contractor who issued them.
-        { contractor: { userId: user.id } },
-      ],
+      ...(requestedWorkspaceId
+        ? { workspaceId: requestedWorkspaceId, ...(confirmedOnly ? { confirmedAt: { not: null } } : {}) }
+        : {
+            OR: [
+              // A client this person keeps books for.
+              { workspaceId: { in: allowed } },
+              // Or their own invoices, as the contractor who issued them.
+              { contractor: { userId: user.id } },
+            ],
+          }),
     },
     include: {
       contractor: true,
@@ -55,7 +73,7 @@ export async function POST(request: Request) {
     },
     orderBy: [{ issueDate: "asc" }, { number: "asc" }],
   });
-  if (!invoices.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (invoices.length !== ids.length) return NextResponse.json({ error: "One or more selected invoices are not available for this export." }, { status: 404 });
   const globalAllowed = await consumeDailyLimit({
     operation: "pdf_generate",
     scope: "global",

@@ -3,12 +3,14 @@
 import { useActionState } from "react";
 import { changePasswordAction } from "@/actions/account";
 import { FormBanner } from "@/components/form-banner";
+import { SaveButton, useSaveButton } from "@/components/save-button";
 
 export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
   const [state, action, pending] = useActionState(changePasswordAction, null);
+  const save = useSaveButton(state);
 
   return (
-    <form action={action} className="paper compact-fields space-y-1 rounded-3xl p-6">
+    <form action={action} onChange={save.markDirty} className="paper compact-fields space-y-1 rounded-3xl p-6">
       <div>
         <h2 className="text-xl">Password</h2>
         <p className="mt-1 text-sm text-muted">
@@ -43,9 +45,7 @@ export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
         />
       </div>
       <div className="pt-3">
-        <button className="btn btn-primary w-full" disabled={pending}>
-          Save new password
-        </button>
+        <SaveButton pending={pending} save={save} label="Save new password" className="w-full" />
       </div>
     </form>
   );

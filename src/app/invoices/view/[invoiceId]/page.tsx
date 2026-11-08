@@ -9,29 +9,29 @@ import { InvoiceActions } from "@/components/invoice-actions";
 import { InvoiceStatusBar } from "@/components/invoice-status-bar";
 import { mailFromAddress } from "@/lib/mail";
 import { invoiceShowsBrand } from "@/lib/invoice-branding";
+import { DEFAULT_INVOICE_MESSAGE } from "@/lib/invoice-email";
 
 import { getRealSessionUser } from "@/lib/auth";
 import { isClaimTokenShape } from "@/lib/invoice-claim";
 import { HostedInvoiceControls } from "@/components/hosted-invoice-controls";
-import { isSafeConnectConfiguration } from "@/lib/stripe-connect";
-import { formatDateTime } from "@/lib/dates";
+import { stripeConnectEnabled } from "@/lib/stripe-connect";
+import { stripeReadyForPayments } from "@/lib/payment-policy";
 
 export default async function PublicInvoicePage({
   params,
   searchParams,
 }: {
   params: Promise<{ invoiceId: string }>;
-  searchParams: Promise<{ token?: string; claim?: string }>;
+  searchParams: Promise<{ token?: string; claim?: string; send?: string }>;
 }) {
   const { invoiceId } = await params;
-  const { token, claim } = await searchParams;
+  const { token, claim, send } = await searchParams;
   const invoice = await db.invoice.findUnique({
     where: { id: invoiceId },
     include: {
       contractor: true,
       workspace: true,
       lineItems: { orderBy: { sortOrder: "asc" } },
-      events: { orderBy: { createdAt: "desc" }, take: 100 },
     },
   });
   if (!invoice) notFound();
@@ -39,8 +39,10 @@ export default async function PublicInvoicePage({
   const access = await invoiceAccess(invoice.id, invoice.workspaceId, invoice.contractor.userId, token);
   if (!access.allowed) notFound();
 
+  const invoiceReturnTo = `/invoices/view/${invoice.id}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   const pdfHref = `/api/invoices/${invoice.id}/pdf${token ? `?token=${token}` : ""}`;
-  const editHref = `/create?edit=${invoice.id}${token ? `&token=${token}` : ""}`;
+  const editHref = `/create?edit=${invoice.id}${token ? `&token=${encodeURIComponent(token)}` : ""}&returnTo=${encodeURIComponent(invoiceReturnTo)}`;
+  const businessProfileHref = `/app/profile?returnTo=${encodeURIComponent(invoiceReturnTo)}#business-profile`;
   const totalCents = invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps);
   // A token link means "customer view" — unless the visitor is also a member
   // of the workspace. Without this, the owner lands on the customer view of
@@ -48,13 +50,36 @@ export default async function PublicInvoicePage({
   // Send, Share link, Mark as paid, and Edit.
   const isOwner = access.isMember || access.isContractorOwner;
   const showBrand = await invoiceShowsBrand(invoice);
+  const invoiceDocument = invoiceToDocument(invoice);
+  const checkAddressLines = [invoiceDocument.fromAddress, invoiceDocument.fromCityLine]
+    .filter((line): line is string => Boolean(line?.trim()));
+  // Online payment is offered at send time only to the issuing contractor,
+  // and only once Stripe says the account can take cards.
+  const ownerAccount = access.isMember && invoice.contractor.userId
+    ? await db.stripeConnectedAccount.findUnique({ where: { userId: invoice.contractor.userId } })
+    : null;
+  const stripeReady = stripeReadyForPayments(ownerAccount);
+  const stripeSetupAvailable = stripeConnectEnabled();
+  const canCollectOnline = access.isContractorOwner && stripeReady && invoice.collectionMode !== "documentation";
+  const paymentNote = canCollectOnline
+    ? null
+    : invoice.collectionMode === "documentation"
+      ? null
+      : !stripeSetupAvailable
+        ? "Card payments are not available yet."
+        : !access.isContractorOwner
+          ? "The contractor who receives the money must connect Stripe first."
+          : "Connect Stripe before the customer can pay by card.";
   const viewer = access.isMember ? await getSessionUser() : null;
+  const returnParams = new URLSearchParams({ send: "1" });
+  if (token) returnParams.set("token", token);
+  const defaultMessageReturnTo = `/invoices/view/${invoice.id}?${returnParams.toString()}`;
   // Guests have no account at all: nudge them to sign up before printing.
   const hasAccount = Boolean(viewer ?? (await getSessionUser()) ?? (await getRealSessionUser()));
 
   return (
     <div className="mx-auto min-h-full w-full max-w-6xl px-5 pb-8">
-      <div className="mb-6 flex items-center justify-between print:hidden">
+      <div className="mb-3 flex items-center justify-between gap-2 print:hidden">
         {isOwner ? (
           <Link
             href="/app"
@@ -65,15 +90,17 @@ export default async function PublicInvoicePage({
         ) : (
           <span />
         )}
-        <InvoiceActions
-          pdfHref={pdfHref}
-          showSignupNudge={!hasAccount}
-          signupHref={
-            !hasAccount && isClaimTokenShape(claim)
-              ? `/signup?claim=${encodeURIComponent(claim)}`
-              : "/signup"
-          }
-        />
+        {!access.isMember ? (
+          <InvoiceActions
+            pdfHref={pdfHref}
+            showSignupNudge={!hasAccount}
+            signupHref={
+              !hasAccount && isClaimTokenShape(claim)
+                ? `/signup?claim=${encodeURIComponent(claim)}`
+                : "/signup"
+            }
+          />
+        ) : null}
       </div>
 
       {access.isMember && (
@@ -88,64 +115,46 @@ export default async function PublicInvoicePage({
           onlinePaymentEnabled={invoice.onlinePaymentEnabled}
           clientEmail={invoice.workspace.email}
           mailFrom={mailFromAddress()}
+          defaultInvoiceMessage={viewer?.defaultInvoiceMessage?.trim() || DEFAULT_INVOICE_MESSAGE}
+          defaultMessageReturnTo={defaultMessageReturnTo}
+          openSendForm={send === "1" && invoice.status === "confirmed"}
+          actionTools={
+            <InvoiceActions
+              pdfHref={pdfHref}
+              editHref={invoice.status !== "sent" ? editHref : undefined}
+              showSignupNudge={!hasAccount}
+              compact
+              signupHref={
+                !hasAccount && isClaimTokenShape(claim)
+                  ? `/signup?claim=${encodeURIComponent(claim)}`
+                  : "/signup"
+              }
+            />
+          }
         />
       )}
 
-      <div className="relative mt-4">
-        <InvoiceDocument invoice={invoiceToDocument(invoice)} showBrand={showBrand} />
-        {access.isMember && invoice.status !== "sent" && (
-          <Link
-            href={editHref}
-            aria-label="Edit invoice"
-            className="print:hidden absolute right-4 top-4 rounded-lg p-2 text-muted transition hover:bg-paper-2 hover:text-ink"
-          >
-            <svg
-              viewBox="0 0 16 16"
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5Z" />
-              <path d="M9.5 4.5l2 2" />
-            </svg>
-          </Link>
-        )}
-      </div>
-      {access.isContractorOwner ? (
-        <HostedInvoiceControls
-          invoiceId={invoice.id}
-          paymentEnabled={invoice.onlinePaymentEnabled}
-          canCollect={Boolean(
-            access.connectedAccount &&
-            isSafeConnectConfiguration(access.connectedAccount) &&
-            access.connectedAccount.chargesEnabled &&
-            access.connectedAccount.cardPaymentsStatus === "active"
-          )}
+      <div className="mt-4">
+        <InvoiceDocument
+          invoice={invoiceDocument}
+          showBrand={showBrand}
+          paymentOptions={isOwner ? (
+            <HostedInvoiceControls
+              invoiceId={invoice.id}
+              canManage={access.isContractorOwner}
+              paymentEnabled={invoice.onlinePaymentEnabled}
+              canCollect={canCollectOnline}
+              paymentNote={paymentNote}
+              canSetUpPayments={access.isContractorOwner && stripeSetupAvailable && invoice.collectionMode !== "documentation"}
+              checkPaymentEnabled={invoice.checkPaymentEnabled}
+              checkPayee={invoiceDocument.fromName}
+              checkAddressLines={checkAddressLines}
+              editInvoiceHref={editHref}
+              businessProfileHref={businessProfileHref}
+            />
+          ) : undefined}
         />
-      ) : null}
-      {isOwner ? (
-        <section className="paper mt-6 rounded-3xl p-6 print:hidden">
-          <h2 className="text-2xl">Recent activity</h2>
-          {invoice.events.length ? (
-            <ol className="mt-4 space-y-3 text-sm">
-              {invoice.events.map((event) => (
-                <li key={event.id} className="border-t border-line pt-3 first:border-t-0 first:pt-0">
-                  <p>{event.message}</p>
-                  <p className="text-muted">
-                    {event.source === "stripe" ? "Stripe confirmed" : event.actorName ?? event.actorEmail ?? "Uncle Invoice"}
-                    {" · "}{formatDateTime(event.createdAt, access.ownerTimeZone)}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          ) : <p className="mt-2 text-sm text-muted">No activity yet.</p>}
-        </section>
-      ) : null}
-
+      </div>
     </div>
   );
 }
@@ -178,13 +187,13 @@ async function invoiceAccess(
       const connectedAccount = isContractorOwner
         ? await db.stripeConnectedAccount.findUnique({ where: { userId: realViewer!.id } })
         : null;
-      return { allowed: true, isMember: Boolean(membership), isContractorOwner, connectedAccount, ownerTimeZone: realViewer?.timeZone ?? viewer?.timeZone ?? "America/Chicago" };
+      return { allowed: true, isMember: Boolean(membership), isContractorOwner, connectedAccount };
     }
   }
 
   const user = await getSessionUser();
   const realUser = await getRealSessionUser();
-  if (!user && !realUser) return { allowed: false, isMember: false, isContractorOwner: false, connectedAccount: null, ownerTimeZone: "America/Chicago" };
+  if (!user && !realUser) return { allowed: false, isMember: false, isContractorOwner: false, connectedAccount: null };
   const viewerId = user?.id ?? realUser!.id;
   const membership = await db.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId: viewerId } },
@@ -198,6 +207,5 @@ async function invoiceAccess(
     isMember: Boolean(membership),
     isContractorOwner,
     connectedAccount,
-    ownerTimeZone: realUser?.timeZone ?? user?.timeZone ?? "America/Chicago",
   };
 }

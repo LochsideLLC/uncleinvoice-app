@@ -18,6 +18,7 @@ import { PlanMatrix } from "@/components/plan-matrix";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { BookkeeperHome } from "@/components/bookkeeper-home";
 import { QuickInvoiceForm } from "@/components/quick-invoice-form";
+import { csvRowToCents, csvRowToPaidCents, parsePaymentCsv } from "@/lib/csv";
 
 beforeEach(() => { state.plan = "free"; state.planSetAt = null; state.planUpdates = 0; state.signedIn = true; state.creates = 0; state.paidIds.clear(); state.archivedIds.clear(); });
 
@@ -167,9 +168,9 @@ test("onboarding offers both starting sides without restricting access", () => {
 });
 
 test("bookkeeper home explains the flow and lists client businesses", () => {
-  const emptyProps = { memberships: [], awaitingByWorkspace: {}, verifiedByWorkspace: {}, paidAwaiting: 0, recentImports: [] };
+  const emptyProps = { memberships: [], awaitingByWorkspace: {}, confirmedUnsentByWorkspace: {}, paidAwaitingByWorkspace: {} };
   const empty = renderToStaticMarkup(<BookkeeperHome {...emptyProps} />);
-  assert.match(empty, /Add Your First Client/);
+  assert.match(empty, /Add your first client/i);
   const memberships = [{
     workspace: { id: "w1", name: "Client Co", email: "client@example.test", _count: { contractors: 2, invoices: 5 } },
     role: "owner",
@@ -177,20 +178,24 @@ test("bookkeeper home explains the flow and lists client businesses", () => {
   const fullProps = {
     memberships: memberships as never,
     awaitingByWorkspace: { w1: 3 },
-    verifiedByWorkspace: { w1: 2 },
-    paidAwaiting: 1,
-    recentImports: [{
-      id: "e1",
-      message: "Imported from spreadsheet (100 on today, paid in full).",
-      createdAt: new Date("2026-01-02"),
-      invoice: { id: "i1", number: "INV-1", workspace: { id: "w1", name: "Client Co" } },
-    }],
+    confirmedUnsentByWorkspace: { w1: 2 },
+    paidAwaitingByWorkspace: { w1: 1 },
   };
   const full = renderToStaticMarkup(<BookkeeperHome {...fullProps} />);
   assert.match(full, /Client Co/);
   assert.match(full, /Import payments/);
-  assert.match(full, /Awaiting verification/);
-  assert.match(full, /Recent payment imports/);
+  assert.match(full, /need contractor review/);
+  assert.match(full, /paid, paperwork pending/);
+  assert.match(full, /confirmed, not sent/);
+});
+
+test("payment CSV reads source IDs and rejects malformed money", () => {
+  const rows = parsePaymentCsv("contractor_name,date,amount,amount_paid,source_payment_id\nMaria,2026-01-01,1,0.50,QB-1");
+  assert.equal(rows[0].sourcePaymentId, "QB-1");
+  assert.equal(csvRowToCents("1,200.50"), 120050);
+  assert.equal(csvRowToPaidCents("0.50", 100), 50);
+  assert.throws(() => csvRowToCents("100abc"), /valid dollar amount/);
+  assert.throws(() => csvRowToPaidCents("unknown", 100), /valid dollar amount/);
 });
 
 test("generated PDF carries no credit and preserves invoice content", async () => {

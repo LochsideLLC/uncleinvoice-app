@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import type { ActionState } from "@/actions/auth";
 import type { InvoiceStatus } from "@/lib/status";
-import { sendConfirmedInvoicesToClient } from "@/lib/contractor-send";
 
 /**
  * A signed-in contractor confirming the invoices prepared for them.
@@ -88,47 +87,5 @@ export async function confirmMyInvoicesAction(
   return {
     ok: true,
     message: `Confirmed ${pending.length}. Download them below and email them to your client.`,
-  };
-}
-
-/**
- * Sends the contractor's confirmed invoices to the client, as attachments,
- * from the contractor.
- *
- * This replaces the contractor downloading a zip, finding it, extracting it,
- * and composing an email with attachments — most of which is awkward or
- * impossible on a phone, which is what these people are using. The client
- * still receives the invoices from the contractor: she caused the send, her
- * address is the reply-to, and it is recorded against every invoice.
- */
-export async function sendMyInvoicesToClientAction(): Promise<ActionState> {
-  const user = await requireUser();
-
-  const contractors = await db.contractor.findMany({
-    where: { userId: user.id },
-    select: { id: true },
-  });
-  if (!contractors.length) return { error: "There are no invoices on this account." };
-
-  let total = 0;
-  let firstError: string | null = null;
-  for (const contractor of contractors) {
-    const result = await sendConfirmedInvoicesToClient(contractor.id);
-    if ("error" in result) {
-      firstError ??= result.error;
-      continue;
-    }
-    total += result.sent;
-  }
-
-  // A contractor can work for more than one client. One client with nothing to
-  // send does not spoil the send to the others, so an error is only reported
-  // when nothing went out at all.
-  if (!total) return { error: firstError ?? "Confirm your invoices first, then you can send them." };
-
-  revalidatePath("/app");
-  return {
-    ok: true,
-    message: `Sent ${total} ${total === 1 ? "invoice" : "invoices"} to your client.`,
   };
 }

@@ -13,6 +13,7 @@ import { invoiceGrandTotal, parseAmountPaid } from "@/lib/money";
 import type { ActionState } from "@/actions/auth";
 import type { InvoiceStatus } from "@/lib/status";
 import { cappedInteger, consumeDailyLimit } from "@/lib/usage-limits";
+import { stripeReadyForPayments } from "@/lib/payment-policy";
 
 const GUEST_EMAIL = "guest@uncleinvoice.com";
 
@@ -209,12 +210,45 @@ export async function createPublicInvoiceAction(
   const amountPaid = parseAmountPaid(formData, total);
 
   if (existingInvoice) {
+    const saveIntent = String(formData.get("saveIntent") ?? "close");
+    const requestedReturnTo = String(formData.get("returnTo") ?? "");
+    const workspaceInvoicePath = `/app/w/${existingInvoice.workspaceId}/invoices/${existingInvoice.id}`;
+    const publicInvoicePath = `/invoices/view/${existingInvoice.id}`;
+    let closePath = publicInvoicePath + (viewToken ? `?token=${encodeURIComponent(viewToken)}` : "");
+    if (requestedReturnTo === "/app#all-invoices") closePath = "/app#all-invoices";
+    else if (requestedReturnTo === "/app") closePath = "/app";
+    else if (requestedReturnTo === workspaceInvoicePath) closePath = workspaceInvoicePath;
+    const isSavingDraft = existingInvoice.status === "draft";
+    const savedStatus = isSavingDraft ? "confirmed" : existingInvoice.status as InvoiceStatus;
     const number = requestedNumber || existingInvoice.number;
     if (number !== existingInvoice.number) {
       const taken = await db.invoice.findUnique({
         where: { workspaceId_number: { workspaceId: existingInvoice.workspaceId, number } },
       });
       if (taken) return { error: "That invoice number is already used." };
+    }
+    let paymentSettingUpdate: { onlinePaymentEnabled?: boolean; collectionMode?: string } = {};
+    if (formData.has("onlinePaymentEnabled") && user && contractor.userId === user.id) {
+      const requestedPayment = formData.get("onlinePaymentEnabled") === "on";
+      if (!requestedPayment) {
+        paymentSettingUpdate = {
+          onlinePaymentEnabled: false,
+          collectionMode: existingInvoice.collectionMode === "documentation" ? "documentation" : "manual",
+        };
+      } else if (existingInvoice.collectionMode !== "documentation") {
+        const stripeAccount = await db.stripeConnectedAccount.findUnique({ where: { userId: user.id } });
+        if (stripeReadyForPayments(stripeAccount)) {
+          paymentSettingUpdate = { onlinePaymentEnabled: true, collectionMode: "stripe" };
+        }
+      }
+    }
+    let checkPaymentSettingUpdate: { checkPaymentEnabled?: boolean } = {};
+    if (formData.has("checkPaymentEnabled") && user && contractor.userId === user.id) {
+      const requestedCheckPayment = formData.get("checkPaymentEnabled") === "on";
+      if (requestedCheckPayment && !business.fromAddressLine?.trim()) {
+        return { error: "Add a mailing address to the invoice before enabling Pay by check." };
+      }
+      checkPaymentSettingUpdate = { checkPaymentEnabled: requestedCheckPayment };
     }
     await db.invoiceLineItem.deleteMany({ where: { invoiceId: existingInvoice.id } });
     await db.invoice.update({
@@ -226,7 +260,11 @@ export async function createPublicInvoiceAction(
         ...invoiceBusinessData(business),
         amountPaid,
         notes: String(formData.get("notes") ?? "").trim() || null,
+        status: savedStatus,
+        ...(isSavingDraft ? { confirmedAt: new Date() } : {}),
         confirmedByEmail: fromEmail,
+        ...paymentSettingUpdate,
+        ...checkPaymentSettingUpdate,
         lineItems: {
           create: items.map((item, index) => ({ ...item, sortOrder: index })),
         },
@@ -239,13 +277,19 @@ export async function createPublicInvoiceAction(
     await recordEvent(
       existingInvoice.id,
       "edited",
-      "Invoice edited from the preview.",
+      isSavingDraft ? "Draft saved and marked ready to send." : "Invoice edited from the preview.",
       user ?? { email: fromEmail, name: parsed.data.fromContactName || parsed.data.fromName },
     );
+    if (saveIntent === "save") {
+      const returnQuery = requestedReturnTo ? `&returnTo=${encodeURIComponent(requestedReturnTo)}` : "";
+      redirect(`/create?edit=${existingInvoice.id}${viewToken ? `&token=${encodeURIComponent(viewToken)}` : ""}${returnQuery}`);
+    }
+    const sendQuery = saveIntent === "send" && savedStatus === "confirmed" ? "&send=1" : "";
+    if (saveIntent === "close") redirect(closePath);
     redirect(
       viewToken
-        ? `/invoices/view/${existingInvoice.id}?token=${viewToken}`
-        : `/invoices/view/${existingInvoice.id}`,
+        ? `/invoices/view/${existingInvoice.id}?token=${encodeURIComponent(viewToken)}${sendQuery}`
+        : `/invoices/view/${existingInvoice.id}${sendQuery ? `?${sendQuery.slice(1)}` : ""}`,
     );
   }
 

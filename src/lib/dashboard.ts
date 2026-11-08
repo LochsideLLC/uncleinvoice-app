@@ -6,6 +6,7 @@ export type InvoiceRow = {
   id: string;
   number: string;
   workspaceId: string;
+  canSend: boolean;
   clientName: string;
   status: string;
   totalCents: number;
@@ -55,7 +56,13 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
       ],
     },
     include: {
-      workspace: { select: { id: true, name: true } },
+      workspace: {
+        select: {
+          id: true,
+          name: true,
+          members: { where: { userId }, select: { userId: true }, take: 1 },
+        },
+      },
       lineItems: { select: { quantity: true, unitPrice: true, taxable: true } },
       payments: { where: { source: "stripe" }, orderBy: { updatedAt: "desc" }, take: 1, select: { status: true } },
     },
@@ -83,26 +90,26 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
     const dueCents = amountDue(totalCents, invoice.amountPaid);
     const isPaid = totalCents > 0 && invoice.amountPaid >= totalCents;
     const isPartiallyPaid = !isPaid && invoice.amountPaid > 0;
-    totalInvoicedCents += totalCents;
-    collectedCents += Math.min(Math.max(0, invoice.amountPaid), totalCents);
-
-    if (isPaid) {
-      paidCents += totalCents;
-      paidCount += 1;
-    } else if (isPartiallyPaid) {
-      partiallyPaidCents += dueCents;
-      partiallyPaidCount += 1;
-    }
-
+    const status = isInvoiceStatus(invoice.status) ? invoice.status : "draft";
     const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
     if (dueDate) dueDate.setHours(0, 0, 0, 0);
-    const isOverdue = !isPaid && dueCents > 0 && dueDate !== null && dueDate < today;
-    if (isOverdue) {
-      overdueCents += dueCents;
-      overdueCount += 1;
+    const isOverdue = status !== "draft" && !isPaid && dueCents > 0 && dueDate !== null && dueDate < today;
+    if (status !== "draft") {
+      totalInvoicedCents += totalCents;
+      collectedCents += Math.min(Math.max(0, invoice.amountPaid), totalCents);
+      if (isPaid) {
+        paidCents += totalCents;
+        paidCount += 1;
+      } else if (isPartiallyPaid) {
+        partiallyPaidCents += dueCents;
+        partiallyPaidCount += 1;
+      }
+      if (isOverdue) {
+        overdueCents += dueCents;
+        overdueCount += 1;
+      }
     }
 
-    const status = isInvoiceStatus(invoice.status) ? invoice.status : "draft";
     if (status === "sent") sentCount += 1;
     if (status === "awaiting_review") waitingCount += 1;
     if (status === "draft") draftCount += 1;
@@ -111,6 +118,7 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
       id: invoice.id,
       number: invoice.number,
       workspaceId: invoice.workspace.id,
+      canSend: invoice.workspace.members.length > 0,
       clientName: invoice.workspace.name,
       status,
       totalCents,
@@ -129,7 +137,7 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
     };
 
     allInvoices.push(row);
-    if (dueCents > 0) openInvoices.push(row);
+    if (status !== "draft" && dueCents > 0) openInvoices.push(row);
   }
 
   return {

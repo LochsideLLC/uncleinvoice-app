@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/workspace";
 import { ContractorForm } from "@/components/contractor-form";
@@ -15,39 +16,109 @@ export default async function ContractorsPage({
     include: { _count: { select: { invoices: true } } },
     orderBy: { name: "asc" },
   });
+  const contractorIds = contractors.map((contractor) => contractor.id);
+  const [needsReview, readyToSend, alreadySent, paidAwaiting] = contractorIds.length
+    ? await Promise.all([
+        db.invoice.groupBy({
+          by: ["contractorId"],
+          where: { workspaceId, contractorId: { in: contractorIds }, confirmedAt: null },
+          _count: true,
+        }),
+        db.invoice.groupBy({
+          by: ["contractorId"],
+          where: { workspaceId, contractorId: { in: contractorIds }, confirmedAt: { not: null }, sentAt: null },
+          _count: true,
+        }),
+        db.invoice.groupBy({
+          by: ["contractorId"],
+          where: { workspaceId, contractorId: { in: contractorIds }, sentAt: { not: null } },
+          _count: true,
+        }),
+        db.invoice.groupBy({
+          by: ["contractorId"],
+          where: { workspaceId, contractorId: { in: contractorIds }, confirmedAt: null, amountPaid: { gt: 0 } },
+          _count: true,
+        }),
+      ])
+    : [[], [], [], []];
+
+  const countMap = (rows: { contractorId: string; _count: number }[]) =>
+    Object.fromEntries(rows.map((row) => [row.contractorId, row._count]));
+  const reviewCounts = countMap(needsReview);
+  const readyCounts = countMap(readyToSend);
+  const sentCounts = countMap(alreadySent);
+  const paidCounts = countMap(paidAwaiting);
+  const totalReview = Object.values(reviewCounts).reduce((sum, n) => sum + n, 0);
+  const totalReady = Object.values(readyCounts).reduce((sum, n) => sum + n, 0);
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-      <ContractorForm workspaceId={workspaceId} />
-      <div className="paper rounded-3xl">
-        <div className="border-b border-line px-6 py-4">
-          <h2 className="text-xl">On this client</h2>
+    <div className="space-y-5">
+      <section className="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm" aria-label="Client paperwork summary">
+        <span><strong className="tabular-nums">{contractors.length}</strong> {contractors.length === 1 ? "contractor" : "contractors"}</span>
+        <span className="text-muted"><strong className="tabular-nums text-ink">{totalReview}</strong> need review</span>
+        <span className="text-muted"><strong className="tabular-nums text-ink">{totalReady}</strong> confirmed, not sent</span>
+      </section>
+
+      <details className="paper rounded-2xl">
+        <summary className="min-h-12 cursor-pointer px-4 py-3 font-medium">Add a contractor</summary>
+        <div className="border-t border-line p-4 sm:p-5">
+          <ContractorForm workspaceId={workspaceId} />
         </div>
-        <ul>
-          {contractors.map((contractor) => (
-            <li key={contractor.id} className="border-t border-line px-6 py-4 first:border-t-0">
-              <p className="font-medium">{contractor.name}</p>
-              <p className="text-sm text-muted">
-                {contractor.email ?? "No email"}
-                {contractor.phone ? ` · ${contractor.phone}` : ""}
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                {contractor._count.invoices} invoices
-              </p>
-              {contractor._count.invoices > 0 ? (
-                <ContractorLinkButton
-                  workspaceId={workspaceId}
-                  contractorId={contractor.id}
-                  contractorName={contractor.name}
-                />
-              ) : null}
-            </li>
-          ))}
-          {contractors.length === 0 ? (
-            <li className="px-6 py-8 text-muted">No contractors yet.</li>
-          ) : null}
-        </ul>
-      </div>
+      </details>
+
+      <section className="overflow-hidden rounded-2xl border border-line bg-paper" aria-labelledby="contractor-work-heading">
+        <div className="border-b border-line px-4 py-3 sm:px-5">
+          <h2 id="contractor-work-heading" className="font-semibold">Contractor paperwork</h2>
+        </div>
+        {contractors.length ? (
+          <ul className="divide-y divide-line">
+            {contractors.map((contractor) => {
+              const review = reviewCounts[contractor.id] ?? 0;
+              const ready = readyCounts[contractor.id] ?? 0;
+              const sent = sentCounts[contractor.id] ?? 0;
+              const paid = paidCounts[contractor.id] ?? 0;
+              const href = `/app/w/${workspaceId}/invoices?contractor=${encodeURIComponent(contractor.id)}`;
+              const next = review > 0
+                ? <Link href={`${href}&status=review`} className="btn btn-primary min-h-11 w-full sm:w-auto">Review {review} {review === 1 ? "invoice" : "invoices"}</Link>
+                : ready > 0
+                  ? <Link href={`${href}&status=ready`} className="btn btn-secondary min-h-11 w-full sm:w-auto">Select {ready} confirmed PDFs</Link>
+                  : <Link href={href} className="btn btn-ghost min-h-11 w-full sm:w-auto">View invoices</Link>;
+
+              return (
+                <li key={contractor.id} className="p-4 sm:px-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <h3 className="truncate font-medium">{contractor.name}</h3>
+                      <p className="mt-1 text-sm text-muted">
+                        {contractor._count.invoices} invoices <span aria-hidden>·</span> {review} need review <span aria-hidden>·</span> {ready} ready to send <span aria-hidden>·</span> {sent} sent
+                      </p>
+                      {paid > 0 ? <p className="mt-1 text-xs text-muted">{paid} already-paid payments still need confirmed paperwork</p> : null}
+                    </div>
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                      {next}
+                      {contractor._count.invoices > 0 ? (
+                        <ContractorLinkButton workspaceId={workspaceId} contractorId={contractor.id} contractorName={contractor.name} />
+                      ) : null}
+                    </div>
+                  </div>
+                  <details className="mt-2 text-sm">
+                    <summary className="min-h-10 cursor-pointer py-2 text-muted">Contact details</summary>
+                    <p className="pb-1 text-muted">
+                      {contractor.email ?? "No email"}{contractor.phone ? ` · ${contractor.phone}` : ""}
+                    </p>
+                  </details>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="px-4 py-8 text-muted">No contractors yet. Add one when you are ready.</p>
+        )}
+      </section>
+
+      <p className="text-sm text-muted">
+        Contractor links let each person review their own invoices. A payment can stay marked paid while its paperwork waits for review.
+      </p>
     </div>
   );
 }

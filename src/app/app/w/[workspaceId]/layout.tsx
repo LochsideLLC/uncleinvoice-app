@@ -12,11 +12,10 @@ export default async function WorkspaceLayout({
   const { workspace } = await requireWorkspace(workspaceId);
 
   const links = [
-    ["Overview", ""],
+    ["Work queue", "/contractors"],
     ["Invoices", "/invoices"],
-    ["Contractors", "/contractors"],
-    ["Import", "/import"],
-    ["Client details", "/settings"],
+    ["Import payments", "/import"],
+    ["Client settings", "/settings"],
   ] as const;
 
   return (
@@ -31,7 +30,7 @@ export default async function WorkspaceLayout({
             <Link
               key={label}
               href={`/app/w/${workspace.id}${suffix}`}
-              className="rounded-full bg-paper px-3 py-1.5 text-sm ring-1 ring-line"
+          className="min-h-10 rounded-full bg-paper px-3 py-2 text-sm ring-1 ring-line"
             >
               {label}
             </Link>
