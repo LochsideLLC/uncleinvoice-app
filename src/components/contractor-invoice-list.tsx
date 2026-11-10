@@ -76,7 +76,7 @@ export function ContractorInvoiceList({
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted">{row.number} · {row.date}</p>
                   <p className="mt-1 font-medium">{row.description}</p>
-                  <p className="mt-1 text-sm text-muted">Payment: {row.payment === "paid" ? "Paid" : row.payment === "partial" ? "Part paid" : "Not recorded"} <span aria-hidden>·</span> Paperwork: {row.sent ? "Sent to client" : row.confirmed ? "Confirmed" : "Needs your review"}</p>
+                  <p className="mt-1 text-sm text-muted">Payment: {row.payment === "paid" ? "Paid" : row.payment === "partial" ? "Part paid" : "Not recorded"} <span aria-hidden>·</span> Invoice: {row.sent ? "Sent" : row.confirmed ? "Saved" : "Draft"}</p>
                   {!row.confirmed && !row.sent ? <Link href={`/c/${token}/review/${row.id}`} className="mt-2 inline-flex min-h-10 items-center font-medium text-ink underline underline-offset-4">Review and correct</Link> : null}
                 </div>
                 <div className="flex items-center justify-between gap-3 sm:justify-end">

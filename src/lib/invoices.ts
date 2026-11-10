@@ -6,8 +6,16 @@ import { formatMoney, invoiceGrandTotal } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import type { InvoiceStatus } from "@/lib/status";
 import { createHostedDeliveryLink } from "@/lib/hosted-invoices";
+import { withInvoiceIssuerProfile } from "@/lib/invoice-issuer";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
+
+function escapeInvoiceEmailHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
 
 export type LineInput = {
   description: string;
@@ -199,7 +207,10 @@ export async function sendInvoiceToClient(
     to?: string;
     cc?: string[];
     bcc?: string[];
+    subject?: string;
     message?: string;
+    /** Whether to append the sender's saved signature. Defaults on for existing send paths. */
+    includeSignature?: boolean;
     /** Turn online payment on (true) or off (false) for the link. Omit to leave it alone. */
     collectPayment?: boolean;
     /** Also text the link to this E.164 number. The caller has already checked consent. */
@@ -208,10 +219,10 @@ export async function sendInvoiceToClient(
     actorUserId?: string;
   },
 ): Promise<{ text: "sent" | "skipped" | { error: string } }> {
-  const invoice = await db.invoice.findUniqueOrThrow({
+  const invoice = await withInvoiceIssuerProfile(await db.invoice.findUniqueOrThrow({
     where: { id: invoiceId },
     include: { contractor: true, workspace: true, lineItems: true },
-  });
+  }));
   if (invoice.status !== "confirmed" && invoice.status !== "sent") {
     throw new Error("The contractor needs to confirm this invoice before it can be sent to the client.");
   }
@@ -222,9 +233,12 @@ export async function sendInvoiceToClient(
   }
   const sender = await db.user.findUnique({
     where: { email: actor.email },
-    select: { emailSignature: true },
+    select: { emailSignature: true, emailSignatureType: true, emailSignatureImage: true },
   });
-  const signature = sender?.emailSignature?.trim() || "";
+  const includeSignature = options?.includeSignature ?? true;
+  const signatureType = sender?.emailSignatureType === "image" ? "image" : "text";
+  const signature = includeSignature && signatureType === "text" ? sender?.emailSignature?.trim() || "" : "";
+  const signatureImage = includeSignature && signatureType === "image" ? sender?.emailSignatureImage?.trim() || "" : "";
   const message = options?.message?.trim() || "";
 
   if (options?.collectPayment && options.actorUserId !== invoice.contractor.userId) {
@@ -236,33 +250,45 @@ export async function sendInvoiceToClient(
   });
   const total = formatMoney(invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps));
 
+  const emailText = [
+    ...(message ? [message, ""] : []),
+    `Invoice ${invoice.number}`,
+    `From: ${invoice.contractor.name}`,
+    `To: ${invoice.workspace.name}`,
+    `Amount: ${total}`,
+    `Date: ${formatDate(invoice.issueDate)}`,
+    "",
+    invoice.lineItems
+      .map(
+        (item) =>
+          `• ${item.description} — ${item.quantity} × ${formatMoney(item.unitPrice)} = ${formatMoney(Math.round(item.quantity * item.unitPrice))}`,
+      )
+      .join("\n"),
+    "",
+    options?.collectPayment ? `View and pay online: ${viewLink}` : `View / download: ${viewLink}`,
+    `PDF: ${pdfLink}`,
+    "",
+    `Confirmed by ${invoice.confirmedByEmail ?? invoice.contractor.email ?? invoice.contractor.name} on ${formatDate(invoice.confirmedAt)}.`,
+    ...(signature ? ["", signature] : []),
+  ].join("\n");
+  const imageMatch = signatureImage.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$/);
+
   await sendEmail({
     to,
     cc: options?.cc,
     bcc: options?.bcc,
-    subject: `Invoice ${invoice.number} from ${invoice.contractor.name}`,
+    subject: options?.subject?.trim() || `Invoice ${invoice.number} from ${invoice.contractor.name}`,
     link: viewLink,
-    text: [
-      ...(message ? [message, ""] : []),
-      `Invoice ${invoice.number}`,
-      `From: ${invoice.contractor.name}`,
-      `To: ${invoice.workspace.name}`,
-      `Amount: ${total}`,
-      `Date: ${formatDate(invoice.issueDate)}`,
-      "",
-      invoice.lineItems
-        .map(
-          (item) =>
-            `• ${item.description} — ${item.quantity} × ${formatMoney(item.unitPrice)} = ${formatMoney(Math.round(item.quantity * item.unitPrice))}`,
-        )
-        .join("\n"),
-      "",
-      options?.collectPayment ? `View and pay online: ${viewLink}` : `View / download: ${viewLink}`,
-      `PDF: ${pdfLink}`,
-      "",
-      `Confirmed by ${invoice.confirmedByEmail ?? invoice.contractor.email ?? invoice.contractor.name} on ${formatDate(invoice.confirmedAt)}.`,
-      ...(signature ? ["", signature] : []),
-    ].join("\n"),
+    text: emailText,
+    ...(imageMatch ? {
+      html: `<pre style="font-family:Arial,sans-serif;white-space:pre-wrap">${escapeInvoiceEmailHtml(emailText)}</pre><img src="cid:invoice-signature" alt="Email signature" style="max-width:100%;height:auto" />`,
+      attachments: [{
+        filename: `email-signature.${imageMatch[1] === "jpeg" ? "jpg" : imageMatch[1]}`,
+        content: Buffer.from(imageMatch[2].replaceAll(/\s/g, ""), "base64"),
+        contentType: `image/${imageMatch[1]}`,
+        contentId: "invoice-signature",
+      }],
+    } : {}),
   });
 
   await db.invoice.update({

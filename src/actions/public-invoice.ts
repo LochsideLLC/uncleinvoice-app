@@ -277,7 +277,7 @@ export async function createPublicInvoiceAction(
     await recordEvent(
       existingInvoice.id,
       "edited",
-      isSavingDraft ? "Draft saved and marked ready to send." : "Invoice edited from the preview.",
+      isSavingDraft ? "Draft saved." : "Invoice edited from the preview.",
       user ?? { email: fromEmail, name: parsed.data.fromContactName || parsed.data.fromName },
     );
     if (saveIntent === "save") {

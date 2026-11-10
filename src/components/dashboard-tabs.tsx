@@ -75,26 +75,19 @@ export function CustomersPanel({
   const archived = memberships.filter(({ workspace }) => workspace.archivedAt);
 
   function customerCard({ workspace, role }: Membership, isArchived: boolean) {
+    const customerLabel = workspace.businessName || workspace.name;
     return (
-      <li key={workspace.id} className="paper rounded-xl px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
-          <div className="flex min-w-0 flex-1 items-baseline gap-2 overflow-hidden">
-            <Link href={`/app/w/${workspace.id}`} className="truncate text-base font-semibold hover:underline">
-              {workspace.businessName || workspace.name}
-            </Link>
-            {workspace.contactName ? <span className="hidden truncate text-sm text-muted sm:inline">{workspace.contactName}</span> : null}
-          </div>
-          <span className="hidden shrink-0 text-xs text-muted md:inline">
-            {workspace._count.contractors} contractors · {workspace._count.invoices} invoices
-          </span>
-          <span className="hidden shrink-0 text-xs uppercase tracking-wide text-muted lg:inline">{isArchived ? "Archived" : role}</span>
-          <Link href={`/app/w/${workspace.id}/settings`} className="btn btn-secondary btn-sm shrink-0">
-            Edit
-          </Link>
-          {role === "owner" ? (
-            <WorkspaceArchiveButton workspaceId={workspace.id} archived={isArchived} />
-          ) : null}
-        </div>
+      <li key={workspace.id} className="flex items-center gap-2">
+        <Link
+          href={`/app/w/${workspace.id}?view=customer`}
+          aria-label={`View ${customerLabel} profile`}
+          className="paper flex min-h-14 min-w-0 flex-1 items-center justify-center rounded-xl px-3 py-2 text-center hover:bg-paper-2"
+        >
+          <span className="max-w-full truncate text-center text-base font-semibold">{customerLabel}</span>
+        </Link>
+        {role === "owner" ? (
+          <WorkspaceArchiveButton workspaceId={workspace.id} archived={isArchived} />
+        ) : null}
       </li>
     );
   }

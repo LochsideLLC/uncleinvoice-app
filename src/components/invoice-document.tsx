@@ -1,4 +1,5 @@
 import { formatDate } from "@/lib/dates";
+import Link from "next/link";
 import {
   amountDue,
   formatMoney,
@@ -175,10 +176,12 @@ export function InvoiceDocument({
   invoice,
   showBrand = true,
   paymentOptions,
+  editMailingAddressHref,
 }: {
   invoice: InvoiceDocumentData;
   showBrand?: boolean;
   paymentOptions?: ReactNode;
+  editMailingAddressHref?: string;
 }) {
   const subtotal = invoiceTotal(invoice.lineItems);
   const tax = taxCents(taxableSubtotal(invoice.lineItems), invoice.taxRateBps ?? 0);
@@ -364,6 +367,11 @@ export function InvoiceDocument({
             {invoice.fromCityLine ? <span className="block">{invoice.fromCityLine}</span> : null}
             {!invoice.fromAddress && !invoice.fromCityLine ? <span>Contact {invoice.fromEmail || invoice.fromName} for the mailing address.</span> : null}
           </address>
+          {editMailingAddressHref ? (
+            <Link href={editMailingAddressHref} className="mt-2 inline-block text-sm font-semibold text-ink underline underline-offset-2 print:hidden">
+              Edit mailing address
+            </Link>
+          ) : null}
         </div>
       ) : null}
 

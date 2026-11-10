@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateWorkspaceKindAction } from "@/actions/account";
+import { BookkeeperModeIntro } from "@/components/bookkeeper-mode-intro";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { SectionTabs, type DashboardSection } from "@/components/dashboard-tabs";
 import type { WorkspaceKind } from "@/lib/workspace-kind";
@@ -37,6 +38,7 @@ export function WorkspaceDashboard({
   const [lastKind, setLastKind] = useState(kind);
   const [pending, setPending] = useState(false);
   const [section, setSection] = useState<DashboardSection>(initialSection);
+  const [bookkeeperIntroOpen, setBookkeeperIntroOpen] = useState(false);
 
   // Server-confirmed value arrives after the background save + refresh.
   if (kind !== lastKind) {
@@ -52,7 +54,7 @@ export function WorkspaceDashboard({
       ?.setAttribute("data-workspace", current);
   }, [current]);
 
-  function switchTo(next: WorkspaceKind) {
+  function applyWorkspace(next: WorkspaceKind) {
     if (next === current) return;
     setCurrent(next);
     setPending(true);
@@ -62,12 +64,44 @@ export function WorkspaceDashboard({
     });
   }
 
+  function switchTo(next: WorkspaceKind) {
+    if (next === current) return;
+    if (next === "bookkeeper") {
+      let dismissed = false;
+      try {
+        dismissed = window.localStorage.getItem("uncleinvoice:bookkeeper-mode-intro-dismissed") === "true";
+      } catch {
+        // If browser storage is unavailable, show the intro on each switch.
+      }
+      if (!dismissed) {
+        setBookkeeperIntroOpen(true);
+        return;
+      }
+    }
+    applyWorkspace(next);
+  }
+
   const isContractor = current === "contractor";
 
   return (
     <div className="mobile-dashboard space-y-3 sm:space-y-4">
+      <BookkeeperModeIntro
+        open={bookkeeperIntroOpen}
+        onClose={() => setBookkeeperIntroOpen(false)}
+        onUnderstand={(dontShowAgain) => {
+          if (dontShowAgain) {
+            try {
+              window.localStorage.setItem("uncleinvoice:bookkeeper-mode-intro-dismissed", "true");
+            } catch {
+              // The current acknowledgment still works without browser storage.
+            }
+          }
+          setBookkeeperIntroOpen(false);
+          applyWorkspace("bookkeeper");
+        }}
+      />
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className={isContractor ? "w-full sm:w-60 sm:shrink-0" : "w-full sm:w-72 sm:shrink-0"}>
+        <div className="w-full sm:w-[28rem] sm:shrink-0">
           <WorkspaceSwitcher active={current} pending={pending} onSelect={switchTo} />
         </div>
         {isContractor ? <div className="w-full sm:ml-auto sm:w-auto">{createAction}</div> : null}

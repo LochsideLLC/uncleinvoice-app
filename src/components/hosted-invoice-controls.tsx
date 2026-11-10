@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { ActionState } from "@/actions/auth";
 import { PaymentMethodOptions } from "@/components/payment-method-options";
-import { setInvoiceCheckPaymentAction } from "@/actions/invoice-payment-options";
+import { SaveButton, useSaveButton } from "@/components/save-button";
+import { saveInvoiceOnlinePaymentAction, setInvoiceCheckPaymentAction } from "@/actions/invoice-payment-options";
 
 export function HostedInvoiceControls({
   invoiceId,
@@ -13,8 +16,7 @@ export function HostedInvoiceControls({
   paymentNote,
   canSetUpPayments,
   checkPaymentEnabled,
-  checkPayee,
-  checkAddressLines,
+  reviewAndSendHref,
   editInvoiceHref,
   businessProfileHref,
 }: {
@@ -25,8 +27,7 @@ export function HostedInvoiceControls({
   paymentNote: string | null;
   canSetUpPayments: boolean;
   checkPaymentEnabled: boolean;
-  checkPayee: string;
-  checkAddressLines: string[];
+  reviewAndSendHref?: string;
   editInvoiceHref: string;
   businessProfileHref: string;
 }) {
@@ -39,6 +40,22 @@ export function HostedInvoiceControls({
   const [url, setUrl] = useState("");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
+  const [saveState, setSaveState] = useState<ActionState>(null);
+  const [savePending, setSavePending] = useState(false);
+  const paymentOptionsSave = useSaveButton(saveState);
+
+  async function savePaymentOptions() {
+    setSavePending(true);
+    try {
+      const result = await saveInvoiceOnlinePaymentAction(invoiceId, collect);
+      setSaveState(result);
+      if (result.ok) router.refresh();
+    } catch {
+      setSaveState({ error: "Could not save the payment option. Try again." });
+    } finally {
+      setSavePending(false);
+    }
+  }
 
   async function updateCheckPayment(enabled: boolean) {
     setCheckPending(true);
@@ -81,15 +98,18 @@ export function HostedInvoiceControls({
     <section className="space-y-4 print:hidden" aria-label="Invoice payment methods">
       <PaymentMethodOptions
         enabled={collect}
-        onChange={(enabled) => { setCollect(enabled); setConfirmed(false); }}
+        onChange={(enabled) => {
+          setCollect(enabled);
+          setConfirmed(false);
+          setSaveState(null);
+          paymentOptionsSave.markDirty();
+        }}
         canManage={canManage}
         canCollect={canCollect}
         canSetUpPayments={canSetUpPayments}
         setupNote={paymentNote}
         checkEnabled={checkEnabled}
         onCheckChange={updateCheckPayment}
-        checkPayee={checkPayee}
-        checkAddressLines={checkAddressLines}
         editInvoiceHref={editInvoiceHref}
         businessProfileHref={businessProfileHref}
         checkPending={checkPending}
@@ -103,9 +123,31 @@ export function HostedInvoiceControls({
       ) : null}
       {canManage ? (
         <>
-          <button className="btn btn-primary w-full" type="button" onClick={createLink} disabled={pending || (collect && !confirmed)}>
-            {pending ? "Creating…" : "Create secure payment link"}
-          </button>
+          <div className="flex flex-col gap-3">
+            <SaveButton
+              type="button"
+              pending={savePending}
+              save={paymentOptionsSave}
+              icon={<SaveIcon />}
+              className="w-full"
+              onClick={() => void savePaymentOptions()}
+            />
+            {reviewAndSendHref ? (
+              <Link className="btn btn-primary w-full" href={reviewAndSendHref}>
+                <span className="inline-flex items-center justify-center gap-2">
+                  <ReviewIcon />
+                  Review and send
+                </span>
+              </Link>
+            ) : null}
+            <button className="btn btn-green w-full" type="button" onClick={createLink} disabled={pending || (collect && !confirmed)}>
+              <span className="inline-flex items-center justify-center gap-2">
+                <PaymentLinkIcon />
+                {pending ? "Creating…" : "Create secure payment link"}
+              </span>
+            </button>
+          </div>
+          {saveState?.error ? <p role="alert" className="text-sm text-red-900">{saveState.error}</p> : null}
           {message ? <p className="text-sm text-muted">{message}</p> : null}
           {url ? (
             <div className="space-y-2">
@@ -116,5 +158,32 @@ export function HostedInvoiceControls({
         </>
       ) : null}
     </section>
+  );
+}
+
+function SaveIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3.5 2.75h10l3 3v11.5h-13z" />
+      <path d="M6.5 2.75v5h7v-5M6.5 17.25v-6h7v6" />
+    </svg>
+  );
+}
+
+function ReviewIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2.5" y="4" width="15" height="12" rx="1.5" />
+      <path d="m3.5 5 6.5 5.5L16.5 5" />
+    </svg>
+  );
+}
+
+function PaymentLinkIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 12a3.25 3.25 0 0 0 4.6 0l2.1-2.1a3.25 3.25 0 0 0-4.6-4.6L9 6.4" />
+      <path d="M12 8a3.25 3.25 0 0 0-4.6 0l-2.1 2.1a3.25 3.25 0 0 0 4.6 4.6L11 13.6" />
+    </svg>
   );
 }

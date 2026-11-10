@@ -184,9 +184,9 @@ test("bookkeeper home explains the flow and lists client businesses", () => {
   const full = renderToStaticMarkup(<BookkeeperHome {...fullProps} />);
   assert.match(full, /Client Co/);
   assert.match(full, /Import payments/);
-  assert.match(full, /need contractor review/);
+  assert.match(full, /Review 3 drafts/);
   assert.match(full, /paid, paperwork pending/);
-  assert.match(full, /confirmed, not sent/);
+  assert.match(full, /2 saved, not sent/);
 });
 
 test("payment CSV reads source IDs and rejects malformed money", () => {

@@ -110,8 +110,6 @@ export function PaymentMethodOptions({
   inputName,
   checkEnabled,
   onCheckChange,
-  checkPayee,
-  checkAddressLines,
   editInvoiceHref,
   businessProfileHref,
   checkPending,
@@ -126,8 +124,6 @@ export function PaymentMethodOptions({
   inputName?: string;
   checkEnabled: boolean;
   onCheckChange: (enabled: boolean) => void;
-  checkPayee: string;
-  checkAddressLines: string[];
   editInvoiceHref?: string;
   businessProfileHref?: string;
   checkPending: boolean;
@@ -140,20 +136,6 @@ export function PaymentMethodOptions({
         <Switch checked={checkEnabled} disabled={!canManage || checkPending} onChange={onCheckChange}>
           <span className="font-medium">Pay by check</span>
         </Switch>
-        {checkEnabled ? (
-          <div className="rounded-xl border border-line bg-paper-2 p-3 text-sm">
-            <p>Make the check payable to <span className="font-semibold text-ink">{checkPayee}</span>.</p>
-            <p className="mt-1">Mail it to:</p>
-            <address className="mt-1 not-italic text-ink">
-              {checkAddressLines.map((line) => <span key={line} className="block">{line}</span>)}
-            </address>
-            {canManage && editInvoiceHref ? (
-              <Link href={editInvoiceHref} className="mt-2 inline-block font-semibold text-ink underline underline-offset-2">
-                Edit mailing address
-              </Link>
-            ) : null}
-          </div>
-        ) : null}
         {checkPending ? <p role="status" aria-live="polite" className="text-sm text-muted">Saving…</p> : null}
         {checkError ? (
           <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-base text-red-900">

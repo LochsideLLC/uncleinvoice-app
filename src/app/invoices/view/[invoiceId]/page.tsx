@@ -16,6 +16,7 @@ import { isClaimTokenShape } from "@/lib/invoice-claim";
 import { HostedInvoiceControls } from "@/components/hosted-invoice-controls";
 import { stripeConnectEnabled } from "@/lib/stripe-connect";
 import { stripeReadyForPayments } from "@/lib/payment-policy";
+import { withInvoiceIssuerProfile } from "@/lib/invoice-issuer";
 
 export default async function PublicInvoicePage({
   params,
@@ -50,9 +51,7 @@ export default async function PublicInvoicePage({
   // Send, Share link, Mark as paid, and Edit.
   const isOwner = access.isMember || access.isContractorOwner;
   const showBrand = await invoiceShowsBrand(invoice);
-  const invoiceDocument = invoiceToDocument(invoice);
-  const checkAddressLines = [invoiceDocument.fromAddress, invoiceDocument.fromCityLine]
-    .filter((line): line is string => Boolean(line?.trim()));
+  const invoiceDocument = invoiceToDocument(await withInvoiceIssuerProfile(invoice));
   // Online payment is offered at send time only to the issuing contractor,
   // and only once Stripe says the account can take cards.
   const ownerAccount = access.isMember && invoice.contractor.userId
@@ -115,7 +114,14 @@ export default async function PublicInvoicePage({
           onlinePaymentEnabled={invoice.onlinePaymentEnabled}
           clientEmail={invoice.workspace.email}
           mailFrom={mailFromAddress()}
+          invoiceNumber={invoice.number}
+          defaultSubject={`Invoice ${invoice.number} from ${invoice.contractor.name}`}
+          invoicePreview={<InvoiceDocument invoice={invoiceDocument} showBrand={showBrand} />}
+          closeHref={invoiceReturnTo}
           defaultInvoiceMessage={viewer?.defaultInvoiceMessage?.trim() || DEFAULT_INVOICE_MESSAGE}
+          emailSignature={viewer?.emailSignature ?? ""}
+          emailSignatureType={viewer?.emailSignatureType ?? "text"}
+          emailSignatureImage={viewer?.emailSignatureImage ?? ""}
           defaultMessageReturnTo={defaultMessageReturnTo}
           openSendForm={send === "1" && invoice.status === "confirmed"}
           actionTools={
@@ -138,6 +144,7 @@ export default async function PublicInvoicePage({
         <InvoiceDocument
           invoice={invoiceDocument}
           showBrand={showBrand}
+          editMailingAddressHref={access.isContractorOwner ? editHref : undefined}
           paymentOptions={isOwner ? (
             <HostedInvoiceControls
               invoiceId={invoice.id}
@@ -147,8 +154,7 @@ export default async function PublicInvoicePage({
               paymentNote={paymentNote}
               canSetUpPayments={access.isContractorOwner && stripeSetupAvailable && invoice.collectionMode !== "documentation"}
               checkPaymentEnabled={invoice.checkPaymentEnabled}
-              checkPayee={invoiceDocument.fromName}
-              checkAddressLines={checkAddressLines}
+              reviewAndSendHref={invoice.status === "confirmed" ? defaultMessageReturnTo : undefined}
               editInvoiceHref={editHref}
               businessProfileHref={businessProfileHref}
             />

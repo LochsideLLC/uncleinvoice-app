@@ -34,6 +34,8 @@ export default async function ProfilePage({
           backupEmail={user.backupEmail}
           clientTerm={user.clientTerm}
           emailSignature={user.emailSignature}
+          emailSignatureType={user.emailSignatureType}
+          emailSignatureImage={user.emailSignatureImage}
           defaultInvoiceMessage={user.defaultInvoiceMessage}
         />
         <div id="business-profile" className="scroll-mt-8">

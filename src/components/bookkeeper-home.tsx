@@ -36,8 +36,8 @@ export function BookkeeperHome({
     <div className="space-y-5">
       <section aria-label="Paperwork summary" className="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm">
         <span><strong className="tabular-nums">{memberships.length}</strong> {memberships.length === 1 ? "client" : "clients"}</span>
-        <span className="text-muted"><strong className="tabular-nums text-ink">{awaitingTotal}</strong> need contractor review</span>
-        <span className="text-muted"><strong className="tabular-nums text-ink">{readyTotal}</strong> confirmed, not sent</span>
+        <span className="text-muted"><strong className="tabular-nums text-ink">{awaitingTotal}</strong> drafts</span>
+        <span className="text-muted"><strong className="tabular-nums text-ink">{readyTotal}</strong> saved, not sent</span>
       </section>
 
       <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-paper">
@@ -45,7 +45,7 @@ export function BookkeeperHome({
           const awaiting = awaitingByWorkspace[workspace.id] ?? 0;
           const ready = confirmedUnsentByWorkspace[workspace.id] ?? 0;
           const paidAwaiting = paidAwaitingByWorkspace[workspace.id] ?? 0;
-          const actionLabel = awaiting > 0 ? `Review ${awaiting} invoices` : ready > 0 ? `Select ${ready} confirmed PDFs` : "Open work queue";
+          const actionLabel = awaiting > 0 ? `Review ${awaiting} drafts` : ready > 0 ? `Select ${ready} saved PDFs` : "Open work queue";
 
           return (
             <li key={workspace.id} className="p-4 sm:px-5">
@@ -56,7 +56,7 @@ export function BookkeeperHome({
                     <span className="text-xs text-muted">{role}</span>
                   </div>
                   <p className="mt-1 text-sm text-muted">
-                    {awaiting} need review <span aria-hidden>·</span> {ready} confirmed, not sent
+                    {awaiting} drafts <span aria-hidden>·</span> {ready} saved, not sent
                     {paidAwaiting > 0 ? <><span aria-hidden> · </span>{paidAwaiting} paid, paperwork pending</> : null}
                   </p>
                 </div>

@@ -11,6 +11,7 @@ import { W9Note } from "@/components/w9-note";
 import { formatStreetAddress } from "@/lib/us-address";
 import { stripeConnectEnabled } from "@/lib/stripe-connect";
 import { stripeReadyForPayments } from "@/lib/payment-policy";
+import { withInvoiceIssuerProfile } from "@/lib/invoice-issuer";
 
 export default async function CreateInvoicePage({
   searchParams,
@@ -94,7 +95,7 @@ export default async function CreateInvoicePage({
 }
 
 async function loadInvoiceDraft(invoiceId: string, token: string | undefined, userId?: string) {
-  const invoice = await db.invoice.findUnique({
+  const invoiceRow = await db.invoice.findUnique({
     where: { id: invoiceId },
     include: {
       contractor: true,
@@ -103,24 +104,26 @@ async function loadInvoiceDraft(invoiceId: string, token: string | undefined, us
       tokens: true,
     },
   });
-  if (!invoice) return null;
+  if (!invoiceRow) return null;
 
   const tokenOk =
     Boolean(token) &&
-    invoice.tokens.some(
+    invoiceRow.tokens.some(
       (record) =>
         record.purpose === "invoice_view" &&
-        record.tokenHash === hashToken(token as string) &&
+          record.tokenHash === hashToken(token as string) &&
         record.expiresAt >= new Date(),
     );
   const memberOk = userId
     ? Boolean(
         await db.workspaceMember.findUnique({
-          where: { workspaceId_userId: { workspaceId: invoice.workspaceId, userId } },
+          where: { workspaceId_userId: { workspaceId: invoiceRow.workspaceId, userId } },
         }),
       )
     : false;
   if (!tokenOk && !memberOk) return null;
+
+  const invoice = await withInvoiceIssuerProfile(invoiceRow);
 
   const total = invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps);
   const paid = paymentState(invoice.amountPaid, total);
@@ -153,16 +156,6 @@ async function loadInvoiceDraft(invoiceId: string, token: string | undefined, us
       canSetUpPayments: canManagePaymentOptions && stripeAvailable && invoice.collectionMode !== "documentation",
       setupNote: paymentOptionsNote,
       checkPaymentEnabled: invoice.checkPaymentEnabled,
-      checkPayee: invoice.contractor.name,
-      checkAddressLines: [
-        invoice.fromAddressLine ?? invoice.contractor.addressLine,
-        [
-          invoice.fromCity ?? invoice.contractor.city,
-          [invoice.fromRegion ?? invoice.contractor.region, invoice.fromPostalCode ?? invoice.contractor.postalCode]
-            .filter(Boolean)
-            .join(" "),
-        ].filter(Boolean).join(", "),
-      ].filter((line): line is string => Boolean(line?.trim())),
     },
     fromContactName: invoice.fromContactName ?? "",
     fromCompany: invoice.contractor.name,

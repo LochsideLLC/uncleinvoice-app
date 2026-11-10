@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { AttachmentPanel } from "@/components/attachment-panel";
 import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/workspace";
+import { asWorkspaceKind } from "@/lib/workspace-kind";
 import { formatDate } from "@/lib/dates";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
 import { sendForReviewAction, sendToClientAction } from "@/actions/invoices";
-import { StatusBadge } from "@/components/status-badge";
+import { InvoiceDisplayStatus } from "@/components/invoice-display-status";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { InvoiceStatusPanel } from "@/components/invoice-status-panel";
 
@@ -17,9 +18,14 @@ export default async function InvoiceDetailPage({
   params: Promise<{ workspaceId: string; invoiceId: string }>;
 }) {
   const { workspaceId, invoiceId } = await params;
-  await requireWorkspace(workspaceId);
+  const { user } = await requireWorkspace(workspaceId);
+  const contractorMode = asWorkspaceKind(user.workspaceKind) === "contractor";
   const invoice = await db.invoice.findFirst({
-    where: { id: invoiceId, workspaceId },
+    where: {
+      id: invoiceId,
+      workspaceId,
+      ...(contractorMode ? { contractor: { userId: user.id } } : {}),
+    },
     include: {
       contractor: true,
       workspace: true,
@@ -38,21 +44,17 @@ export default async function InvoiceDetailPage({
 
   return (
     <div className="space-y-6">
-      <Link href={`/app/w/${workspaceId}/invoices`} className="text-sm text-muted hover:text-ink">
-        ← All invoices
-      </Link>
-
       <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-sm text-muted">{invoice.number}</p>
-              <h2 className="text-3xl">{invoice.contractor.name}</h2>
-              <p className="mt-1 text-muted">{formatMoney(total)} · {formatDate(invoice.issueDate)}</p>
+              <h2 className="text-3xl">{contractorMode ? "Your invoice" : invoice.contractor.name}</h2>
+              <p className="mt-1 text-muted">{formatMoney(total)} · Issued {formatDate(invoice.issueDate)} · Due {invoice.dueDate ? formatDate(invoice.dueDate) : "on receipt"}</p>
               {invoice.sourcePaymentId ? <p className="mt-1 break-all text-xs text-muted">Source payment ID: {invoice.sourcePaymentId}</p> : null}
             </div>
             <div className="flex items-center gap-3">
-              <StatusBadge status={invoice.status} />
+              <InvoiceDisplayStatus status={invoice.status} dueDate={invoice.dueDate} amountPaid={invoice.amountPaid} totalCents={total} />
               {!isSent && (
                 <Link
                   href={`/create?edit=${invoice.id}&returnTo=${encodeURIComponent(`/app/w/${workspaceId}/invoices/${invoice.id}`)}`}

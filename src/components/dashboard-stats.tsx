@@ -8,7 +8,7 @@ export function DashboardStats({ stats }: { stats: DashboardStats }) {
       <DashboardMetrics stats={stats} />
       {stats.invoiceCount > 0 && (
         <div id="all-invoices" className="scroll-mt-4">
-          <InvoiceList invoices={stats.allInvoices} manageable perspective="contractor" />
+          <InvoiceList invoices={stats.allInvoices} manageable />
         </div>
       )}
     </section>

@@ -12,7 +12,9 @@ import { CLIENT_TERMS } from "@/lib/client-terms";
 import { ACCOUNT_TYPES } from "@/lib/account-type";
 
 const MAX_LOGO_CHARS = 400_000;
+const MAX_SIGNATURE_IMAGE_CHARS = 450_000;
 const LOGO_PATTERN = /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=\s]+$/;
+const SIGNATURE_IMAGE_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=\s]+$/;
 
 function refreshAccountPages() {
   revalidatePath("/", "layout");
@@ -76,6 +78,11 @@ export async function updateProfileAction(
   if (emailSignature && emailSignature.length > 1000) {
     return { error: "Keep the signature under 1,000 characters." };
   }
+  const emailSignatureType = formData.get("emailSignatureType") === "image" ? "image" : "text";
+  const emailSignatureImage = optionalText(formData.get("emailSignatureImage")) ?? null;
+  if (emailSignatureImage && (!SIGNATURE_IMAGE_PATTERN.test(emailSignatureImage) || emailSignatureImage.length > MAX_SIGNATURE_IMAGE_CHARS)) {
+    return { error: "Use a PNG, JPG, or WebP signature image under about 300 KB." };
+  }
   const defaultInvoiceMessage = optionalText(formData.get("defaultInvoiceMessage")) ?? null;
   if (defaultInvoiceMessage && defaultInvoiceMessage.length > 2000) {
     return { error: "Keep the default invoice message under 2,000 characters." };
@@ -83,7 +90,7 @@ export async function updateProfileAction(
 
   await db.user.update({
     where: { id: user.id },
-    data: { name, backupEmail, clientTerm, emailSignature, defaultInvoiceMessage },
+    data: { name, backupEmail, clientTerm, emailSignature, emailSignatureType, emailSignatureImage, defaultInvoiceMessage },
   });
   refreshAccountPages();
   return { ok: true, message: "Profile saved." };

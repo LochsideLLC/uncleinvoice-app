@@ -111,9 +111,9 @@ function filterByPeriod(invoices: InvoiceRow[], period: Period, custom: CustomRa
 function computeKPIs(invoices: InvoiceRow[]) {
   let totalCents = 0, outstandingCents = 0, overdueCents = 0;
   let paidCount = 0, openCount = 0, overdueCount = 0;
-  let sentCount = 0, waitingCount = 0, draftCount = 0;
+  let sentCount = 0, draftCount = 0;
   for (const inv of invoices) {
-    if (inv.status === "draft") {
+    if (inv.status === "draft" || inv.status === "awaiting_review") {
       draftCount++;
       continue;
     }
@@ -123,7 +123,6 @@ function computeKPIs(invoices: InvoiceRow[]) {
     else if (inv.dueCents > 0) openCount++;
     if (inv.isOverdue && inv.dueCents > 0) { overdueCount++; overdueCents += inv.dueCents; }
     if (inv.status === "sent" && !inv.isPaid) sentCount++;
-    if (inv.status === "awaiting_review") waitingCount++;
   }
   return {
     totalCents,
@@ -135,7 +134,6 @@ function computeKPIs(invoices: InvoiceRow[]) {
     openCount,
     overdueCount,
     sentCount,
-    waitingCount,
     draftCount,
   };
 }
@@ -163,7 +161,7 @@ function computeAging(invoices: InvoiceRow[]) {
   const d90p = { cents: 0, count: 0 };
 
   for (const inv of invoices) {
-    if (inv.status === "draft" || inv.isPaid || inv.dueCents <= 0) continue;
+    if (inv.status !== "sent" || inv.isPaid || inv.dueCents <= 0) continue;
     const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
     if (dueDate) dueDate.setHours(0, 0, 0, 0);
     const daysOver = dueDate ? Math.floor((today.getTime() - dueDate.getTime()) / 86_400_000) : -1;
@@ -209,7 +207,6 @@ export function DashboardMetrics({ stats }: { stats: DashboardStats }) {
 
   const statusParts = [
     kpis.sentCount > 0 && `${kpis.sentCount} sent`,
-    kpis.waitingCount > 0 && `${kpis.waitingCount} waiting on review`,
     kpis.draftCount > 0 && `${kpis.draftCount} draft${kpis.draftCount !== 1 ? "s" : ""}`,
   ].filter(Boolean);
 
