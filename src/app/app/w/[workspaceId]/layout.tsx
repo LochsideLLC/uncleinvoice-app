@@ -1,5 +1,6 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import { requireWorkspace } from "@/lib/workspace";
+import { WorkspaceProfileHeading } from "@/components/workspace-profile-heading";
 
 export default async function WorkspaceLayout({
   children,
@@ -14,10 +15,9 @@ export default async function WorkspaceLayout({
   return (
     <div className="space-y-4">
       <div>
-        <Link href="/app" className="text-sm text-muted">
-          ← All clients
-        </Link>
-        <h1 className="mt-2 text-3xl">{workspace.name}</h1>
+        <Suspense fallback={<h1 className="mt-2 text-3xl">{workspace.name}</h1>}>
+          <WorkspaceProfileHeading workspaceId={workspaceId} name={workspace.name} />
+        </Suspense>
       </div>
       {children}
     </div>

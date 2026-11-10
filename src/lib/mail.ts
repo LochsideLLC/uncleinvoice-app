@@ -15,7 +15,7 @@ type SendEmailInput = {
   html?: string;
   link?: string;
   replyTo?: string;
-  attachments?: { filename: string; content: Uint8Array }[];
+  attachments?: { filename: string; content: Uint8Array; contentType?: string; contentId?: string }[];
 };
 
 export async function sendEmail(input: SendEmailInput) {
@@ -80,6 +80,8 @@ export async function sendEmail(input: SendEmailInput) {
               attachments: input.attachments.map((file) => ({
                 filename: file.filename,
                 content: Buffer.from(file.content).toString("base64"),
+                ...(file.contentType ? { content_type: file.contentType } : {}),
+                ...(file.contentId ? { content_id: file.contentId } : {}),
               })),
             }
           : {}),

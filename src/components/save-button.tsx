@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ButtonHTMLAttributes } from "react";
+import type { ReactNode } from "react";
 
 type SaveResult = { ok?: boolean; error?: string } | null | undefined;
 
@@ -36,6 +37,7 @@ export function useSaveButton(state: SaveResult) {
 export function SaveButton({
   pending,
   label = "Save",
+  icon,
   save,
   className = "",
   onClick,
@@ -43,6 +45,7 @@ export function SaveButton({
 }: {
   pending: boolean;
   label?: string;
+  icon?: ReactNode;
   save: ReturnType<typeof useSaveButton>;
   className?: string;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children">) {
@@ -59,7 +62,7 @@ export function SaveButton({
       disabled={pending || props.disabled}
       aria-live="polite"
     >
-      {text}
+      {icon ? <span className="inline-flex items-center justify-center gap-2">{icon}{text}</span> : text}
     </button>
   );
 }

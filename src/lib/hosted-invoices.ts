@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { createToken, hashToken } from "@/lib/crypto";
 import { invoiceGrandTotal } from "@/lib/money";
 import { onlinePaymentEligibility } from "@/lib/payment-policy";
+import { withInvoiceIssuerProfile } from "@/lib/invoice-issuer";
 
 const TOKEN_PATTERN = /^[a-f0-9]{64}$/;
 
@@ -24,21 +25,22 @@ export async function loadHostedInvoice(rawToken: string) {
     },
   });
   if (!access || access.revokedAt || (access.expiresAt && access.expiresAt < new Date())) return null;
-  const ownerUserId = access.invoice.contractor.userId;
+  const invoice = await withInvoiceIssuerProfile(access.invoice);
+  const ownerUserId = invoice.contractor.userId;
   const account = ownerUserId
     ? await db.stripeConnectedAccount.findUnique({ where: { userId: ownerUserId } })
     : null;
-  const total = invoiceGrandTotal(access.invoice.lineItems, access.invoice.taxRateBps);
+  const total = invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps);
   return {
     access,
-    invoice: access.invoice,
+    invoice,
     account,
     eligibility: onlinePaymentEligibility({
       total,
-      amountPaid: access.invoice.amountPaid,
-      status: access.invoice.status,
-      collectionMode: access.invoice.collectionMode,
-      onlinePaymentEnabled: access.invoice.onlinePaymentEnabled,
+      amountPaid: invoice.amountPaid,
+      status: invoice.status,
+      collectionMode: invoice.collectionMode,
+      onlinePaymentEnabled: invoice.onlinePaymentEnabled,
       ownerUserId,
       account,
     }),

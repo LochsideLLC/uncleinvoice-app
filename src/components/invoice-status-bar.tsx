@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ActionState } from "@/actions/auth";
 import { FormBanner } from "@/components/form-banner";
 import { SaveButton, useSaveButton } from "@/components/save-button";
@@ -52,7 +53,14 @@ export function InvoiceStatusBar({
   onlinePaymentEnabled,
   clientEmail,
   mailFrom,
+  invoiceNumber,
+  defaultSubject,
+  invoicePreview,
+  closeHref,
   defaultInvoiceMessage = DEFAULT_INVOICE_MESSAGE,
+  emailSignature = "",
+  emailSignatureType = "text",
+  emailSignatureImage = "",
   defaultMessageReturnTo,
   openSendForm = false,
   actionTools,
@@ -67,18 +75,42 @@ export function InvoiceStatusBar({
   onlinePaymentEnabled: boolean;
   clientEmail: string | null;
   mailFrom: string;
+  invoiceNumber: string;
+  defaultSubject: string;
+  invoicePreview: ReactNode;
+  closeHref: string;
   defaultInvoiceMessage?: string;
+  emailSignature?: string;
+  emailSignatureType?: string;
+  emailSignatureImage?: string;
   defaultMessageReturnTo: string;
   openSendForm?: boolean;
   actionTools?: ReactNode;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPayForm, setShowPayForm] = useState(false);
-  const [showSendForm, setShowSendForm] = useState(openSendForm);
+  const [localSendFormOpen, setLocalSendFormOpen] = useState(false);
+  const showSendForm = localSendFormOpen || (openSendForm && searchParams.get("send") === "1");
   const [copied, setCopied] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [recipient, setRecipient] = useState(clientEmail ?? "");
+  const [subject, setSubject] = useState(defaultSubject);
+  const hasSignature = emailSignatureType === "image" ? Boolean(emailSignatureImage) : Boolean(emailSignature.trim());
+  const [includeSignature, setIncludeSignature] = useState(hasSignature);
   const [paymentNonce, setPaymentNonce] = useState(createPaymentNonce);
+
+  useEffect(() => {
+    if (!showSendForm) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showSendForm]);
   const [paymentState, paymentAction, paymentPending] = useActionState(
     async (prev: ActionState | null, formData: FormData) => {
       const result = await markAsPaidWithFeedbackAction(prev, formData);
@@ -92,13 +124,19 @@ export function InvoiceStatusBar({
     async (prev: ActionState | null, formData: FormData) => {
       const result = await sendToClientComposedAction(prev, formData);
       if (result?.ok) {
-        setShowSendForm(false);
+        setLocalSendFormOpen(false);
         setNotice(result.message ?? null);
+        router.replace(closeHref);
       }
       return result;
     },
     null,
   );
+
+  function closeSendForm() {
+    setLocalSendFormOpen(false);
+    router.replace(closeHref);
+  }
 
   async function copyLink() {
     setLinkError(null);
@@ -169,7 +207,7 @@ export function InvoiceStatusBar({
           {showActions && (
             <>
               {!isSent ? (
-                <button type="button" aria-label="Send invoice" title="Send invoice" className="btn btn-ghost h-9 w-9 shrink-0 !p-0" onClick={() => setShowSendForm(true)}>
+                <button type="button" aria-label="Send invoice" title="Send invoice" className="btn btn-ghost h-9 w-9 shrink-0 !p-0" onClick={() => setLocalSendFormOpen(true)}>
                   <IconEmail />
                 </button>
               ) : (
@@ -189,10 +227,10 @@ export function InvoiceStatusBar({
           )}
         </div>
 
-        <div className="relative left-1/2 flex w-screen -translate-x-1/2 items-center justify-between gap-3 whitespace-nowrap border-y border-line py-2 text-sm sm:text-base" style={bannerStyle}>
-          <span className="shrink-0 pl-4 font-semibold">{sentLabel()}</span>
-          {dueLabelText && !isPaid ? <span className="pr-4 font-semibold">{dueLabelText}</span> : null}
-          {isPaid ? <span className="pr-4 font-semibold">Paid</span> : null}
+        <div className="relative left-1/2 flex w-screen -translate-x-1/2 items-center justify-center gap-3 whitespace-nowrap border-y border-line py-2 text-sm sm:text-base" style={bannerStyle}>
+          <span className="shrink-0 text-center font-semibold">{sentLabel()}</span>
+          {dueLabelText && !isPaid ? <span className="text-center font-semibold">{dueLabelText}</span> : null}
+          {isPaid ? <span className="text-center font-semibold">Paid</span> : null}
         </div>
       </div>
 
@@ -205,81 +243,126 @@ export function InvoiceStatusBar({
 
       {showSendForm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(42,31,22,0.35)" }}
-          onPointerDown={(e) => { if (e.target === e.currentTarget) setShowSendForm(false); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="send-invoice-title"
+          className="fixed inset-0 z-[100] flex h-dvh flex-col overflow-hidden overscroll-none bg-background text-ink lg:bg-ink/25 lg:p-4"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") closeSendForm();
+          }}
         >
-          <div className="paper max-h-[calc(100dvh_-_2rem)] w-full max-w-md overflow-auto overscroll-contain rounded-3xl p-4 shadow-xl sm:p-5">
-            <div className="flex flex-wrap items-baseline gap-x-2">
-              <h3 className="text-xl">Send invoice</h3>
-              <p className="text-sm text-muted">Email it to your customer.</p>
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-background lg:mx-auto lg:h-[calc(100dvh-2rem)] lg:max-w-[1440px] lg:flex-none lg:rounded-2xl lg:border lg:border-line lg:shadow-2xl">
+          <header className="flex min-h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-paper px-4 py-2 sm:px-6">
+            <div className="min-w-0">
+              <h2 id="send-invoice-title" className="truncate font-semibold">Invoice {invoiceNumber}</h2>
+              <p className="text-xs text-muted">Review the email and invoice before sending.</p>
             </div>
-            <form action={sendAction} className="send-invoice-form mt-3 space-y-2.5">
-              <FormBanner state={sendState} />
-              <input type="hidden" name="workspaceId" value={workspaceId} />
-              <input type="hidden" name="invoiceId" value={invoiceId} />
-              <div className="field">
-                <label htmlFor="send-to">To</label>
-                <input
-                  id="send-to"
-                  name="to"
-                  type="email"
-                  required
-                  defaultValue={clientEmail ?? ""}
-                  placeholder="client@company.com"
-                />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold uppercase tracking-[0.08em] text-muted">From</p>
-                <p aria-label={`From ${mailFrom}`} title={mailFrom} className="send-form-from truncate rounded-lg border border-line bg-white px-3 py-2 text-sm text-muted">
-                  {mailFrom}
-                </p>
-              </div>
-              <details className="rounded-xl border border-line px-3 py-2">
-                <summary className="cursor-pointer text-sm font-semibold text-muted">Add Cc or Bcc</summary>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div className="field">
-                    <label htmlFor="send-cc">Cc</label>
-                    <input id="send-cc" name="cc" placeholder="comma, separated" />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="send-bcc">Bcc</label>
-                    <input id="send-bcc" name="bcc" placeholder="comma, separated" />
-                  </div>
+            <button type="button" aria-label="Close review and send" className="grid size-10 shrink-0 place-items-center rounded-full border border-line bg-paper text-muted hover:text-ink" onClick={closeSendForm}>
+              <svg viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                <path d="m5 5 10 10M15 5 5 15" />
+              </svg>
+            </button>
+          </header>
+
+          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain lg:grid lg:grid-cols-2 lg:overflow-hidden">
+            <section aria-label="Email details" className="min-w-0 overscroll-contain border-b border-line p-4 sm:p-6 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+              <form id="send-invoice-form" action={sendAction} className="send-invoice-form mx-auto max-w-2xl space-y-4">
+                <FormBanner state={sendState} />
+                <input type="hidden" name="workspaceId" value={workspaceId} />
+                <input type="hidden" name="invoiceId" value={invoiceId} />
+                <input type="hidden" name="includeSignature" value={includeSignature ? "on" : "off"} />
+                <div className="field">
+                  <label htmlFor="send-to">To</label>
+                  <input id="send-to" name="to" type="email" required value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="client@company.com" />
                 </div>
-              </details>
-              <div className="field">
-                <div className="flex items-center justify-between gap-3">
-                  <label htmlFor="send-message">Message (optional)</label>
-                  <div className="send-message-actions flex shrink-0 items-center gap-3 text-xs">
-                    <button type="button" className="font-semibold underline" onClick={() => setMessage(defaultInvoiceMessage)}>
-                      Use default
-                    </button>
-                    <Link
-                      href={`/app/profile?${new URLSearchParams({ returnTo: defaultMessageReturnTo }).toString()}#default-invoice-message`}
-                      className="text-muted underline"
-                    >
-                      Change default
+                <div className="space-y-1">
+                  <p id="send-from-label" className="text-sm font-semibold text-muted">From</p>
+                  <p aria-labelledby="send-from-label" title={mailFrom} className="send-form-from truncate rounded-lg border border-line bg-white px-3 py-2 text-sm text-muted">
+                    {mailFrom}
+                  </p>
+                </div>
+                <details className="rounded-xl border border-line bg-paper px-3 py-2">
+                  <summary className="min-h-9 cursor-pointer content-center text-sm font-semibold text-muted">Cc or Bcc</summary>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div className="field"><label htmlFor="send-cc">Cc</label><input id="send-cc" name="cc" placeholder="comma, separated" /></div>
+                    <div className="field"><label htmlFor="send-bcc">Bcc</label><input id="send-bcc" name="bcc" placeholder="comma, separated" /></div>
+                  </div>
+                </details>
+                <div className="field">
+                  <label htmlFor="send-subject">Subject</label>
+                  <input id="send-subject" name="subject" maxLength={200} value={subject} onChange={(event) => setSubject(event.target.value)} required />
+                </div>
+                <div className="rounded-xl border border-line bg-paper px-3 py-2 text-sm text-muted">
+                  <span aria-hidden className="mr-2">📎</span>Invoice details and PDF link included
+                </div>
+                <div className="field">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label htmlFor="send-message">Message (optional)</label>
+                    <div className="send-message-actions flex shrink-0 items-center gap-3">
+                      <button type="button" className="font-semibold underline" onClick={() => setMessage(defaultInvoiceMessage)}>Use default</button>
+                      <Link href={`/app/profile?${new URLSearchParams({ returnTo: defaultMessageReturnTo }).toString()}#default-invoice-message`} className="text-muted underline">Change default</Link>
+                    </div>
+                  </div>
+                  <textarea
+                    id="send-message"
+                    name="message"
+                    rows={message ? Math.min(10, Math.max(5, Math.ceil(message.length / 55))) : 6}
+                    maxLength={2000}
+                    placeholder="Add a note to your customer"
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                  />
+                </div>
+                {hasSignature ? (
+                  <div className="flex min-h-10 items-center justify-between gap-3 text-sm">
+                    <label className="flex items-center gap-2 font-semibold">
+                      <input type="checkbox" checked={includeSignature} onChange={(event) => setIncludeSignature(event.target.checked)} />
+                      Include my email signature
+                    </label>
+                    <Link href={`/app/profile?${new URLSearchParams({ returnTo: defaultMessageReturnTo }).toString()}#email-signature`} className="shrink-0 underline">
+                      Update my signature
                     </Link>
                   </div>
-                </div>
-                <textarea
-                  id="send-message"
-                  name="message"
-                  rows={message ? Math.min(8, Math.max(2, Math.ceil(message.length / 38))) : 2}
-                  maxLength={2000}
-                  placeholder="A quick note to go with the invoice"
-                  value={message}
-                  onChange={(event) => setMessage(event.target.value)}
-                />
+                ) : (
+                  <p className="text-sm text-muted">No email signature saved. <Link href={`/app/profile?${new URLSearchParams({ returnTo: defaultMessageReturnTo }).toString()}#email-signature`} className="underline">Add one in Profile settings</Link>.</p>
+                )}
+              </form>
+            </section>
+
+            <aside aria-label="Invoice preview" className="min-w-0 overscroll-contain bg-paper-2 p-4 sm:p-6 lg:overflow-y-auto">
+              <div className="mx-auto max-w-3xl space-y-4">
+                <section className="paper space-y-3 rounded-2xl p-4 sm:p-5" aria-label="Email preview">
+                  <h3 className="text-sm font-semibold text-muted">Email preview</h3>
+                  <dl className="grid gap-1 text-sm sm:grid-cols-[4rem_minmax(0,1fr)]">
+                    <dt className="font-semibold text-muted">From</dt><dd className="break-words">{mailFrom}</dd>
+                    <dt className="font-semibold text-muted">To</dt><dd className="break-words">{recipient || "Customer email"}</dd>
+                    <dt className="font-semibold text-muted">Subject</dt><dd className="break-words">{subject || "Invoice"}</dd>
+                  </dl>
+                  <hr className="border-line" />
+                  <p className="whitespace-pre-wrap text-sm">{message.trim() || "No extra message added."}</p>
+                  {includeSignature && hasSignature ? (
+                    emailSignatureType === "image" ? (
+                      // The actual email uses an inline CID attachment; this data URL previews it here.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={emailSignatureImage} alt="Email signature" className="max-h-24 max-w-full object-contain object-left" />
+                    ) : (
+                      <p className="whitespace-pre-wrap text-sm">{emailSignature}</p>
+                    )
+                  ) : null}
+                  <p className="text-xs text-muted">Invoice details, a view link, and a PDF link are included.</p>
+                </section>
+                <h3 className="text-sm font-semibold text-muted">Invoice preview</h3>
+                {invoicePreview}
               </div>
-              <div className="grid w-full grid-cols-2 gap-3">
-                <button type="submit" className="btn btn-primary w-full" disabled={sendPending}>
-                  {sendPending ? "Sending…" : "Send now"}
-                </button>
-                <button type="button" className="btn btn-ghost w-full" onClick={() => setShowSendForm(false)}>Cancel</button>
-              </div>
-            </form>
+            </aside>
+          </main>
+
+          <footer className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-t border-line bg-paper px-4 py-2 sm:px-6">
+            <button type="button" className="btn btn-ghost !px-2" onClick={closeSendForm}>Back</button>
+            <button type="submit" form="send-invoice-form" className="btn btn-primary min-w-36" disabled={sendPending}>
+              {sendPending ? "Sending…" : "Send invoice"}
+            </button>
+          </footer>
           </div>
         </div>
       )}

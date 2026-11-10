@@ -129,8 +129,6 @@ export function QuickInvoiceForm({
     canSetUpPayments: boolean;
     setupNote: string | null;
     checkPaymentEnabled: boolean;
-    checkPayee: string;
-    checkAddressLines: string[];
   };
   returnTo?: string;
 }) {
@@ -1124,8 +1122,6 @@ export function QuickInvoiceForm({
               setupNote={paymentOptions.setupNote}
               checkEnabled={checkPaymentEnabled}
               onCheckChange={setCheckPaymentEnabled}
-              checkPayee={paymentOptions.checkPayee}
-              checkAddressLines={paymentOptions.checkAddressLines}
               checkPending={false}
               checkError=""
             />

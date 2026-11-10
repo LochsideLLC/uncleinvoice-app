@@ -6,6 +6,7 @@ import { sendEmail } from "@/lib/mail";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
 import { invoicesManifestCsv, invoicePdfName } from "@/lib/invoice-files";
 import type { InvoiceStatus } from "@/lib/status";
+import { applyInvoiceIssuerProfile, getInvoiceIssuerProfile } from "@/lib/invoice-issuer";
 
 /**
  * Emails one contractor's confirmed invoices to the client they worked for.
@@ -82,7 +83,7 @@ export async function sendConfirmedInvoicesToClient(
     return { error: "A send attempt already exists for one or more selected invoices. Check with the client before trying again." };
   }
 
-  const invoices = await db.invoice.findMany({
+  const invoiceRows = await db.invoice.findMany({
     where: {
       contractorId: contractor.id,
       confirmedAt: { not: null },
@@ -96,13 +97,18 @@ export async function sendConfirmedInvoicesToClient(
     },
     orderBy: [{ issueDate: "asc" }, { number: "asc" }],
   });
-  if (!invoices.length) {
+  if (!invoiceRows.length) {
     return { error: "No confirmed, unsent invoices were selected." };
   }
-  if (requestedIds && invoices.length !== requestedIds.length) {
+  if (requestedIds && invoiceRows.length !== requestedIds.length) {
     return { error: "One or more selected invoices are not confirmed, were already sent, or are not yours." };
   }
-  if (!requestedIds && invoices.length !== attemptIds.length) return { error: "The invoice list changed. Reload before sending." };
+  if (!requestedIds && invoiceRows.length !== attemptIds.length) return { error: "The invoice list changed. Reload before sending." };
+
+  const issuerProfile = await getInvoiceIssuerProfile(contractor.userId);
+  const invoices = invoiceRows.map((invoice) => applyInvoiceIssuerProfile(invoice, issuerProfile));
+  const senderName = issuerProfile?.businessName?.trim() || issuerProfile?.name || contractor.name;
+  const senderEmail = issuerProfile?.businessEmail?.trim() || issuerProfile?.email || contractor.email;
 
   const attachments = [];
   for (const invoice of invoices) {
@@ -152,8 +158,8 @@ export async function sendConfirmedInvoicesToClient(
     await sendEmail({
       to,
       cc: ccRecipients,
-      replyTo: contractor.email ?? undefined,
-      subject: `Invoices from ${contractor.name}`,
+      replyTo: senderEmail ?? undefined,
+      subject: `Invoices from ${senderName}`,
       text: [
         "Hi,",
         "",
@@ -162,7 +168,7 @@ export async function sendConfirmedInvoicesToClient(
         "The PDFs and an invoice summary are attached.",
         "",
         "Thanks,",
-        contractor.name,
+        senderName,
       ].join("\n"),
       attachments,
     });

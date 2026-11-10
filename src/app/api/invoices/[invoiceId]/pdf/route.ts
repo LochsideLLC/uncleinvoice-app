@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { hashToken } from "@/lib/crypto";
 import { buildInvoicePdf } from "@/lib/pdf";
 import { cappedInteger, consumeDailyLimit } from "@/lib/usage-limits";
+import { withInvoiceIssuerProfile } from "@/lib/invoice-issuer";
 
 export async function GET(
   request: Request,
@@ -48,7 +49,7 @@ export async function GET(
   });
   if (!invoiceAllowed) return NextResponse.json({ error: "PDF limit reached. Try again tomorrow." }, { status: 429 });
 
-  const pdf = await buildInvoicePdf(invoice);
+  const pdf = await buildInvoicePdf(await withInvoiceIssuerProfile(invoice));
   const download = url.searchParams.get("download") === "1";
   return new NextResponse(new Uint8Array(pdf), {
     headers: {

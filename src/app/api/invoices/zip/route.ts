@@ -6,6 +6,7 @@ import { canBulkDownload } from "@/lib/plan";
 import { buildInvoicePdf } from "@/lib/pdf";
 import { invoicesManifestCsv, invoicePdfName, safeName } from "@/lib/invoice-files";
 import { cappedInteger, consumeDailyLimit } from "@/lib/usage-limits";
+import { withInvoiceIssuerProfile } from "@/lib/invoice-issuer";
 
 /**
  * Bundles the selected invoices into a single zip.
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const invoices = await db.invoice.findMany({
+  const invoiceRows = await db.invoice.findMany({
     where: {
       id: { in: ids },
       ...(requestedWorkspaceId
@@ -73,7 +74,8 @@ export async function POST(request: Request) {
     },
     orderBy: [{ issueDate: "asc" }, { number: "asc" }],
   });
-  if (invoices.length !== ids.length) return NextResponse.json({ error: "One or more selected invoices are not available for this export." }, { status: 404 });
+  if (invoiceRows.length !== ids.length) return NextResponse.json({ error: "One or more selected invoices are not available for this export." }, { status: 404 });
+  const invoices = await Promise.all(invoiceRows.map(withInvoiceIssuerProfile));
   const globalAllowed = await consumeDailyLimit({
     operation: "pdf_generate",
     scope: "global",

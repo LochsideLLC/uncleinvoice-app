@@ -446,6 +446,16 @@ button:disabled {
   color: var(--ink);
 }
 
+.btn-green {
+  border: 1px solid var(--olive);
+  background: var(--olive);
+  color: var(--paper);
+}
+
+.btn-green:hover {
+  filter: brightness(0.92);
+}
+
 .btn-white {
   background: #fff;
   color: var(--ink);

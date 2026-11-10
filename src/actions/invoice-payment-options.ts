@@ -3,6 +3,49 @@
 import { db } from "@/lib/db";
 import { getRealSessionUser } from "@/lib/auth";
 import { formatStreetAddress } from "@/lib/us-address";
+import { revalidatePath } from "next/cache";
+import { invoiceGrandTotal } from "@/lib/money";
+import { onlinePaymentEligibility } from "@/lib/payment-policy";
+
+export async function saveInvoiceOnlinePaymentAction(invoiceId: string, enabled: boolean) {
+  const user = await getRealSessionUser();
+  if (!user) return { error: "Sign in to change this invoice." };
+
+  const invoice = await db.invoice.findUnique({
+    where: { id: invoiceId },
+    include: { contractor: true, lineItems: true },
+  });
+  if (!invoice || invoice.contractor.userId !== user.id) {
+    return { error: "You cannot change payment options for this invoice." };
+  }
+
+  if (enabled) {
+    const account = await db.stripeConnectedAccount.findUnique({ where: { userId: user.id } });
+    const eligibility = onlinePaymentEligibility({
+      total: invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps),
+      amountPaid: invoice.amountPaid,
+      status: invoice.status,
+      collectionMode: "stripe",
+      onlinePaymentEnabled: true,
+      ownerUserId: invoice.contractor.userId,
+      requestingUserId: user.id,
+      account,
+    });
+    if (!eligibility.eligible) return { error: eligibility.reason };
+  }
+
+  await db.invoice.update({
+    where: { id: invoiceId },
+    data: enabled
+      ? { onlinePaymentEnabled: true, collectionMode: "stripe" }
+      : {
+          onlinePaymentEnabled: false,
+          collectionMode: invoice.collectionMode === "documentation" ? "documentation" : "manual",
+        },
+  });
+  revalidatePath(`/invoices/view/${invoiceId}`);
+  return { ok: true, message: "Payment option saved." };
+}
 
 export async function setInvoiceCheckPaymentAction(invoiceId: string, enabled: boolean) {
   const user = await getRealSessionUser();

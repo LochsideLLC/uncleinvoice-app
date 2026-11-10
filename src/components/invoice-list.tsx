@@ -177,11 +177,10 @@ function RowMenu({
 const FILTERS = [
   { key: "all", label: "All" },
   { key: "draft", label: "Draft" },
+  { key: "saved", label: "Saved" },
   { key: "sent", label: "Sent" },
-  { key: "viewed", label: "Viewed" },
-  { key: "awaiting_payment", label: "Awaiting payment" },
-  { key: "overdue", label: "Overdue" },
   { key: "paid", label: "Paid" },
+  { key: "overdue", label: "Overdue" },
 ] as const;
 
 type FilterKey = (typeof FILTERS)[number]["key"];
@@ -192,43 +191,43 @@ const longDate = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-type StatusPerspective = "contractor" | "bookkeeper";
-
-function statusCell(invoice: InvoiceRow, perspective: StatusPerspective): { label: string; dot: string } {
-  if (invoice.stripePaymentState === "disputed") return { label: "Disputed", dot: "#B3402E" };
-  if (invoice.stripePaymentState === "partially_refunded") return { label: "Partly refunded", dot: "#B7791F" };
-  if (invoice.stripePaymentState === "fully_refunded") return { label: "Refunded", dot: "#6B7B76" };
-  if (invoice.isPaid) {
-    return { label: "Paid", dot: "#2E7D4F" };
-  }
-  if (invoice.isPartiallyPaid) return { label: "Partly paid", dot: "#B7791F" };
-  if (invoice.isOverdue) return { label: "Overdue", dot: "#B3402E" };
-  if (invoice.firstViewedAt) return { label: "Viewed by client", dot: "#44776C" };
+function statusCell(invoice: InvoiceRow): { label: string; dot: string; paymentLabel: string | null } {
+  let paymentLabel: string | null = null;
+  if (invoice.stripePaymentState === "disputed") paymentLabel = "Disputed";
+  else if (invoice.stripePaymentState === "partially_refunded") paymentLabel = "Partly refunded";
+  else if (invoice.stripePaymentState === "fully_refunded") paymentLabel = "Refunded";
+  else if (invoice.isPaid) paymentLabel = "Paid";
+  else if (invoice.isOverdue) paymentLabel = "Overdue";
+  else if (invoice.isPartiallyPaid) paymentLabel = "Partly paid";
   if (invoice.status === "sent") {
     return {
-      label: "Sent to client",
+      label: "Sent",
       dot: "#44776C",
+      paymentLabel,
     };
   }
   if (invoice.status === "confirmed") {
     return {
-      label: "Ready to send",
+      label: "Saved",
       dot: "#B7791F",
+      paymentLabel,
     };
   }
   if (invoice.status === "awaiting_review") {
     return {
-      label: perspective === "contractor" ? "Needs your review" : "Needs contractor review",
+      label: "Draft",
       dot: "#6B7B76",
+      paymentLabel,
     };
   }
   if (invoice.status === "draft") {
     return {
       label: "Draft",
       dot: "#6B7B76",
+      paymentLabel,
     };
   }
-  return { label: STATUS_LABEL[invoice.status as InvoiceStatus] ?? invoice.status, dot: "#6B7B76" };
+  return { label: STATUS_LABEL[invoice.status as InvoiceStatus] ?? invoice.status, dot: "#6B7B76", paymentLabel };
 }
 
 /** Days from today to the due date. Null when there is no due date. */
@@ -243,7 +242,7 @@ function daysUntilDue(invoice: InvoiceRow): number | null {
 
 /** Due-date sub-line: "in 29 days", "Due today", or "Overdue by 3 days". Never on paid invoices. */
 function dueCountdown(invoice: InvoiceRow): { text: string | null; tone: "muted" | "soon" | "late" } {
-  if (invoice.isPaid) return { text: null, tone: "muted" };
+  if (invoice.status !== "sent" || invoice.isPaid) return { text: null, tone: "muted" };
   const days = daysUntilDue(invoice);
   if (days === null) return { text: null, tone: "muted" };
   if (days < 0) return { text: `Overdue by ${-days} day${-days === 1 ? "" : "s"}`, tone: "late" };
@@ -280,7 +279,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   );
 }
 
-export function InvoiceList({ invoices, manageable = false, perspective = "contractor" }: { invoices: InvoiceRow[]; manageable?: boolean; perspective?: StatusPerspective }) {
+export function InvoiceList({ invoices, manageable = false }: { invoices: InvoiceRow[]; manageable?: boolean }) {
   const router = useRouter();
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -366,11 +365,10 @@ export function InvoiceList({ invoices, manageable = false, perspective = "contr
     return invoices.filter((inv) => {
       const matchesFilter =
         filter === "all" ||
+        (filter === "saved" && inv.status === "confirmed") ||
         (filter === "paid" && inv.isPaid) ||
-        (filter === "draft" && inv.status === "draft" && !inv.isPaid) ||
-        (filter === "sent" && inv.status === "sent" && !inv.isPaid) ||
-        (filter === "viewed" && Boolean(inv.firstViewedAt) && !inv.isPaid) ||
-        (filter === "awaiting_payment" && inv.dueCents > 0 && ["confirmed", "sent"].includes(inv.status)) ||
+        (filter === "draft" && ["draft", "awaiting_review"].includes(inv.status)) ||
+        (filter === "sent" && inv.status === "sent") ||
         (filter === "overdue" && inv.isOverdue);
       const q = query.toLowerCase();
       const matchesQuery =
@@ -394,14 +392,14 @@ export function InvoiceList({ invoices, manageable = false, perspective = "contr
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...visible].sort((a, b) => {
       if (sort.key === "amount") return (a.totalCents - b.totalCents) * dir;
-      if (sort.key === "status") return statusCell(a, perspective).label.localeCompare(statusCell(b, perspective).label) * dir;
+      if (sort.key === "status") return `${statusCell(a).label} ${statusCell(a).paymentLabel ?? ""}`.localeCompare(`${statusCell(b).label} ${statusCell(b).paymentLabel ?? ""}`) * dir;
       if (sort.key === "invoice") return a.number.localeCompare(b.number, undefined, { numeric: true }) * dir;
       if (sort.key === "client") return a.clientName.localeCompare(b.clientName) * dir;
       const at = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
       const bt = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
       return (at - bt) * dir;
     });
-  }, [visible, sort, perspective]);
+  }, [visible, sort]);
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
   const safePage = Math.min(page, pageCount);
@@ -631,7 +629,7 @@ export function InvoiceList({ invoices, manageable = false, perspective = "contr
           <ul className="space-y-2 px-2 py-2 sm:hidden">
             {paged.map((invoice) => {
               const isSelected = selected.has(invoice.id);
-              const cell = statusCell(invoice, perspective);
+              const cell = statusCell(invoice);
               const countdown = dueCountdown(invoice);
               const countdownStyle = COUNTDOWN_TONE[countdown.tone];
               return (
@@ -639,7 +637,7 @@ export function InvoiceList({ invoices, manageable = false, perspective = "contr
                   key={invoice.id}
                   role="button"
                   tabIndex={0}
-                  aria-label={`Invoice ${invoice.number}, ${cell.label}. Tap for actions.`}
+                  aria-label={`Invoice ${invoice.number}, ${cell.label}${cell.paymentLabel ? `, ${cell.paymentLabel}` : ""}. Tap for actions.`}
                   onClick={() => {
                     setActionInvoice(invoice);
                     setSendFeedback(null);
@@ -691,6 +689,7 @@ export function InvoiceList({ invoices, manageable = false, perspective = "contr
                     <div className="space-y-1 text-sm">
                       <p><span className="text-muted">Due:</span> {invoice.dueDate ? longDate.format(new Date(invoice.dueDate)) : "On receipt"}</p>
                       {countdown.text ? <p className={`text-xs ${countdownStyle.className ?? ""}`} style={countdownStyle.color ? { color: countdownStyle.color } : undefined}>{countdown.text}</p> : null}
+                      {cell.paymentLabel && cell.paymentLabel !== "Overdue" ? <p className="font-medium">{cell.paymentLabel}</p> : null}
                     </div>
                   </div>
                 </li>
@@ -778,7 +777,7 @@ export function InvoiceList({ invoices, manageable = false, perspective = "contr
                 <tbody className="divide-y divide-line">
                   {paged.map((invoice) => {
                     const isSelected = selected.has(invoice.id);
-                    const cell = statusCell(invoice, perspective);
+                    const cell = statusCell(invoice);
                     const countdown = dueCountdown(invoice);
                     const countdownStyle = COUNTDOWN_TONE[countdown.tone];
                     return (
@@ -827,6 +826,7 @@ export function InvoiceList({ invoices, manageable = false, perspective = "contr
                               style={{ background: cell.dot }}
                             />
                             <span className="block font-medium">{cell.label}</span>
+                            {cell.paymentLabel && cell.paymentLabel !== "Overdue" ? <span className="block text-xs text-muted">{cell.paymentLabel}</span> : null}
                           </span>
                         </td>
                         <td className="px-4 py-2">

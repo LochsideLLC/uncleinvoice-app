@@ -55,8 +55,8 @@ export default async function ContractorsPage({
     <div className="space-y-5">
       <section className="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm" aria-label="Client paperwork summary">
         <span><strong className="tabular-nums">{contractors.length}</strong> {contractors.length === 1 ? "contractor" : "contractors"}</span>
-        <span className="text-muted"><strong className="tabular-nums text-ink">{totalReview}</strong> need review</span>
-        <span className="text-muted"><strong className="tabular-nums text-ink">{totalReady}</strong> confirmed, not sent</span>
+        <span className="text-muted"><strong className="tabular-nums text-ink">{totalReview}</strong> drafts</span>
+        <span className="text-muted"><strong className="tabular-nums text-ink">{totalReady}</strong> saved, not sent</span>
       </section>
 
       <details className="paper rounded-2xl">
@@ -79,9 +79,9 @@ export default async function ContractorsPage({
               const paid = paidCounts[contractor.id] ?? 0;
               const href = `/app/w/${workspaceId}/invoices?contractor=${encodeURIComponent(contractor.id)}`;
               const next = review > 0
-                ? <Link href={`${href}&status=review`} className="btn btn-primary min-h-11 w-full sm:w-auto">Review {review} {review === 1 ? "invoice" : "invoices"}</Link>
+                ? <Link href={`${href}&status=draft`} className="btn btn-primary min-h-11 w-full sm:w-auto">Review {review} {review === 1 ? "draft" : "drafts"}</Link>
                 : ready > 0
-                  ? <Link href={`${href}&status=ready`} className="btn btn-secondary min-h-11 w-full sm:w-auto">Select {ready} confirmed PDFs</Link>
+                  ? <Link href={`${href}&status=saved`} className="btn btn-secondary min-h-11 w-full sm:w-auto">Select {ready} saved PDFs</Link>
                   : <Link href={href} className="btn btn-ghost min-h-11 w-full sm:w-auto">View invoices</Link>;
 
               return (
@@ -90,7 +90,7 @@ export default async function ContractorsPage({
                     <div className="min-w-0">
                       <h3 className="truncate font-medium">{contractor.name}</h3>
                       <p className="mt-1 text-sm text-muted">
-                        {contractor._count.invoices} invoices <span aria-hidden>·</span> {review} need review <span aria-hidden>·</span> {ready} ready to send <span aria-hidden>·</span> {sent} sent
+                        {contractor._count.invoices} invoices <span aria-hidden>·</span> {review} drafts <span aria-hidden>·</span> {ready} saved <span aria-hidden>·</span> {sent} sent
                       </p>
                       {paid > 0 ? <p className="mt-1 text-xs text-muted">{paid} already-paid payments still need confirmed paperwork</p> : null}
                     </div>
@@ -117,7 +117,7 @@ export default async function ContractorsPage({
       </section>
 
       <p className="text-sm text-muted">
-        Contractor links let each person review their own invoices. A payment can stay marked paid while its paperwork waits for review.
+        Contractors can review and correct draft invoices through their private link. A payment can already be recorded while an invoice is still a draft.
       </p>
     </div>
   );

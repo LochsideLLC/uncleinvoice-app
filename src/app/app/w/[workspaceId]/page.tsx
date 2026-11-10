@@ -1,18 +1,13 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/workspace";
+import { asWorkspaceKind } from "@/lib/workspace-kind";
 import { formatDate } from "@/lib/dates";
 import { formatMoney, invoiceGrandTotal } from "@/lib/money";
-import { StatusBadge } from "@/components/status-badge";
+import { InvoiceDisplayStatus } from "@/components/invoice-display-status";
+import { InvoiceSearch } from "@/components/invoice-search";
 
 const PAGE_SIZE = 25;
-const FILTERS = [
-  ["", "All invoices"],
-  ["draft", "Draft"],
-  ["review", "Needs review"],
-  ["ready", "Ready to send"],
-  ["sent", "Sent"],
-] as const;
 
 export default async function WorkspaceHomePage({
   params,
@@ -23,21 +18,33 @@ export default async function WorkspaceHomePage({
 }) {
   const { workspaceId } = await params;
   const query = await searchParams;
-  await requireWorkspace(workspaceId);
+  const { user } = await requireWorkspace(workspaceId);
+  const contractorMode = asWorkspaceKind(user.workspaceKind) === "contractor";
 
   const view = query.view === "customer" ? "customer" : "client";
-  const rawStatus = typeof query.status === "string" ? query.status : "";
-  const status = FILTERS.some(([value]) => value === rawStatus) ? rawStatus : "";
   const search = (typeof query.q === "string" ? query.q : "").trim().slice(0, 80);
+  const status = ["draft", "saved", "sent", "paid", "overdue"].includes(typeof query.status === "string" ? query.status : "")
+    ? query.status as "draft" | "saved" | "sent" | "paid" | "overdue"
+    : "";
   const page = Math.min(1000, Math.max(0, Number.parseInt(typeof query.page === "string" ? query.page : "0", 10) || 0));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const invoices = await db.invoice.findMany({
     where: {
       workspaceId,
-      ...(status === "draft" ? { status: "draft" } : {}),
-      ...(status === "review" ? { status: "awaiting_review" } : {}),
-      ...(status === "ready" ? { status: "confirmed", sentAt: null } : {}),
-      ...(status === "sent" ? { status: "sent" } : {}),
+      ...(contractorMode ? { contractor: { userId: user.id } } : {}),
+      ...(status === "overdue"
+        ? { status: "sent", dueDate: { lt: today } }
+        : status === "paid"
+          ? { amountPaid: { gt: 0 } }
+          : status === "draft"
+            ? { status: { in: ["draft", "awaiting_review"] } }
+            : status === "saved"
+              ? { status: "confirmed" }
+              : status === "sent"
+                ? { status: "sent" }
+                : {}),
       ...(search ? {
         OR: [
           { number: { contains: search } },
@@ -47,17 +54,26 @@ export default async function WorkspaceHomePage({
     },
     include: { contractor: true, lineItems: true },
     orderBy: [{ issueDate: "desc" }, { number: "desc" }],
-    skip: page * PAGE_SIZE,
-    take: PAGE_SIZE + 1,
+    ...(status === "overdue" || status === "paid" ? {} : { skip: page * PAGE_SIZE, take: PAGE_SIZE + 1 }),
   });
 
-  const hasNext = invoices.length > PAGE_SIZE;
-  const rows = invoices.slice(0, PAGE_SIZE);
+  const matchingInvoices = status === "overdue" || status === "paid"
+    ? invoices.filter((invoice) => {
+      const total = invoiceGrandTotal(invoice.lineItems, invoice.taxRateBps);
+      return status === "paid" ? total > 0 && invoice.amountPaid >= total : invoice.amountPaid < total;
+    })
+    : invoices;
+  const hasNext = status === "overdue" || status === "paid"
+    ? matchingInvoices.length > (page + 1) * PAGE_SIZE
+    : matchingInvoices.length > PAGE_SIZE;
+  const rows = status === "overdue" || status === "paid"
+    ? matchingInvoices.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+    : matchingInvoices.slice(0, PAGE_SIZE);
   const pageHref = (nextPage: number) => {
     const queryString = new URLSearchParams();
     if (view === "customer") queryString.set("view", view);
-    if (status) queryString.set("status", status);
     if (search) queryString.set("q", search);
+    if (status) queryString.set("status", status);
     if (nextPage > 0) queryString.set("page", String(nextPage));
     const suffix = queryString.toString();
     return `/app/w/${workspaceId}${suffix ? `?${suffix}` : ""}`;
@@ -65,25 +81,14 @@ export default async function WorkspaceHomePage({
 
   return (
     <div className="space-y-4">
-      <Link href={`/app/w/${workspaceId}/settings${view === "customer" ? "?view=customer" : ""}`} className="btn btn-secondary w-full sm:w-auto">
-        {view === "customer" ? "Edit customer details" : "Edit client details"}
-      </Link>
       <h2 className="text-2xl">Invoices</h2>
-
-      <form method="get" action={`/app/w/${workspaceId}`} className="paper grid gap-3 rounded-2xl p-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto] sm:items-end">
-        {view === "customer" ? <input type="hidden" name="view" value={view} /> : null}
-        <label className="field">
-          <span>Search invoices</span>
-          <input name="q" type="search" defaultValue={search} maxLength={80} placeholder="Invoice number or contractor" />
-        </label>
-        <label className="field">
-          <span>Show</span>
-          <select name="status" defaultValue={status}>
-            {FILTERS.map(([value, label]) => <option key={value || "all"} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <button className="btn btn-secondary min-h-11">Filter</button>
-      </form>
+      <InvoiceSearch
+        key={`${search}:${status}`}
+        action={`/app/w/${workspaceId}`}
+        initialValue={search}
+        initialStatus={status}
+        customerView={view === "customer"}
+      />
 
       <section aria-label="Invoices">
         <ul className="space-y-2">
@@ -93,12 +98,12 @@ export default async function WorkspaceHomePage({
               <li key={invoice.id} className="paper rounded-xl px-3 py-3 sm:px-4">
                 <Link href={`/app/w/${workspaceId}/invoices/${invoice.id}`} className="flex min-w-0 items-center justify-between gap-3 hover:underline">
                   <span className="min-w-0">
-                    <span className="block truncate font-semibold">{invoice.number} <span className="font-normal text-muted">· {invoice.contractor.name}</span></span>
-                    <span className="mt-1 block text-sm text-muted">{formatDate(invoice.issueDate)}</span>
+                    <span className="block truncate font-semibold">{invoice.number}{!contractorMode ? <span className="font-normal text-muted"> · From {invoice.contractor.name}</span> : null}</span>
+                    <span className="mt-1 block text-sm text-muted">Due {invoice.dueDate ? formatDate(invoice.dueDate) : "on receipt"}</span>
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     <span className="font-semibold tabular-nums">{formatMoney(total)}</span>
-                    <StatusBadge status={invoice.status} />
+                    <InvoiceDisplayStatus status={invoice.status} dueDate={invoice.dueDate} amountPaid={invoice.amountPaid} totalCents={total} />
                   </span>
                 </Link>
               </li>

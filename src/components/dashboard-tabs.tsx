@@ -81,11 +81,9 @@ export function CustomersPanel({
         <Link
           href={`/app/w/${workspace.id}?view=customer`}
           aria-label={`View ${customerLabel} profile`}
-          className="paper grid min-h-14 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl px-3 py-2 hover:bg-paper-2"
+          className="paper flex min-h-14 min-w-0 flex-1 items-center justify-center rounded-xl px-3 py-2 text-center hover:bg-paper-2"
         >
-          <span aria-hidden="true" />
           <span className="max-w-full truncate text-center text-base font-semibold">{customerLabel}</span>
-          <span className="justify-self-end whitespace-nowrap text-sm font-semibold text-muted">View profile →</span>
         </Link>
         {role === "owner" ? (
           <WorkspaceArchiveButton workspaceId={workspace.id} archived={isArchived} />

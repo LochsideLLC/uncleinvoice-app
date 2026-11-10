@@ -27,7 +27,6 @@ export type InvoiceRow = {
 export type DashboardStats = {
   invoiceCount: number;
   sentCount: number;
-  waitingCount: number;
   draftCount: number;
   openCount: number;
   totalInvoicedCents: number;
@@ -45,16 +44,9 @@ export type DashboardStats = {
 
 export async function getDashboardStats(userId: string): Promise<DashboardStats> {
   const invoices = await db.invoice.findMany({
-    where: {
-      OR: [
-        // Invoices on a client this person helps keep books for.
-        { workspace: { members: { some: { userId } } } },
-        // Invoices this person issued. A contractor is not a member of the
-        // client's workspace — they are the other party to it — so this is the
-        // relationship that makes an invoice theirs.
-        { contractor: { userId } },
-      ],
-    },
+    // This feeds the Contractor dashboard. A contractor sees only invoices
+    // they issued; the Bookkeeper view separately shows the full client ledger.
+    where: { contractor: { userId } },
     include: {
       workspace: {
         select: {
@@ -70,7 +62,6 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
   });
 
   let sentCount = 0;
-  let waitingCount = 0;
   let draftCount = 0;
   let totalInvoicedCents = 0;
   let collectedCents = 0;
@@ -93,8 +84,9 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
     const status = isInvoiceStatus(invoice.status) ? invoice.status : "draft";
     const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
     if (dueDate) dueDate.setHours(0, 0, 0, 0);
-    const isOverdue = status !== "draft" && !isPaid && dueCents > 0 && dueDate !== null && dueDate < today;
-    if (status !== "draft") {
+    const isOverdue = status === "sent" && !isPaid && dueCents > 0 && dueDate !== null && dueDate < today;
+    const isDraft = status === "draft" || status === "awaiting_review";
+    if (!isDraft) {
       totalInvoicedCents += totalCents;
       collectedCents += Math.min(Math.max(0, invoice.amountPaid), totalCents);
       if (isPaid) {
@@ -111,8 +103,7 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
     }
 
     if (status === "sent") sentCount += 1;
-    if (status === "awaiting_review") waitingCount += 1;
-    if (status === "draft") draftCount += 1;
+    if (isDraft) draftCount += 1;
 
     const row: InvoiceRow = {
       id: invoice.id,
@@ -137,13 +128,12 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
     };
 
     allInvoices.push(row);
-    if (status !== "draft" && dueCents > 0) openInvoices.push(row);
+    if (!isDraft && dueCents > 0) openInvoices.push(row);
   }
 
   return {
-    invoiceCount: invoices.length,
+    invoiceCount: invoices.length - draftCount,
     sentCount,
-    waitingCount,
     draftCount,
     openCount: openInvoices.length,
     totalInvoicedCents,

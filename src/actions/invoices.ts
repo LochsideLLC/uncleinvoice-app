@@ -197,6 +197,7 @@ export async function copyReviewLinkAction(
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_MESSAGE_CHARS = 2000;
+const MAX_SUBJECT_CHARS = 200;
 
 function addressList(value: FormDataEntryValue | null): string[] | { error: string } {
   const parts = String(value ?? "")
@@ -234,6 +235,10 @@ export async function sendToClientComposedAction(
   if (message.length > MAX_MESSAGE_CHARS) {
     return { error: "Keep the message under 2,000 characters." };
   }
+  const subject = String(formData.get("subject") ?? "").trim();
+  if (subject.length > MAX_SUBJECT_CHARS) {
+    return { error: "Keep the subject under 200 characters." };
+  }
   const invoice = await db.invoice.findUnique({
     where: { id: invoiceId },
     select: { workspaceId: true },
@@ -263,7 +268,9 @@ export async function sendToClientComposedAction(
       to,
       cc,
       bcc,
+      subject: subject || undefined,
       message: message.trim() || undefined,
+      includeSignature: formData.get("includeSignature") !== "off",
       // Only the contractor sees the pay checkbox. Anyone else sending leaves
       // the invoice's payment setting exactly as the contractor chose it.
       collectPayment: formData.has("paymentControl") ? formData.get("collectPayment") === "on" : undefined,

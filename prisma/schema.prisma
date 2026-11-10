@@ -31,6 +31,8 @@ model User {
   taxId               String?
   clientTerm          String    @default("clients")
   emailSignature      String?
+  emailSignatureType  String    @default("text")
+  emailSignatureImage String?
   defaultInvoiceMessage String?
   admin               Boolean   @default(false)
   // "free", "invoice", or "bookkeeper". The tier lives on the person, not on
