@@ -420,6 +420,16 @@ export function QuickInvoiceForm({
     document.getElementById("taxRate")?.focus();
   }
 
+  function renderEditActions() {
+    return (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Invoice actions">
+        <SaveButton name="saveIntent" value="save" pending={pending} save={save} className="invoice-action-save col-span-2 w-full sm:col-span-1" />
+        <SaveButton name="saveIntent" value="close" pending={pending} save={save} label="Save and close" className="invoice-action-close w-full" />
+        <SaveButton name="saveIntent" value="send" pending={pending} save={save} label="Save and send" className="invoice-action-send w-full" />
+      </div>
+    );
+  }
+
   return (
     <>
     <form action={action} onSubmit={onSubmit} onChange={save.markDirty} className="space-y-6" data-lpignore="true">
@@ -435,6 +445,7 @@ export function QuickInvoiceForm({
             : state
         }
       />
+      {invoiceId ? renderEditActions() : null}
       <article className="invoice-sheet paper rounded-[1.4rem] p-6 sm:p-10">
         <div className="invoice-meta mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-muted">
@@ -1131,11 +1142,7 @@ export function QuickInvoiceForm({
       </article>
 
       {invoiceId ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <SaveButton name="saveIntent" value="save" pending={pending} save={save} className="col-span-2 w-full sm:col-span-1" />
-          <SaveButton name="saveIntent" value="close" pending={pending} save={save} label="Save and close" className="w-full" />
-          <SaveButton name="saveIntent" value="send" pending={pending} save={save} label="Save and send" className="w-full" />
-        </div>
+        renderEditActions()
       ) : (
         <button className="btn btn-primary w-full" disabled={pending}>
           {pending ? "Saving…" : "Looks good — create it"}
