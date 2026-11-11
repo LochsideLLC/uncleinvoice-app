@@ -62,6 +62,10 @@ The invoice form’s Add customer panel keeps all customer information visible w
 
 # HANDOFF — Uncle Invoice
 
+## Invoice editor action rows — 2026-11-11
+
+Edit mode now shows Save, Save and close, and Save and send both above and below the invoice. Save keeps the existing neutral style, Save and close uses a white outlined style, and Save and send uses the red primary style. The existing red dirty-state and green saved-state feedback remains in effect. Checks passed: lint (0 errors, 2 existing `<img>` warnings in `src/app/partners/page.tsx`), all five test scripts (`test:upgrades` 27/27, `test:payments` 11/11, `test:phone` 11/11, `test:terms` 4/4, migration check 31 migrations / 23 RLS tables), production build, TypeScript, and `git diff --check`. Browser visual review was not run.
+
 ## Google sign-in production failure — 2026-11-08
 
 After PR #51 deployed commit `344d5e4a44266b49abf584b0e9b80b1c84dcd6cd` to Netlify production, the Google OAuth callback returned HTTP 500. Netlify function logs showed Prisma `P2022`: the live database lacked `User.defaultInvoiceMessage`, which the new Prisma client selected during `User.findUnique`. Production had 5 local migrations pending. Applied them with `npx prisma migrate deploy`; `npx prisma migrate status` now reports “Database schema is up to date.” The migrations add optional columns, an index, and the workspace `ServiceItem` table. Netlify has `DATABASE_URL` in both production build and function scopes. Durable fix in this branch: Netlify production builds run `prisma migrate deploy` before `npm run build`; Deploy Previews keep the default build command and do not alter production data. User must retry Google sign-in to confirm on their phone; callback logs after migration had no new request yet.

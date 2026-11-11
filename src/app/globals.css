@@ -421,6 +421,26 @@ button {
   color: var(--accent-ink);
 }
 
+.btn.invoice-action-close:not(.btn-save-dirty):not(.btn-save-success) {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+
+.btn.invoice-action-close:not(.btn-save-dirty):not(.btn-save-success):hover {
+  background: var(--paper-2);
+}
+
+.btn.invoice-action-send:not(.btn-save-dirty):not(.btn-save-success) {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn.invoice-action-send:not(.btn-save-dirty):not(.btn-save-success):hover {
+  background: var(--accent-hover);
+}
+
 .btn:hover {
   transform: translateY(-1px);
 }
