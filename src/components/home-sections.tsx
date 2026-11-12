@@ -211,7 +211,7 @@ export function HomeSections() {
   return (
     <>
       <section className="border-t border-line bg-paper/70 py-12 sm:py-16">
-        <div className="mx-auto w-full max-w-7xl px-6">
+        <div className="mx-auto w-full max-w-[88rem] px-6">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-4xl leading-tight text-ink sm:text-5xl">
               Built for the people who do the work.
@@ -243,7 +243,7 @@ export function HomeSections() {
       </section>
 
       <section id="home-how-it-works" className="bg-paper py-12 sm:py-16">
-        <div className="mx-auto w-full max-w-7xl px-6">
+        <div className="mx-auto w-full max-w-[88rem] px-6">
           <div className="text-center">
             <h2 className="text-4xl leading-tight text-ink sm:text-5xl">How it works</h2>
             <p className="mt-2 text-detail text-muted sm:text-lg">
@@ -324,7 +324,7 @@ export function HomeSections() {
       </section>
 
       <section className="border-t border-line bg-background py-10 sm:py-12">
-        <div className="mx-auto grid w-full max-w-7xl gap-8 px-6 lg:grid-cols-[.72fr_1.28fr] lg:items-start">
+        <div className="mx-auto grid w-full max-w-[88rem] gap-8 px-6 lg:grid-cols-[.72fr_1.28fr] lg:items-start">
           <div>
             <h2 className="text-4xl leading-tight text-ink sm:text-5xl">
               Frequently asked questions

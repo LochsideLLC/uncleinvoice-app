@@ -38,7 +38,7 @@ export default async function PlansPage({
   const active = asWorkspaceKind(user.workspaceKind);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-10 px-6 sm:px-8">
+    <div className="mx-auto w-full max-w-[88rem] space-y-10 px-6 sm:px-8">
       <header>
         <Link href="/app" className="text-sm text-muted underline">← Back to your invoices</Link>
         <h1 className="display mt-4 text-4xl">One account, two workspaces. Both free.</h1>

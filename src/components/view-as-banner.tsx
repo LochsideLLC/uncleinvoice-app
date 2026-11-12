@@ -7,7 +7,7 @@ export async function ViewAsBanner() {
 
   return (
     <div className="print:hidden sticky top-0 z-50 bg-[#7a3a22] text-[#f7ecdc]">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-2 text-sm">
+      <div className="mx-auto flex max-w-[88rem] flex-wrap items-center justify-between gap-3 px-6 py-2 text-sm">
         <p>
           Viewing as <strong>{viewing.target.name}</strong> ({viewing.target.email}). This
           is what they see.
