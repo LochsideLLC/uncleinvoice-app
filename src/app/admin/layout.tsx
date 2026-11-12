@@ -10,5 +10,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect("/login?next=/admin");
   if (!user.admin) redirect("/app");
 
-  return <div className="mx-auto w-full max-w-6xl px-6 pb-16">{children}</div>;
+  return <div className="mx-auto w-full max-w-[88rem] px-6 pb-16">{children}</div>;
 }

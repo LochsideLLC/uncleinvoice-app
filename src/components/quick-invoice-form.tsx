@@ -31,6 +31,7 @@ type LineDraft = {
   quantity: string;
   price: string;
   taxable: boolean;
+  serviceName?: string;
 };
 
 function payByIsBeforeInvoice(issue: string, due: string): boolean {
@@ -365,17 +366,28 @@ export function QuickInvoiceForm({
     Object.fromEntries(savedServices.map((entry) => [entry.workspaceId, entry.items])),
   );
   const [serviceMsg, setServiceMsg] = useState<string | null>(null);
+  const [openServiceLine, setOpenServiceLine] = useState<number | null>(null);
 
-  async function saveLineAsService(index: number) {
+  async function saveLineAsService(index: number, name: string) {
     const row = lines[index];
-    if (!billToClientId || !row?.description.trim() || !row.price.trim()) {
-      setServiceMsg("Add a description and price first, then save the service.");
+    const serviceName = name.trim();
+    if (!billToClientId) {
+      setServiceMsg("Select a customer before saving a product or service.");
+      return;
+    }
+    if (!serviceName) return;
+    const existing = (serviceOptions[billToClientId] ?? []).find(
+      (item) => item.description.toLocaleLowerCase() === serviceName.toLocaleLowerCase(),
+    );
+    if (existing) {
+      fillLineFromService(index, existing.id);
+      setOpenServiceLine(null);
       return;
     }
     setServiceMsg(null);
     const data = new FormData();
     data.set("workspaceId", billToClientId);
-    data.set("description", row.description.trim());
+    data.set("description", serviceName);
     data.set("unitPriceCents", String(dollarsToCents(row.price)));
     data.set("taxable", row.taxable ? "1" : "0");
     const result = await createServiceItemAction(null, data);
@@ -387,17 +399,22 @@ export function QuickInvoiceForm({
       ...current,
       [billToClientId]: [...(current[billToClientId] ?? []), result.item],
     }));
-    setServiceMsg(`Saved “${row.description.trim()}” to ${selectedClient?.name ?? "this client"}.`);
+    updateLine(index, { serviceName: result.item.description, description: row.description || result.item.description });
+    setOpenServiceLine(null);
+    setServiceMsg(`Saved “${serviceName}” to ${selectedClient?.name ?? "this client"}.`);
   }
 
   function fillLineFromService(index: number, serviceId: string) {
     const item = (serviceOptions[billToClientId] ?? []).find((entry) => entry.id === serviceId);
     if (!item) return;
     updateLine(index, {
+      serviceName: item.description,
       description: item.description,
       price: centsToDollars(item.unitPriceCents),
       taxable: item.taxable,
     });
+    setOpenServiceLine(null);
+    setServiceMsg(null);
   }
 
   const savedForClient = serviceOptions[billToClientId] ?? [];
@@ -861,50 +878,105 @@ export function QuickInvoiceForm({
         </div>
 
         <div className="mt-8">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Services</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Product or service</p>
           {serviceMsg ? (
             <p role="status" className="mt-1 text-sm text-muted">
               {serviceMsg}
             </p>
           ) : null}
-          <div className="mt-2 overflow-x-auto">
-          <table className="block w-full text-left text-sm sm:table">
-            <thead className="hidden sm:table-header-group">
+          <div className="mt-2 overflow-visible">
+          <table className="block w-full table-fixed text-left text-sm md:table">
+            <thead className="hidden md:table-header-group">
               <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
-                <th className="w-full py-2 pr-4 font-medium">Description</th>
-                <th className="w-32 min-w-32 py-2 px-3 text-right font-medium">Qty</th>
-                <th className="w-40 min-w-40 py-2 px-3 text-right font-medium">Rate</th>
-                <th className="w-16 py-2 px-4 text-center font-medium">Tax</th>
-                <th className="w-28 py-2 pl-4 text-right font-medium">Amount</th>
-                <th className="w-8 py-2">
+                <th className="w-[30%] py-2 pr-2 font-medium">Product/service</th>
+                <th className="w-[32%] py-2 px-1 font-medium">Description</th>
+                <th className="w-[6%] py-2 px-1 text-right font-medium">Qty</th>
+                <th className="w-[8%] py-2 px-1 text-right font-medium">Rate</th>
+                <th className="w-[10%] py-2 px-1 text-right font-medium">Amount</th>
+                <th className="w-[6%] py-2 px-1 text-right font-medium">Tax rate</th>
+                <th className="w-[4%] py-2 px-1 text-center font-medium">Tax</th>
+                <th className="w-[4%] py-2">
                   <span className="sr-only">Remove</span>
                 </th>
               </tr>
             </thead>
-            <tbody className="block sm:table-row-group">
+            <tbody className="block md:table-row-group">
               {lines.map((row, index) => (
-                <tr key={index} className="grid grid-cols-6 gap-x-3 border-b border-line/70 py-3 sm:table-row sm:py-0">
-                  <td className="col-span-6 w-full py-1 pr-0 align-top sm:w-full sm:py-3 sm:pr-4">
-                    {selectedClient ? (
-                      <select
-                        aria-label={`Saved service for line ${index + 1}`}
-                        className="invoice-input mb-2 w-full"
-                        value=""
+                <tr key={index} className="grid grid-cols-12 gap-x-3 border-b border-line/70 py-3 md:table-row md:py-0">
+                  <td className="col-span-12 py-1 pr-0 align-top md:w-[30%] md:py-3 md:pr-2">
+                    <div
+                      className="relative"
+                      onBlur={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget)) setOpenServiceLine(null);
+                      }}
+                    >
+                      <input
+                        type="text"
+                        name="item_service_name"
+                        aria-label={`Product or service for line ${index + 1}`}
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-expanded={openServiceLine === index}
+                        aria-controls={`service-options-${index}`}
+                        className="invoice-input w-full"
+                        value={row.serviceName ?? ""}
+                        onFocus={() => setOpenServiceLine(index)}
                         onChange={(event) => {
-                          const next = event.target.value;
-                          if (next === "__save") void saveLineAsService(index);
-                          else if (next) fillLineFromService(index, next);
+                          updateLine(index, { serviceName: event.target.value });
+                          setOpenServiceLine(index);
                         }}
-                      >
-                        <option value="">Services…</option>
-                        {savedForClient.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.description} — {formatMoney(item.unitPriceCents)}
-                          </option>
-                        ))}
-                        <option value="__save">＋ Save this line as a service</option>
-                      </select>
-                    ) : null}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") setOpenServiceLine(null);
+                          if (event.key !== "Enter" || !row.serviceName?.trim()) return;
+                          event.preventDefault();
+                          const matching = savedForClient.find((item) =>
+                            item.description.toLocaleLowerCase() === row.serviceName?.trim().toLocaleLowerCase(),
+                          );
+                          if (matching) fillLineFromService(index, matching.id);
+                          else void saveLineAsService(index, row.serviceName);
+                        }}
+                        placeholder={selectedClient ? "Search or add a product/service" : "Select a customer first"}
+                      />
+                      {openServiceLine === index && selectedClient ? (
+                        <div
+                          id={`service-options-${index}`}
+                          role="listbox"
+                          className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-line bg-paper p-1 shadow-lg"
+                        >
+                          {savedForClient
+                            .filter((item) => item.description.toLocaleLowerCase().includes((row.serviceName ?? "").trim().toLocaleLowerCase()))
+                            .map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                role="option"
+                                aria-selected={item.description === row.serviceName}
+                                className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-paper-2"
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => fillLineFromService(index, item.id)}
+                              >
+                                {item.description} · {formatMoney(item.unitPriceCents)}
+                              </button>
+                            ))}
+                          {row.serviceName?.trim() && !savedForClient.some((item) =>
+                            item.description.toLocaleLowerCase() === row.serviceName?.trim().toLocaleLowerCase(),
+                          ) ? (
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={false}
+                              className="block w-full rounded px-2 py-1.5 text-left text-sm text-accent hover:bg-paper-2"
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => void saveLineAsService(index, row.serviceName ?? "")}
+                            >
+                              + Add “{row.serviceName.trim()}” as a product/service
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="col-span-12 py-1 px-0 align-top md:w-[32%] md:py-3 md:px-1">
                     <textarea
                       name="item_description"
                       rows={1}
@@ -924,7 +996,7 @@ export function QuickInvoiceForm({
                       placeholder="What this line is for"
                     />
                   </td>
-                  <td className="col-span-3 px-0 py-1 align-top sm:w-32 sm:min-w-32 sm:px-3 sm:py-3">
+                  <td className="col-span-6 px-0 py-1 align-top md:w-[6%] md:px-1 md:py-3">
                     <input
                       name="item_quantity"
                       aria-label={`Line ${index + 1} quantity`}
@@ -935,7 +1007,7 @@ export function QuickInvoiceForm({
                       placeholder="Qty"
                     />
                   </td>
-                  <td className="col-span-3 px-0 py-1 align-top sm:w-40 sm:min-w-40 sm:px-3 sm:py-3">
+                  <td className="col-span-6 px-0 py-1 align-top md:w-[8%] md:px-1 md:py-3">
                     <input
                       name="item_price"
                       aria-label={`Line ${index + 1} rate`}
@@ -946,8 +1018,20 @@ export function QuickInvoiceForm({
                       placeholder="0.00"
                     />
                   </td>
-                  <td className="col-span-2 px-0 py-1 align-top sm:w-16 sm:px-4 sm:py-3">
-                    <div className="flex h-10 items-center justify-start gap-2 sm:justify-center">
+                  <td className="col-span-6 px-0 py-1 align-top md:w-[10%] md:px-1 md:py-3">
+                    <div className="flex h-10 items-center justify-between tabular-nums md:justify-end">
+                      <span className="text-sm text-muted md:hidden">Amount</span>
+                      <span>{formatMoney(lineTotal(pricedLines[index].quantity, pricedLines[index].unitPrice))}</span>
+                    </div>
+                  </td>
+                  <td className="col-span-6 px-0 py-1 align-top md:w-[6%] md:px-1 md:py-3">
+                    <div className="flex h-10 items-center justify-between tabular-nums md:justify-end">
+                      <span className="text-sm text-muted md:hidden">Tax rate</span>
+                      <span>{row.taxable && taxRate.trim() ? `${taxRate}%` : "—"}</span>
+                    </div>
+                  </td>
+                  <td className="col-span-3 px-0 py-1 align-top md:w-[4%] md:px-1 md:py-3">
+                    <div className="flex h-10 items-center justify-start gap-2 md:justify-center">
                       <input
                         type="checkbox"
                         name="item_taxable"
@@ -961,19 +1045,14 @@ export function QuickInvoiceForm({
                         aria-label={`Charge tax on line ${index + 1}`}
                         className="h-4 w-4 accent-[var(--accent)]"
                       />
-                      <span className="text-sm text-muted sm:hidden">Tax</span>
+                      <span className="text-sm text-muted md:hidden">Tax</span>
                     </div>
                   </td>
-                  <td className="col-span-3 px-0 py-1 align-top sm:w-28 sm:py-3 sm:pl-4">
-                    <div className="flex h-10 items-center justify-end tabular-nums">
-                      {formatMoney(lineTotal(pricedLines[index].quantity, pricedLines[index].unitPrice))}
-                    </div>
-                  </td>
-                  <td className="col-span-1 px-0 py-1 align-top sm:w-8 sm:py-3 sm:pl-2">
-                    <div className="flex h-10 items-center justify-center">
+                  <td className="col-span-3 px-0 py-1 align-top md:w-[4%] md:py-3 md:pl-1">
+                    <div className="flex h-10 items-center justify-end md:justify-center">
                       <button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-line text-base leading-none text-muted hover:border-ink hover:text-ink"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line text-base leading-none text-muted hover:border-ink hover:text-ink"
                         onClick={() =>
                           setLines((current) =>
                             current.length === 1

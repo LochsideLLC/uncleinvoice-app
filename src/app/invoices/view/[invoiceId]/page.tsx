@@ -77,7 +77,7 @@ export default async function PublicInvoicePage({
   const hasAccount = Boolean(viewer ?? (await getSessionUser()) ?? (await getRealSessionUser()));
 
   return (
-    <div className="mx-auto min-h-full w-full max-w-6xl px-5 pb-8">
+    <div className="mx-auto min-h-full w-full max-w-[88rem] px-5 pb-8">
       <div className="mb-3 flex items-center justify-between gap-2 print:hidden">
         {isOwner ? (
           <Link

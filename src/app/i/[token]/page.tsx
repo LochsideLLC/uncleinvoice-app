@@ -28,7 +28,7 @@ export default async function HostedInvoicePage({
     ["succeeded", "partially_refunded", "fully_refunded", "disputed"].includes(item.status));
 
   return (
-    <div className="mx-auto min-h-full w-full max-w-6xl px-5 pb-8">
+    <div className="mx-auto min-h-full w-full max-w-[88rem] px-5 pb-8">
       <HostedInvoiceViewPing token={token} />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <p className="text-sm text-muted">Secure hosted invoice</p>

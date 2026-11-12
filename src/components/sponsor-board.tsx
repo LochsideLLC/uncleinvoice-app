@@ -34,7 +34,7 @@ export function SponsorBoard({
 
   return (
     <section aria-label="Sponsors" className="w-full border-t border-line">
-      <div className="mx-auto grid w-full max-w-7xl gap-6 px-6 pb-6 pt-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,4fr)] xl:gap-10">
+      <div className="mx-auto grid w-full max-w-[88rem] gap-6 px-6 pb-6 pt-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,4fr)] xl:gap-10">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
             Our sponsors

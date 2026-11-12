@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { getRealSessionUser } from "@/lib/auth";
 import { createToken, hashToken } from "@/lib/crypto";
 import { parseDate } from "@/lib/dates";
-import { advanceCounterPast, nextInvoiceNumber, parseLineItems, recordEvent } from "@/lib/invoices";
+import { advanceCounterPast, nextInvoiceNumber, parseLineItems, recordEvent, type LineInput } from "@/lib/invoices";
 import { invoiceBusinessData, parseBusinessInvoiceFields } from "@/lib/invoice-fields";
 import { createInvoiceClaimToken } from "@/lib/invoice-claim";
 import { invoiceGrandTotal, parseAmountPaid } from "@/lib/money";
@@ -16,6 +16,28 @@ import { cappedInteger, consumeDailyLimit } from "@/lib/usage-limits";
 import { stripeReadyForPayments } from "@/lib/payment-policy";
 
 const GUEST_EMAIL = "guest@uncleinvoice.com";
+
+async function saveNewServiceItems(workspaceId: string, formData: FormData, items: LineInput[]) {
+  const names = formData.getAll("item_service_name").map((value) => String(value).trim());
+  const descriptions = formData.getAll("item_description");
+  if (!names.some(Boolean)) return;
+  const existing = await db.serviceItem.findMany({
+    where: { workspaceId },
+    select: { description: true },
+  });
+  const known = new Set(existing.map((item) => item.description.toLocaleLowerCase()));
+  let itemIndex = 0;
+  for (let index = 0; index < descriptions.length; index += 1) {
+    if (!String(descriptions[index] ?? "").trim()) continue;
+    const item = items[itemIndex++];
+    const name = names[index];
+    if (!name || name.length > 200 || known.has(name.toLocaleLowerCase())) continue;
+    await db.serviceItem.create({
+      data: { workspaceId, description: name, unitPrice: item.unitPrice, taxable: item.taxable },
+    });
+    known.add(name.toLocaleLowerCase());
+  }
+}
 
 const fields = z
   .object({
@@ -270,6 +292,7 @@ export async function createPublicInvoiceAction(
         },
       },
     });
+    await saveNewServiceItems(workspace.id, formData, items);
     // A renumbered invoice claims the counter just like a fresh typed one.
     if (number !== existingInvoice.number) {
       await advanceCounterPast(existingInvoice.workspaceId, number);
@@ -318,6 +341,7 @@ export async function createPublicInvoiceAction(
       },
     },
   });
+  await saveNewServiceItems(workspace.id, formData, items);
   // A typed number never claimed the counter on its own — move it past
   // what was just used so the next suggestion stays fresh.
   if (requestedNumber) {

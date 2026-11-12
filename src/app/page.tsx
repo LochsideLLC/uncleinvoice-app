@@ -18,7 +18,7 @@ export default async function HomePage() {
   return (
     <div className="flex min-h-full flex-col">
       <main className="flex flex-1 flex-col">
-        <section className="mx-auto grid w-full max-w-7xl items-center gap-8 px-6 pb-6 pt-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,8fr)] lg:pt-6">
+        <section className="mx-auto grid w-full max-w-[88rem] items-center gap-8 px-6 pb-6 pt-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,8fr)] lg:pt-6">
           <div>
             <h1 className="text-5xl leading-[1.05] text-ink sm:text-6xl">
               Create invoices for free. Get paid.
