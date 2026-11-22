@@ -114,6 +114,7 @@ export function PaymentMethodOptions({
   businessProfileHref,
   checkPending,
   checkError,
+  onlinePending = false,
 }: {
   enabled: boolean;
   onChange?: (enabled: boolean) => void;
@@ -128,6 +129,7 @@ export function PaymentMethodOptions({
   businessProfileHref?: string;
   checkPending: boolean;
   checkError: string;
+  onlinePending?: boolean;
 }) {
   return (
     <fieldset className="space-y-4 rounded-2xl border border-line bg-paper p-4">
@@ -160,7 +162,7 @@ export function PaymentMethodOptions({
             ) : null}
           </div>
         ) : null}
-        <Switch checked={enabled} disabled={!canCollect} onChange={onChange} name={inputName}>
+        <Switch checked={enabled} disabled={!canManage || !canCollect || onlinePending} onChange={onChange} name={inputName}>
           <span className="font-medium">Stripe</span>
         </Switch>
         <ComingSoon label="PayPal" />

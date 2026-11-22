@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ActionState } from "@/actions/auth";
 import { PaymentMethodOptions } from "@/components/payment-method-options";
-import { SaveButton, useSaveButton } from "@/components/save-button";
 import { saveInvoiceOnlinePaymentAction, setInvoiceCheckPaymentAction } from "@/actions/invoice-payment-options";
 
 export function HostedInvoiceControls({
@@ -19,6 +19,7 @@ export function HostedInvoiceControls({
   reviewAndSendHref,
   editInvoiceHref,
   businessProfileHref,
+  topActionsId,
 }: {
   invoiceId: string;
   canManage: boolean;
@@ -30,6 +31,7 @@ export function HostedInvoiceControls({
   reviewAndSendHref?: string;
   editInvoiceHref: string;
   businessProfileHref: string;
+  topActionsId?: string;
 }) {
   const router = useRouter();
   const [collect, setCollect] = useState(paymentEnabled);
@@ -42,15 +44,28 @@ export function HostedInvoiceControls({
   const [pending, setPending] = useState(false);
   const [saveState, setSaveState] = useState<ActionState>(null);
   const [savePending, setSavePending] = useState(false);
-  const paymentOptionsSave = useSaveButton(saveState);
+  const [topActionsTarget, setTopActionsTarget] = useState<HTMLElement | null>(null);
 
-  async function savePaymentOptions() {
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setTopActionsTarget(topActionsId ? document.getElementById(topActionsId) : null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [topActionsId]);
+
+  async function savePaymentOptions(enabled: boolean) {
+    const previous = collect;
+    setCollect(enabled);
+    setConfirmed(false);
+    setSaveState(null);
     setSavePending(true);
     try {
-      const result = await saveInvoiceOnlinePaymentAction(invoiceId, collect);
+      const result = await saveInvoiceOnlinePaymentAction(invoiceId, enabled);
       setSaveState(result);
       if (result.ok) router.refresh();
+      else setCollect(previous);
     } catch {
+      setCollect(previous);
       setSaveState({ error: "Could not save the payment option. Try again." });
     } finally {
       setSavePending(false);
@@ -94,16 +109,32 @@ export function HostedInvoiceControls({
     }
   }
 
+  function renderActions() {
+    return (
+      <div className={`grid w-full gap-2 ${reviewAndSendHref ? "md:grid-cols-2" : ""}`} aria-label="Invoice actions">
+        {reviewAndSendHref ? (
+          <Link className="btn btn-green w-full" href={reviewAndSendHref}>
+            <span className="inline-flex items-center justify-center gap-2">
+              <ReviewIcon />
+              Review and send
+            </span>
+          </Link>
+        ) : null}
+        <button className="btn btn-primary w-full" type="button" onClick={createLink} disabled={pending || savePending || (collect && !confirmed)}>
+          <span className="inline-flex items-center justify-center gap-2">
+            <PaymentLinkIcon />
+            {pending ? "Creating…" : "Create secure payment link"}
+          </span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <section className="space-y-4 print:hidden" aria-label="Invoice payment methods">
       <PaymentMethodOptions
         enabled={collect}
-        onChange={(enabled) => {
-          setCollect(enabled);
-          setConfirmed(false);
-          setSaveState(null);
-          paymentOptionsSave.markDirty();
-        }}
+        onChange={(enabled) => void savePaymentOptions(enabled)}
         canManage={canManage}
         canCollect={canCollect}
         canSetUpPayments={canSetUpPayments}
@@ -114,6 +145,7 @@ export function HostedInvoiceControls({
         businessProfileHref={businessProfileHref}
         checkPending={checkPending}
         checkError={checkError}
+        onlinePending={savePending}
       />
       {canManage && canCollect && collect ? (
         <label className="flex items-start gap-3 text-sm">
@@ -123,30 +155,9 @@ export function HostedInvoiceControls({
       ) : null}
       {canManage ? (
         <>
-          <div className="flex flex-col gap-3">
-            <SaveButton
-              type="button"
-              pending={savePending}
-              save={paymentOptionsSave}
-              icon={<SaveIcon />}
-              className="w-full"
-              onClick={() => void savePaymentOptions()}
-            />
-            {reviewAndSendHref ? (
-              <Link className="btn btn-primary w-full" href={reviewAndSendHref}>
-                <span className="inline-flex items-center justify-center gap-2">
-                  <ReviewIcon />
-                  Review and send
-                </span>
-              </Link>
-            ) : null}
-            <button className="btn btn-green w-full" type="button" onClick={createLink} disabled={pending || (collect && !confirmed)}>
-              <span className="inline-flex items-center justify-center gap-2">
-                <PaymentLinkIcon />
-                {pending ? "Creating…" : "Create secure payment link"}
-              </span>
-            </button>
-          </div>
+          {topActionsTarget ? createPortal(renderActions(), topActionsTarget) : null}
+          {renderActions()}
+          {savePending ? <p role="status" className="text-sm text-muted">Saving card payment setting…</p> : null}
           {saveState?.error ? <p role="alert" className="text-sm text-red-900">{saveState.error}</p> : null}
           {message ? <p className="text-sm text-muted">{message}</p> : null}
           {url ? (
@@ -158,15 +169,6 @@ export function HostedInvoiceControls({
         </>
       ) : null}
     </section>
-  );
-}
-
-function SaveIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3.5 2.75h10l3 3v11.5h-13z" />
-      <path d="M6.5 2.75v5h7v-5M6.5 17.25v-6h7v6" />
-    </svg>
   );
 }
 

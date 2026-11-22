@@ -29,6 +29,10 @@ export function InvoiceActions({
   const [intent, setIntent] = useState<"print" | "download">("print");
   const downloadHref = `${pdfHref}${pdfHref.includes("?") ? "&" : "?"}download=1`;
 
+  function freshPdfHref(href: string) {
+    return `${href}${href.includes("?") ? "&" : "?"}preview=${Date.now()}`;
+  }
+
   function proceed(next: "print" | "download") {
     if (next === "print") {
       window.print();
@@ -36,7 +40,7 @@ export function InvoiceActions({
     }
     // A real link navigation: this downloads a file, it is not a page route.
     const link = document.createElement("a");
-    link.href = downloadHref;
+    link.href = freshPdfHref(downloadHref);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -69,6 +73,7 @@ export function InvoiceActions({
           This opens the real PDF inline so it can be checked before sending. */}
       <a
         href={pdfHref}
+        onClick={(event) => { event.currentTarget.href = freshPdfHref(pdfHref); }}
         target="_blank"
         rel="noopener"
         className={`btn btn-ghost ${compact ? "h-9 w-9" : "h-11 w-11"} !p-0`}
@@ -76,10 +81,8 @@ export function InvoiceActions({
         title="See the PDF your customer will receive"
       >
         <svg viewBox="0 0 20 20" className={compact ? "h-4 w-4" : "h-5 w-5"} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M5 2.5h6l4 4v11H5v-15Z" />
-          <path d="M11 2.5v4h4M7.5 11h5" />
-          <circle cx="10" cy="13.5" r="2.2" />
-          <path d="m11.6 15.1 1.6 1.6" />
+          <path d="M2 10s2.8-5 8-5 8 5 8 5-2.8 5-8 5-8-5-8-5Z" />
+          <circle cx="10" cy="10" r="2.5" />
         </svg>
       </a>
       <button type="button" className={`btn btn-ghost ${compact ? "h-9 w-9" : "h-11 w-11"} !p-0`} onClick={() => handleClick("print")} aria-label="Print invoice" title="Print invoice">
