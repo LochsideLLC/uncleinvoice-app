@@ -439,10 +439,20 @@ export function QuickInvoiceForm({
 
   function renderEditActions() {
     return (
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Invoice actions">
-        <SaveButton name="saveIntent" value="save" pending={pending} save={save} className="invoice-action-save col-span-2 w-full sm:col-span-1" />
-        <SaveButton name="saveIntent" value="close" pending={pending} save={save} label="Save and close" className="invoice-action-close w-full" />
-        <SaveButton name="saveIntent" value="send" pending={pending} save={save} label="Save and send" className="invoice-action-send w-full" />
+      <div className="grid gap-2 md:grid-cols-4" aria-label="Invoice actions">
+        <Link
+          href={`/invoices/view/${invoiceId}${viewToken ? `?token=${encodeURIComponent(viewToken)}` : ""}`}
+          className="btn btn-ghost w-full border border-line"
+        >
+          Close without saving
+        </Link>
+        <SaveButton name="saveIntent" value="save" pending={pending} save={save} className="w-full" />
+        <button name="saveIntent" value="close" disabled={pending} className="btn btn-white w-full border border-line">
+          {pending ? "Saving…" : "Save and close"}
+        </button>
+        <button name="saveIntent" value="send" disabled={pending} className="btn btn-green w-full">
+          {pending ? "Saving…" : "Save and send"}
+        </button>
       </div>
     );
   }

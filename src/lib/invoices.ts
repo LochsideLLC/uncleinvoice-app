@@ -267,8 +267,6 @@ export async function sendInvoiceToClient(
     "",
     options?.collectPayment ? `View and pay online: ${viewLink}` : `View / download: ${viewLink}`,
     `PDF: ${pdfLink}`,
-    "",
-    `Confirmed by ${invoice.confirmedByEmail ?? invoice.contractor.email ?? invoice.contractor.name} on ${formatDate(invoice.confirmedAt)}.`,
     ...(signature ? ["", signature] : []),
   ].join("\n");
   const imageMatch = signatureImage.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$/);

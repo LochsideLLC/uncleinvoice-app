@@ -201,7 +201,7 @@ test("payment CSV reads source IDs and rejects malformed money", () => {
 test("generated PDF carries no credit and preserves invoice content", async () => {
   const invoice = {
     seededByUserId: "preparer", number: "SAMPLE-001", issueDate: new Date("2026-01-01T12:00:00Z"),
-    serviceStart: null, serviceEnd: null, notes: null, confirmedAt: null, confirmedByEmail: null,
+    serviceStart: null, serviceEnd: null, notes: null, confirmedAt: new Date("2026-01-02T12:00:00Z"), confirmedByEmail: "internal@example.test",
     workspace: { name: "Sample customer", email: "customer@example.test", phone: null, addressLine: null, city: null, region: null, postalCode: null },
     contractor: { name: "Sample issuer", email: "issuer@example.test", phone: null, addressLine: null, city: null, region: null, postalCode: null },
     lineItems: [{ description: "Sample service", quantity: 1, unitPrice: 25000 }],
@@ -212,4 +212,5 @@ test("generated PDF carries no credit and preserves invoice content", async () =
   assert.match(output, /SAMPLE-001/);
   assert.match(output, /Sample service/);
   assert.match(output, /250\.00/);
+  assert.doesNotMatch(output, /internal@example\.test|Confirmed by/);
 });

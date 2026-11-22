@@ -139,10 +139,17 @@ export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   );
   text(toHead[0] ?? "", { x: left, y, size: 12, font: bold, color: ink });
   text(fromHead[0] ?? "", { x: 320, y, size: 12, font: bold, color: ink });
-  if (fromHead[1] || toHead[1]) {
-    y -= 14;
-    if (toHead[1]) text(toHead[1], { x: left, y, size: 10, font, color: ink });
-    if (fromHead[1]) text(fromHead[1], { x: 320, y, size: 10, font, color: ink });
+  const toDetailX = left + 8;
+  const fromDetailX = 328;
+  let toY = y - 16;
+  let fromY = y - 16;
+  if (toHead[1]) {
+    text(toHead[1], { x: toDetailX, y: toY, size: 10, font, color: ink });
+    toY -= 14;
+  }
+  if (fromHead[1]) {
+    text(fromHead[1], { x: fromDetailX, y: fromY, size: 10, font, color: ink });
+    fromY -= 14;
   }
 
   const fromCity = [invoice.fromCity ?? invoice.contractor.city, invoice.fromRegion ?? invoice.contractor.region, invoice.fromPostalCode ?? invoice.contractor.postalCode]
@@ -169,10 +176,12 @@ export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
 
   const block = Math.max(fromLines.length, toLines.length);
   for (let i = 0; i < block; i += 1) {
-    y -= 14;
-    if (toLines[i]) text(String(toLines[i]).slice(0, 42), { x: left, y, size: 10, font, color: ink });
-    if (fromLines[i]) text(String(fromLines[i]).slice(0, 42), { x: 320, y, size: 10, font, color: ink });
+    if (toLines[i]) text(String(toLines[i]).slice(0, 42), { x: toDetailX, y: toY, size: 10, font, color: ink });
+    if (fromLines[i]) text(String(fromLines[i]).slice(0, 42), { x: fromDetailX, y: fromY, size: 10, font, color: ink });
+    toY -= 14;
+    fromY -= 14;
   }
+  y = Math.min(toY, fromY) + 14;
 
   y -= 28;
   text("DESCRIPTION", { x: left, y, size: 9, font: bold, color: muted });
@@ -301,14 +310,6 @@ export async function buildInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     text("NOTES", { x: left, y, size: 9, font: bold, color: muted });
     y -= 14;
     text(invoice.notes.slice(0, 110), { x: left, y, size: 10, font, color: ink });
-  }
-
-  if (invoice.confirmedAt) {
-    y -= 24;
-    text(
-      `Confirmed by ${invoice.confirmedByEmail ?? invoice.contractor.name} on ${formatDate(invoice.confirmedAt)}.`,
-      { x: left, y, size: 9, font, color: green },
-    );
   }
 
   if (showBrand) {

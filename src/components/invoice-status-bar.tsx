@@ -9,24 +9,7 @@ import { SaveButton, useSaveButton } from "@/components/save-button";
 import Link from "next/link";
 import { DEFAULT_INVOICE_MESSAGE } from "@/lib/invoice-email";
 
-function IconEmail() {
-  return (
-    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="1" y="3" width="14" height="10" rx="1.5" />
-      <path d="M1 5.5l7 4.5 7-4.5" />
-    </svg>
-  );
-}
-
-function IconLink() {
-  return (
-    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M6.5 9.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-5-5l-1 1" />
-      <path d="M9.5 6.5a3.5 3.5 0 0 0-5 0l-2 2a3.5 3.5 0 0 0 5 5l1-1" />
-    </svg>
-  );
-}
-import { createShareLinkAction, markAsPaidWithFeedbackAction, sendToClientComposedAction } from "@/actions/invoices";
+import { markAsPaidWithFeedbackAction, sendToClientComposedAction } from "@/actions/invoices";
 
 function createPaymentNonce() {
   if (typeof globalThis.crypto?.randomUUID === "function") {
@@ -90,10 +73,7 @@ export function InvoiceStatusBar({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showPayForm, setShowPayForm] = useState(false);
-  const [localSendFormOpen, setLocalSendFormOpen] = useState(false);
-  const showSendForm = localSendFormOpen || (openSendForm && searchParams.get("send") === "1");
-  const [copied, setCopied] = useState(false);
-  const [linkError, setLinkError] = useState<string | null>(null);
+  const showSendForm = openSendForm && searchParams.get("send") === "1";
   const [notice, setNotice] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [recipient, setRecipient] = useState(clientEmail ?? "");
@@ -124,7 +104,6 @@ export function InvoiceStatusBar({
     async (prev: ActionState | null, formData: FormData) => {
       const result = await sendToClientComposedAction(prev, formData);
       if (result?.ok) {
-        setLocalSendFormOpen(false);
         setNotice(result.message ?? null);
         router.replace(closeHref);
       }
@@ -134,24 +113,7 @@ export function InvoiceStatusBar({
   );
 
   function closeSendForm() {
-    setLocalSendFormOpen(false);
     router.replace(closeHref);
-  }
-
-  async function copyLink() {
-    setLinkError(null);
-    const result = await createShareLinkAction(workspaceId, invoiceId);
-    if ("error" in result) {
-      setLinkError(result.error);
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(result.url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setLinkError("Could not copy automatically. The link is: " + result.url);
-    }
   }
 
   const isSent = status === "sent";
@@ -206,18 +168,6 @@ export function InvoiceStatusBar({
 
           {showActions && (
             <>
-              {!isSent ? (
-                <button type="button" aria-label="Send invoice" title="Send invoice" className="btn btn-ghost h-9 w-9 shrink-0 !p-0" onClick={() => setLocalSendFormOpen(true)}>
-                  <IconEmail />
-                </button>
-              ) : (
-                <button type="button" aria-label="Send reminder" title="Send reminder" className="btn btn-ghost h-9 w-9 shrink-0 !p-0" onClick={() => { /* TODO: send reminder */ }}>
-                  <IconEmail />
-                </button>
-              )}
-              <button type="button" aria-label={copied ? "Link copied" : "Share invoice link"} title={copied ? "Link copied" : "Share invoice link"} className="btn btn-ghost h-9 w-9 shrink-0 !p-0" onClick={copyLink}>
-                <IconLink />
-              </button>
               {!onlinePaymentEnabled ? (
                 <button type="button" className="btn btn-ghost ml-auto h-9 shrink-0 whitespace-nowrap !px-1.5 !py-0" onClick={() => { paymentSave.reset(); setShowPayForm(true); }}>
                   Mark as paid
@@ -237,10 +187,6 @@ export function InvoiceStatusBar({
       {notice ? (
         <p role="status" className="mt-2 text-sm text-muted print:hidden">{notice}</p>
       ) : null}
-      {linkError ? (
-        <p role="alert" className="mt-2 text-sm text-red-900 print:hidden">{linkError}</p>
-      ) : null}
-
       {showSendForm && (
         <div
           role="dialog"

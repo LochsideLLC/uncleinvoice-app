@@ -55,6 +55,7 @@ export async function GET(
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${invoice.number}.pdf"`,
+      "Cache-Control": "private, no-store",
     },
   });
 }

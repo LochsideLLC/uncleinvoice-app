@@ -1,5 +1,9 @@
 # Phone preview controls do nothing — 2026-11-04
 
+## PDF preview shows an older invoice — 2026-11-12
+
+Refreshing the invoice page does not refresh a PDF already open in Chrome's PDF viewer. Check the actual response with an authenticated `curl` request and `pdftotext` before changing the PDF generator. On 2026-11-12, the live `INV-0003` PDF from the port 3000 dev server no longer contained the internal “Confirmed by” email, but the owner PDF route lacked a `Cache-Control` header. It now sends `private, no-store`, and the Preview PDF button adds a fresh query parameter on each click. The hosted PDF route already sent `private, no-store`. Reopen Preview PDF to check the new file.
+
 If the page renders over a private network address but Sign up / Sign in does nothing, check whether Next.js rejects script requests carrying that address in the Origin header. A plain curl without browser headers can return 200 while the browser request gets 403 Unauthorized.
 
 Next 16's dev server requires additional preview hostnames in `allowedDevOrigins` in `next.config.ts`. Use the exact hostname/IP without protocol or port; do not allow every origin. Ripley's phone preview is `100.98.89.93`. See the installed guide `node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/allowedDevOrigins.md`.

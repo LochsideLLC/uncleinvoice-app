@@ -73,6 +73,7 @@ export default async function PublicInvoicePage({
   const returnParams = new URLSearchParams({ send: "1" });
   if (token) returnParams.set("token", token);
   const defaultMessageReturnTo = `/invoices/view/${invoice.id}?${returnParams.toString()}`;
+  const topActionsId = `invoice-actions-${invoice.id}`;
   // Guests have no account at all: nudge them to sign up before printing.
   const hasAccount = Boolean(viewer ?? (await getSessionUser()) ?? (await getRealSessionUser()));
 
@@ -140,6 +141,8 @@ export default async function PublicInvoicePage({
         />
       )}
 
+      {access.isContractorOwner ? <div id={topActionsId} className="mt-4 w-full sm:px-10 print:hidden" /> : null}
+
       <div className="mt-4">
         <InvoiceDocument
           invoice={invoiceDocument}
@@ -157,6 +160,7 @@ export default async function PublicInvoicePage({
               reviewAndSendHref={invoice.status === "confirmed" ? defaultMessageReturnTo : undefined}
               editInvoiceHref={editHref}
               businessProfileHref={businessProfileHref}
+              topActionsId={topActionsId}
             />
           ) : undefined}
         />
